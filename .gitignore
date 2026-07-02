@@ -18,6 +18,7 @@ node_modules/
 !/.claude/skills/chart/
 !/.claude/skills/fred/
 !/.claude/skills/gdelt/
+!/.claude/skills/intraday-signal/
 !/.claude/skills/market-session-tracker/
 !/.claude/skills/sec-edgar/
 !/.claude/skills/stock-deep-dive/

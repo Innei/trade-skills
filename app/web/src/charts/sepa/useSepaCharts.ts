@@ -1,0 +1,296 @@
+import type { RefObject } from "react";
+import { useEffect, useState } from "react";
+import type { SepaChartData } from "../../../../shared/types";
+import type { LayerGroup } from "../LayerPanel";
+import {
+  asTime,
+  baseChart,
+  makeTogglableLine,
+  observeSize,
+  padHistData,
+  padLineData,
+  showLastBars,
+  syncTimeScales,
+  toCandleData,
+  toHistData,
+  toLineData,
+  toMarkers,
+} from "../lw";
+
+const VP_WIDTH = 90;
+
+export function useSepaCharts(
+  chart: SepaChartData,
+  mainRef: RefObject<HTMLDivElement | null>,
+  rsRef: RefObject<HTMLDivElement | null>,
+  vrRef: RefObject<HTMLDivElement | null>,
+  vpCanvasRef: RefObject<HTMLCanvasElement | null>,
+): LayerGroup[] {
+  const [groups, setGroups] = useState<LayerGroup[]>([]);
+
+  useEffect(() => {
+    const mainEl = mainRef.current;
+    const rsEl = rsRef.current;
+    const vrEl = vrRef.current;
+    const vpCanvas = vpCanvasRef.current;
+    if (!mainEl || !rsEl || !vrEl || !vpCanvas) return;
+
+    const main = baseChart(mainEl, false);
+    const candle = main.addCandlestickSeries({
+      upColor: "#26a69a",
+      downColor: "#ef5350",
+      borderVisible: false,
+      wickUpColor: "#26a69a",
+      wickDownColor: "#ef5350",
+    });
+    candle.setData(toCandleData(chart.candles));
+    candle.setMarkers(toMarkers(chart.markers));
+
+    const lineOpts = { lineWidth: 2, priceLineVisible: false, lastValueVisible: false } as const;
+    const ma50 = main.addLineSeries({ color: "#ffb74d", ...lineOpts });
+    const ma150 = main.addLineSeries({ color: "#ba68c8", ...lineOpts });
+    const ma200 = main.addLineSeries({ color: "#4fc3f7", ...lineOpts });
+    ma50.setData(toLineData(chart.ma50));
+    ma150.setData(toLineData(chart.ma150));
+    ma200.setData(toLineData(chart.ma200));
+
+    const lineH52w = makeTogglableLine(candle, { price: chart.high52w, color: "#9c27b0", lineWidth: 1, lineStyle: 2, title: "52w 高" });
+    const lineL52w = makeTogglableLine(candle, { price: chart.low52w, color: "#4caf50", lineWidth: 1, lineStyle: 2, title: "52w 低" });
+    const lineExt = chart.extendedLine
+      ? makeTogglableLine(candle, { price: chart.extendedLine, color: "#ff5252", lineWidth: 1, lineStyle: 3, title: "MA50 +25% extended" })
+      : null;
+
+    const flat = (value: number) => chart.candles.map((c) => ({ time: asTime(c.time), value }));
+
+    const zoneBase = {
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    } as const;
+
+    let epZones: { green: ReturnType<typeof main.addBaselineSeries>; red: ReturnType<typeof main.addBaselineSeries> } | null = null;
+    let epLines: ReturnType<typeof makeTogglableLine>[] | null = null;
+    const ep = chart.entryPlan;
+    if (ep) {
+      const green = main.addBaselineSeries({
+        baseValue: { type: "price", price: ep.pivot },
+        topFillColor1: "rgba(38, 166, 154, 0.25)",
+        topFillColor2: "rgba(38, 166, 154, 0.05)",
+        topLineColor: "rgba(38, 166, 154, 0)",
+        bottomFillColor1: "rgba(0, 0, 0, 0)",
+        bottomFillColor2: "rgba(0, 0, 0, 0)",
+        bottomLineColor: "rgba(0, 0, 0, 0)",
+        ...zoneBase,
+      });
+      green.setData(flat(ep.target2));
+      const red = main.addBaselineSeries({
+        baseValue: { type: "price", price: ep.pivot },
+        topFillColor1: "rgba(0, 0, 0, 0)",
+        topFillColor2: "rgba(0, 0, 0, 0)",
+        topLineColor: "rgba(0, 0, 0, 0)",
+        bottomFillColor1: "rgba(239, 83, 80, 0.05)",
+        bottomFillColor2: "rgba(239, 83, 80, 0.25)",
+        bottomLineColor: "rgba(239, 83, 80, 0)",
+        ...zoneBase,
+      });
+      red.setData(flat(ep.stop));
+      epZones = { green, red };
+      epLines = [
+        makeTogglableLine(candle, { price: ep.pivot, color: "#26a69a", lineWidth: 2, lineStyle: 0, title: `买入 pivot $${ep.pivot.toFixed(2)}` }),
+        makeTogglableLine(candle, { price: ep.buy_zone_high, color: "#26a69a", lineWidth: 1, lineStyle: 2, title: "买入区上限 +5%" }),
+        makeTogglableLine(candle, { price: ep.stop, color: "#ef5350", lineWidth: 2, lineStyle: 2, title: `止损 $${ep.stop.toFixed(2)}` }),
+        makeTogglableLine(candle, { price: ep.target1, color: "#42a5f5", lineWidth: 1, lineStyle: 2, title: `T1 +${ep.target1_pct.toFixed(0)}% $${ep.target1.toFixed(2)}` }),
+        makeTogglableLine(candle, { price: ep.target2, color: "#1976d2", lineWidth: 1, lineStyle: 2, title: `T2 +${ep.target2_pct.toFixed(0)}% $${ep.target2.toFixed(2)}` }),
+      ];
+    }
+
+    const zoneLayers = chart.supportZones.map((z) => {
+      const series = main.addBaselineSeries({
+        baseValue: { type: "price", price: z.high },
+        topFillColor1: "rgba(0,0,0,0)",
+        topFillColor2: "rgba(0,0,0,0)",
+        topLineColor: "rgba(0,0,0,0)",
+        bottomFillColor1: z.fill,
+        bottomFillColor2: z.fill,
+        bottomLineColor: z.border,
+        ...zoneBase,
+      });
+      series.setData(flat(z.low));
+      const line = makeTogglableLine(candle, {
+        price: (z.high + z.low) / 2,
+        color: z.border,
+        lineWidth: 0,
+        lineStyle: 0,
+        title: `${z.label} $${z.low.toFixed(0)}-${z.high.toFixed(0)}`,
+      });
+      return { series, line, info: z };
+    });
+
+    const volSeries = main.addHistogramSeries({ priceFormat: { type: "volume" }, priceScaleId: "vol" });
+    main.priceScale("vol").applyOptions({ scaleMargins: { top: 0.82, bottom: 0 } });
+    volSeries.setData(toHistData(chart.volumes));
+
+    let vpEnabled = true;
+    const vpCtx = vpCanvas.getContext("2d");
+    const drawVolumeProfile = () => {
+      if (!vpCtx) return;
+      const rect = mainEl.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      vpCanvas.style.width = `${VP_WIDTH}px`;
+      vpCanvas.style.height = `${rect.height}px`;
+      vpCanvas.width = VP_WIDTH * dpr;
+      vpCanvas.height = rect.height * dpr;
+      vpCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      vpCtx.clearRect(0, 0, VP_WIDTH, rect.height);
+      if (!vpEnabled || !chart.volumeProfile.bins.length) return;
+      const bins = chart.volumeProfile.bins;
+      const drawW = VP_WIDTH - 14;
+      bins.forEach((b) => {
+        const yHi = candle.priceToCoordinate(b.high);
+        const yLo = candle.priceToCoordinate(b.low);
+        if (yHi == null || yLo == null) return;
+        const top = Math.min(yHi, yLo);
+        const h = Math.max(1, Math.abs(yLo - yHi) - 0.5);
+        const w = Math.max(1, b.pct * drawW);
+        vpCtx.fillStyle = "rgba(139, 148, 158, 0.55)";
+        vpCtx.fillRect(VP_WIDTH - w - 2, top, w, h);
+      });
+      const poc = bins.reduce((a, b) => (b.weight > a.weight ? b : a), bins[0]);
+      if (poc) {
+        const yHi = candle.priceToCoordinate(poc.high);
+        const yLo = candle.priceToCoordinate(poc.low);
+        if (yHi != null && yLo != null) {
+          const top = Math.min(yHi, yLo);
+          const h = Math.max(1, Math.abs(yLo - yHi));
+          vpCtx.fillStyle = "rgba(255, 152, 0, 0.85)";
+          vpCtx.fillRect(VP_WIDTH - drawW - 2, top, drawW, h);
+          vpCtx.fillStyle = "#ff9800";
+          vpCtx.font = "10px -apple-system, sans-serif";
+          vpCtx.textAlign = "right";
+          vpCtx.fillText("POC", VP_WIDTH - 4, top + h / 2 + 3);
+        }
+      }
+    };
+    let vpRaf: number | null = null;
+    const scheduleVpDraw = () => {
+      if (vpRaf) return;
+      vpRaf = requestAnimationFrame(() => {
+        vpRaf = null;
+        drawVolumeProfile();
+      });
+    };
+    main.timeScale().subscribeVisibleLogicalRangeChange(scheduleVpDraw);
+    main.subscribeCrosshairMove(scheduleVpDraw);
+    const vpRo = new ResizeObserver(scheduleVpDraw);
+    vpRo.observe(mainEl);
+    const vpTimer = setTimeout(drawVolumeProfile, 200);
+    const vpInterval = setInterval(scheduleVpDraw, 250);
+
+    const timeline = chart.candles.map((c) => c.time);
+    const rsChart = baseChart(rsEl, false);
+    const rsOpts = { lineWidth: 2, priceLineVisible: false, lastValueVisible: true } as const;
+    const rs21 = rsChart.addLineSeries({ color: "#ffeb3b", ...rsOpts });
+    const rs63 = rsChart.addLineSeries({ color: "#ff7043", ...rsOpts });
+    const rs126 = rsChart.addLineSeries({ color: "#ab47bc", ...rsOpts });
+    rs21.setData(padLineData(chart.rs21, timeline));
+    rs63.setData(padLineData(chart.rs63, timeline));
+    rs126.setData(padLineData(chart.rs126, timeline));
+    if (chart.rs21.length) {
+      rs21.createPriceLine({ price: 0, color: "#666", lineWidth: 1, lineStyle: 2, axisLabelVisible: false, title: "" });
+    }
+
+    const vrChart = baseChart(vrEl, false);
+    const vr = vrChart.addHistogramSeries({ priceLineVisible: false });
+    vr.setData(padHistData(chart.volRatio, timeline));
+    vr.createPriceLine({ price: 1.5, color: "#ff5722", lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: "1.5×" });
+    vr.createPriceLine({ price: 1.0, color: "#666", lineWidth: 1, lineStyle: 3, axisLabelVisible: false, title: "" });
+
+    syncTimeScales([main, rsChart, vrChart]);
+    showLastBars(main, chart.candles);
+
+    const observers = [observeSize(mainEl, main), observeSize(rsEl, rsChart), observeSize(vrEl, vrChart)];
+
+    const nextGroups: LayerGroup[] = [
+      {
+        title: "均线",
+        items: [
+          { key: "ma50", label: "MA50", color: "#ffb74d", toggle: (v) => ma50.applyOptions({ visible: v }) },
+          { key: "ma150", label: "MA150", color: "#ba68c8", toggle: (v) => ma150.applyOptions({ visible: v }) },
+          { key: "ma200", label: "MA200", color: "#4fc3f7", toggle: (v) => ma200.applyOptions({ visible: v }) },
+        ],
+      },
+      {
+        title: "价位线",
+        items: [
+          { key: "h52w", label: "52w 高", color: "#9c27b0", toggle: (v) => lineH52w.set(v) },
+          { key: "l52w", label: "52w 低", color: "#4caf50", toggle: (v) => lineL52w.set(v) },
+          ...(lineExt ? [{ key: "ext", label: "MA50 +25%", color: "#ff5252", toggle: (v: boolean) => lineExt.set(v) }] : []),
+        ],
+      },
+    ];
+    if (zoneLayers.length) {
+      nextGroups.push({
+        title: "支撑区",
+        items: zoneLayers.map((zl, i) => ({
+          key: `zone${i}`,
+          label: zl.info.label,
+          color: zl.info.border,
+          toggle: (v) => {
+            zl.series.applyOptions({ visible: v });
+            zl.line.set(v);
+          },
+        })),
+      });
+    }
+    if (epZones && epLines) {
+      const zones = epZones;
+      const lines = epLines;
+      nextGroups.push({
+        title: "入场计划",
+        items: [
+          {
+            key: "ep-zone",
+            label: "盈亏区域",
+            color: "#26a69a",
+            toggle: (v) => {
+              zones.green.applyOptions({ visible: v });
+              zones.red.applyOptions({ visible: v });
+            },
+          },
+          { key: "ep-line", label: "pivot / 止损 / T1 / T2", color: "#42a5f5", toggle: (v) => lines.forEach((l) => l.set(v)) },
+        ],
+      });
+    }
+    nextGroups.push({
+      title: "其他",
+      items: [
+        { key: "vol", label: "成交量", color: "#26a69a", toggle: (v) => volSeries.applyOptions({ visible: v }) },
+        { key: "markers", label: "事件标记", color: "#d32f2f", toggle: (v) => candle.setMarkers(v ? toMarkers(chart.markers) : []) },
+        {
+          key: "vp",
+          label: "成交分布 (VP)",
+          color: "#ff9800",
+          toggle: (v) => {
+            vpEnabled = v;
+            drawVolumeProfile();
+          },
+        },
+      ],
+    });
+    setGroups(nextGroups);
+
+    return () => {
+      clearTimeout(vpTimer);
+      clearInterval(vpInterval);
+      if (vpRaf) cancelAnimationFrame(vpRaf);
+      vpRo.disconnect();
+      observers.forEach((ro) => ro.disconnect());
+      main.remove();
+      rsChart.remove();
+      vrChart.remove();
+      setGroups([]);
+    };
+  }, [chart, mainRef, rsRef, vrRef, vpCanvasRef]);
+
+  return groups;
+}

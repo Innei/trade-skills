@@ -1,0 +1,11 @@
+{
+  "name": "trade-app",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm --filter @trade/web build",
+    "start": "pnpm --filter @trade/server start",
+    "test": "pnpm --filter @trade/server test",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

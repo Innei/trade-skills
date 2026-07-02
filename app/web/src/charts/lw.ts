@@ -1,0 +1,166 @@
+import {
+  createChart,
+  type CandlestickData,
+  type HistogramData,
+  type IChartApi,
+  type ISeriesApi,
+  type LineData,
+  type SeriesMarker as LwMarker,
+  type SeriesType,
+  type Time,
+  type UTCTimestamp,
+  type WhitespaceData,
+} from "lightweight-charts";
+import type { Candle, ColoredPoint, LinePoint, SeriesMarker } from "../../../shared/types";
+
+export const asTime = (t: number) => t as UTCTimestamp;
+
+export const toLineData = (pts: LinePoint[]): LineData[] =>
+  pts.map((p) => ({ time: asTime(p.time), value: p.value }));
+
+export const toHistData = (pts: ColoredPoint[]): HistogramData[] =>
+  pts.map((p) => ({ time: asTime(p.time), value: p.value, color: p.color }));
+
+export const toCandleData = (cs: Candle[]): CandlestickData[] =>
+  cs.map((c) => ({ time: asTime(c.time), open: c.open, high: c.high, low: c.low, close: c.close }));
+
+export function padLineData(pts: LinePoint[], timeline: number[]): (LineData | WhitespaceData)[] {
+  const byTime = new Map(pts.map((p) => [p.time, p.value]));
+  return timeline.map((t) => {
+    const v = byTime.get(t);
+    return v === undefined ? { time: asTime(t) } : { time: asTime(t), value: v };
+  });
+}
+
+export function padHistData(pts: ColoredPoint[], timeline: number[]): (HistogramData | WhitespaceData)[] {
+  const byTime = new Map(pts.map((p) => [p.time, p]));
+  return timeline.map((t) => {
+    const p = byTime.get(t);
+    return p === undefined ? { time: asTime(t) } : { time: asTime(t), value: p.value, color: p.color };
+  });
+}
+
+export const toMarkers = (ms: SeriesMarker[]): LwMarker<Time>[] =>
+  ms.map((m) => ({ time: asTime(m.time), position: m.position, color: m.color, shape: m.shape, text: m.text, id: m.id }));
+
+export interface MarkerTooltipHandle {
+  setMarkers(ms: SeriesMarker[]): void;
+  destroy(): void;
+}
+
+export function markerTooltip(chart: IChartApi, host: HTMLElement): MarkerTooltipHandle {
+  const el = document.createElement("div");
+  el.className = "marker-tooltip";
+  host.appendChild(el);
+  let byId = new Map<string, string>();
+
+  const onMove = (param: Parameters<Parameters<IChartApi["subscribeCrosshairMove"]>[0]>[0]) => {
+    const id = typeof param.hoveredObjectId === "string" ? param.hoveredObjectId : undefined;
+    const tip = id ? byId.get(id) : undefined;
+    if (tip && param.point) {
+      el.textContent = tip;
+      el.style.display = "block";
+      const x = Math.max(4, Math.min(param.point.x + 14, host.clientWidth - el.offsetWidth - 8));
+      const y = Math.max(4, Math.min(param.point.y + 14, host.clientHeight - el.offsetHeight - 8));
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+    } else {
+      el.style.display = "none";
+    }
+  };
+  chart.subscribeCrosshairMove(onMove);
+
+  return {
+    setMarkers(ms: SeriesMarker[]) {
+      byId = new Map(ms.filter((m) => m.id && m.tooltip).map((m) => [m.id as string, m.tooltip as string]));
+    },
+    destroy() {
+      chart.unsubscribeCrosshairMove(onMove);
+      el.remove();
+    },
+  };
+}
+
+export function baseChart(el: HTMLElement, timeVisible: boolean): IChartApi {
+  return createChart(el, {
+    width: el.clientWidth,
+    height: el.clientHeight,
+    layout: { background: { color: "#0d1117" }, textColor: "#8b949e" },
+    grid: { vertLines: { color: "#161b22" }, horzLines: { color: "#161b22" } },
+    crosshair: { mode: 0 },
+    rightPriceScale: { borderColor: "#21262d" },
+    timeScale: { borderColor: "#21262d", timeVisible, secondsVisible: false },
+  });
+}
+
+export interface PriceLineSpec {
+  price: number;
+  color: string;
+  lineWidth?: number;
+  lineStyle?: number;
+  axisLabelVisible?: boolean;
+  title?: string;
+}
+
+type AnySeries = ISeriesApi<SeriesType>;
+
+export function addPriceLine(series: AnySeries, spec: PriceLineSpec) {
+  return series.createPriceLine({
+    price: spec.price,
+    color: spec.color,
+    lineWidth: (spec.lineWidth ?? 1) as never,
+    lineStyle: (spec.lineStyle ?? 0) as never,
+    axisLabelVisible: spec.axisLabelVisible ?? true,
+    title: spec.title ?? "",
+  });
+}
+
+export interface Togglable {
+  set(v: boolean): void;
+}
+
+export function makeTogglableLine(series: AnySeries, spec: PriceLineSpec): Togglable {
+  let ref: ReturnType<typeof addPriceLine> | null = addPriceLine(series, spec);
+  let visible = true;
+  return {
+    set(v: boolean) {
+      if (v === visible) return;
+      if (v) {
+        ref = addPriceLine(series, spec);
+      } else if (ref) {
+        series.removePriceLine(ref);
+        ref = null;
+      }
+      visible = v;
+    },
+  };
+}
+
+export function syncTimeScales(charts: IChartApi[]): void {
+  let syncing = false;
+  charts.forEach((src) => {
+    src.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (syncing || !range) return;
+      syncing = true;
+      charts.forEach((dst) => {
+        if (dst !== src) dst.timeScale().setVisibleLogicalRange(range);
+      });
+      syncing = false;
+    });
+  });
+}
+
+export function showLastBars(chart: IChartApi, candles: Candle[], n = 90): void {
+  if (!candles.length) return;
+  const lastTs = candles[candles.length - 1].time;
+  const startTs = candles[Math.max(0, candles.length - n)].time;
+  chart.timeScale().setVisibleRange({ from: asTime(startTs), to: asTime(lastTs) });
+}
+
+export function observeSize(el: HTMLElement, chart: IChartApi): ResizeObserver {
+  const ro = new ResizeObserver(() => {
+    chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+  });
+  ro.observe(el);
+  return ro;
+}

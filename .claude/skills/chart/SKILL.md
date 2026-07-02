@@ -1,192 +1,223 @@
 ---
 name: chart
 description: >
-  Render financial charts to a self-contained HTML file. Four chart types:
-  intraday capital-flow line (`flow`), OHLC candlestick with volume (`kline`),
-  cross-symbol signed-bar comparison (`cohort`) — all ECharts via CDN — plus
-  SEPA strategy dashboard (`sepa`) — TradingView Lightweight Charts with K-line,
-  MA50/150/200 stack, RS vs SPY sub-plot, volume-ratio sub-plot, 8-condition
-  trend-template scorecard, auto verdict (PASS / WATCH / BUY), event markers
-  (climax top, MA50/200 break, earnings, 52w high), and optional position panel.
-  Input formats match Longbridge CLI native output for flow/kline/cohort;
-  `sepa` takes a structured `{symbol, name, as_of_date, kline[], spy_kline[],
-  position?, context?}` object. Output: `journal/charts/YYYY-MM-DD-<slug>.html`.
+  Render financial charts via the local chart web app (`app/` — Hono server +
+  React front end, port 5199). Five chart types: intraday capital-flow line
+  (`flow`), OHLC candlestick with volume (`kline`), cross-symbol signed-bar
+  comparison (`cohort`) — all ECharts — plus SEPA strategy dashboard (`sepa`)
+  and short-term multi-timeframe prediction dashboard (`intraday`) — both
+  TradingView Lightweight Charts. The server fetches Longbridge data itself
+  (kline / capital flow) and computes all indicators (MA, MACD, RS, trend
+  template, volume profile, divergence/beichi detection) in TypeScript; the
+  caller only POSTs `{type, symbol, ...}` to `/api/charts` and gets back
+  `{id, url, technicals?}`. Charts persist as data JSON under
+  `journal/charts/data/` and render live at `http://localhost:5199/#/charts/<id>`.
   Triggers: 出图、生成图表、画 K 线、画资金流曲线、画对比图、SEPA 仪表盘、
-  入场判断可视化、可视化、render chart, plot, visualise, sepa dashboard.
+  短线预测、多周期K线、MACD、入场判断可视化、可视化、render chart, plot,
+  visualise, sepa dashboard, intraday prediction dashboard.
 ---
 
 # chart
 
-Generates self-contained HTML charts (ECharts via CDN) so the user can open
-them in a browser instead of squinting at tables.
+Creates charts through the local chart app so the user can browse them in one
+place instead of squinting at tables. The server pulls market data and computes
+everything; charts are stored as versioned data JSON and always rendered by the
+latest front-end code.
 
 > **Response language**: match the user — 简体 / 繁體 / English.
 
 ## When to call
 
-- After running `longbridge capital --flow` and the user wants a visual ⇒ `flow`
-- After running `longbridge kline` for multi-day K-line review ⇒ `kline`
-- After collecting cumulative net inflow across a cohort of symbols
-  (e.g. storage vs Mag 7) ⇒ `cohort`
-- After running `sepa-strategy` on a single name ⇒ `sepa` (auto-detect verdict,
-  render dashboard, append link to the SEPA report)
+- After running `longbridge capital --flow` context or when the user wants a flow visual ⇒ `flow`
+- For multi-day K-line review ⇒ `kline`
+- After collecting cumulative net inflow across a cohort of symbols ⇒ `cohort`
+- After running `sepa-strategy` on a single name ⇒ `sepa`
+- When inside `intraday-signal` ⇒ `intraday` (two-call pattern: POST preview → PATCH prediction)
 - When inside `capital-rotation` / `market-session-tracker` / `stock-deep-dive`,
-  call this as the LAST step and append a link to the produced HTML in the
-  markdown journal entry.
+  call this as the LAST step and append the chart URL to the markdown journal entry.
 
 Skip when the user only wants a single number or a tiny series — a Unicode
 sparkline in the chat reply is faster.
 
-## CLI
+## Server lifecycle
+
+The app must be running before any API call:
 
 ```bash
-# All three modes read JSON from stdin OR from --data <path>
-longbridge capital MU.US --flow --format json \
-  | python3 .claude/skills/chart/scripts/render.py \
-      --type flow \
-      --title "MU 主力资金流 2026-06-25" \
-      --subtitle "Source: Longbridge · 单位推断为千 USD · 仅供参考" \
-      --open
-
-longbridge kline NVDA.US --period day --count 30 --format json \
-  | python3 .claude/skills/chart/scripts/render.py \
-      --type kline --title "NVDA 30 日 K 线" --open
-
-# Cohort takes [{symbol, value}] or [{label, value, group}]
-echo '[{"symbol":"MU","value":-17087},{"symbol":"NVDA","value":-35728}]' \
-  | python3 .claude/skills/chart/scripts/render.py \
-      --type cohort --title "存储 vs Mag 7 主力净流" --open
-
-# SEPA dashboard — input is a single JSON object (NOT array)
-python3 .claude/skills/chart/scripts/render.py \
-    --type sepa --data mrvl_sepa_input.json --open
+curl -s http://localhost:5199/api/health          # {"ok":true,...} = up
 ```
 
-Flags:
+If it is down, start it (long-running process — use run_in_background):
 
-| Flag | Required | Meaning |
-|---|---|---|
-| `--type {flow,kline,cohort}` | yes (unless `--smoke`) | Chart kind |
-| `--title <str>` | no | Chart title (used in HTML `<title>` and output slug) |
-| `--subtitle <str>` | no | Source / units / disclaimer line under the title |
-| `--data <path>` | no | JSON path; if omitted, reads stdin |
-| `--out <path>` | no | Override output path; default `journal/charts/YYYY-MM-DD-<slug>.html` |
-| `--open` | no | After write, open the file in the default browser (macOS `open`) |
-| `--smoke` | no | Self-test: render synthetic cohort to `/tmp` and verify |
-| `--help` | no | Standard argparse help |
+```bash
+cd app && pnpm start                               # serves API + built web UI on :5199
+```
 
-## Input JSON contracts
+First-time setup only: `cd app && pnpm install && pnpm build`.
 
-| Type | Shape | Source |
-|---|---|---|
-| `flow` | `[{"time": ISO-8601, "inflow": str-or-num}, ...]` | `longbridge capital <SYM> --flow` |
-| `kline` | `[{"time": ISO-8601, "open": ..., "high": ..., "low": ..., "close": ..., "volume": ...}, ...]` | `longbridge kline <SYM>` |
-| `cohort` | `[{"symbol": str, "value": num}, ...]` or `[{"label": str, "value": num, "group"?: str}, ...]` | hand-rolled JSON from cohort net flows |
-| `sepa` | **object** (not array) — see below | hand-assembled from `longbridge kline <SYM>` + `longbridge kline SPY.US` |
+## API
 
-Numeric strings (Longbridge default) are accepted — `float(...)` cast happens in Python.
+Base URL `http://localhost:5199`. All responses follow the
+`{ok, data, meta}` / `{ok:false, error, hint}` contract.
 
-### `sepa` input object schema
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/health` | liveness check |
+| `GET /api/charts?type=&symbol=&limit=` | list chart metas (newest first) |
+| `POST /api/charts` | create a chart; body below |
+| `GET /api/charts/:id` | full chart doc |
+| `PATCH /api/charts/:id` | merge fields into input and rebuild (e.g. add `prediction`) |
+| `DELETE /api/charts/:id` | remove a chart |
+| `GET /api/legacy` | list old single-file HTML archives (served at `/legacy/<file>`) |
+| `GET /api/stream/quotes?extra=` | SSE quote snapshots (watchlist ∪ positions ∪ extra), 10s cadence |
+| `GET /api/stream/charts/:id` | SSE live rebuilds for flow/kline/intraday charts, 60s cadence |
+
+The stream endpoints power the web UI's realtime display; the AI workflow never
+needs them — created charts update themselves in the browser while open, and
+the persisted JSON stays frozen at analysis time.
+
+### POST body per type
+
+The server fetches Longbridge data itself when `symbol` is given; pass `data`
+(or `kline` / `timeframes`) only to override with hand-assembled rows.
+
+```jsonc
+// flow — server runs `longbridge capital <SYM> --flow`
+{ "type": "flow", "symbol": "MU.US", "subtitle": "单位推断为千 USD · 仅供参考" }
+
+// kline — server runs `longbridge kline <SYM> --period <p> --count <n>`
+{ "type": "kline", "symbol": "NVDA.US", "period": "day", "count": 30 }
+
+// cohort — data is always caller-assembled
+{ "type": "cohort", "title": "存储 vs Mag 7 主力净流",
+  "data": [{ "symbol": "MU", "value": -17087 }, { "symbol": "NVDA", "value": 9540 }] }
+
+// sepa — server pulls 260 day bars + SPY.US automatically
+{ "type": "sepa", "symbol": "MRVL.US", "name": "Marvell Technology",
+  "position": { "shares": 1, "cost": 100.00 },       // optional
+  "context": { /* see sepa context schema below */ } }
+
+// intraday — server pulls 5m/15m/1h × 150 bars automatically (--session all:
+// pre/post-market bars included by default; pass "session": "intraday" to exclude)
+{ "type": "intraday", "symbol": "MU.US", "name": "Micron Technology",
+  "ema_periods": [9, 21, 55],                        // optional, fast/mid/slow EMA overlay (default 9/21/55, max 4)
+  "position": { "shares": 1, "cost": 100.00 },       // optional
+  "prediction": null }                                // omit for preview mode
+```
+
+Success returns `data.id`, `data.url` (paste this into journal entries), plus
+type-specific meta: sepa → `verdict_tier / passes / fails / bars`; intraday →
+`mode / bars / technicals`.
+
+### sepa `context` schema
+
+All fields optional:
 
 ```jsonc
 {
-  "symbol": "MRVL.US",                  // required
-  "name": "Marvell Technology",         // required (used in sidebar header)
-  "as_of_date": "2026-06-26",           // optional (defaults to last kline bar date)
-  "kline": [ ...260 daily bars... ],    // required, ≥ 50 bars; same shape as `kline` type above
-  "spy_kline": [ ...250 daily bars... ],// optional but recommended — enables RS subplot + condition 8
-  "position": {                          // optional — renders the 持仓视角 panel
-    "shares": 6,
-    "cost": 303.64
+  "earnings_dates": ["2026-05-29"],       // E markers on those bars
+  "stage": "Stage 2 末期",                 // 阶段判断 sidebar card
+  "stage_note": "Stage 3 顶部嫌疑",
+  "base_count": "3-4 (减半仓)",
+  "pattern": "无可买（扩张振幅）",
+  "verdict": {                             // override the auto verdict
+    "tier": "watch",                       // pass / watch / buy
+    "label": "👀 WATCH LIST",
+    "color": "#ffc107",
+    "reason": "..."
   },
-  "context": {                           // optional — all sub-fields are optional
-    "earnings_dates": ["2026-05-29"],   // adds E markers on those bars
-    "stage": "Stage 2 末期",            // shows in 阶段判断 panel
-    "stage_note": "Stage 3 顶部嫌疑",
-    "base_count": "3-4 (减半仓)",
-    "pattern": "无可买（扩张振幅）",
-    "verdict": {                         // OPTIONAL: override the auto verdict
-      "tier": "watch",                   // pass / watch / buy
-      "label": "👀 WATCH LIST",
-      "color": "#ffc107",
-      "reason": "..."
-    },
-    "entry_plan": {                      // OPTIONAL: renders 入场计划 sidebar card +
-                                         // draws 5 price lines on the main chart
-      "pivot": 260.00,                   // required: consolidation-range high (SEPA pivot)
-      "stop": 241.80,                    // optional: default = pivot × 0.93 (-7%)
-      "target1_pct": 8,                  // optional: default 8 (Phase 2: 卖一半 + 移至本钱)
-      "target2_pct": 15,                 // optional: default 15 (Phase 3: 再卖 25% + 沿 20MA 跟踪)
-      "note": "...",                     // optional: 一句话说明 (条件/风险/为什么这个 pivot)
-      "hypothetical": true               // optional: 标注 "假设性" 徽章 (当 verdict 不是 buy 时)
-    }
-  }
+  "entry_plan": {                          // 入场计划 card + price lines
+    "pivot": 260.00,                       // required: consolidation-range high
+    "stop": 241.80,                        // default pivot × 0.93 (-7%)
+    "target1_pct": 8,                      // default 8 (Phase 2: 卖一半 + 移至本钱)
+    "target2_pct": 15,                     // default 15 (Phase 3: 再卖 25% + 沿 20MA 跟踪)
+    "note": "...",
+    "hypothetical": true                   // 标注 "假设性" 徽章
+  },
+  "support_zones": [                       // omit → auto zones (MA50 / MA200 / volume cluster)
+    { "low": 217, "high": 226, "tier": "watch",   // warning / watch / buy / value
+      "label": "MA50 关注区", "note": "...", "sources": ["MA50 $221.75"] }
+  ],
+  "auto_support_zones": true,              // false disables the auto fallback
+  "volume_profile": { "lookback_days": 120, "bins": 30 }
 }
 ```
 
-**Entry-plan derived values (auto-computed):**
+Derived values (auto-computed server-side): `buy_zone_high = pivot × 1.05`,
+`target1/2 = pivot × (1 + pct/100)`, `R/R = (target2 − pivot) / (pivot − stop)`
+— based on T2, not T1, because T1 is the SEPA Phase-2 partial exit. R/R < 2:1
+renders a red warning.
 
-- `buy_zone_high` = `pivot × 1.05` (SEPA Step 6 — buy zone is pivot ~ pivot+5%)
-- `target1` = `pivot × (1 + target1_pct/100)`
-- `target2` = `pivot × (1 + target2_pct/100)`
-- `R/R` = `(target2 − pivot) / (pivot − stop)` — based on T2, not T1, because T1 is the SEPA Phase-2 partial-exit (only half + move-to-breakeven), not the real profit target. SEPA requires R/R ≥ 2:1 (prefer ≥ 3:1); below 2:1 the card shows a red warning.
+**Verdict auto-detection** (when `context.verdict` omitted): any trend-template
+fail → `PASS` 🚫; all 8 pass + price ≥ 25% above MA50 → `WATCH · Extended` 👀;
+all 8 pass otherwise → `WATCH · No pattern detected` 👀. `STRONG BUY` ✅ is never
+auto-emitted — pass `context.verdict` after manually confirming a valid pattern
++ pivot ±5% buy zone.
 
-**Lines drawn on main chart when `entry_plan` is set:**
+**Auto markers on the main K-line**: earnings (`context.earnings_dates`),
+climax top (volume ≥ 2.5×20MA + red close + local high), MA50/MA200 breakdowns,
+52w high. Hardcoded lines: 52w high/low, MA50 × 1.25 extended warning.
 
-| Line | Color/style |
-|---|---|
-| `pivot` | green solid (buy entry) |
-| `buy_zone_high` | green dashed |
-| `stop` | red dashed |
-| `target1` | light blue dashed |
-| `target2` | dark blue dashed |
+### intraday two-call pattern
 
-**Verdict auto-detection rules (when `context.verdict` is omitted):**
+1. **POST without `prediction`** → preview. Read `data.technicals` from the
+   response: per timeframe `last_dif / last_dea / last_hist`, `emas` (latest
+   fast/mid/slow EMA values — price vs EMA stack tells the short-term trend
+   posture), recent swing highs/lows, `last_cross` (金叉/死叉),
+   `divergence_candidates`, `beichi_candidates`. Read these numbers — don't
+   eyeball candles.
+2. **PATCH `/api/charts/:id` with `{"prediction": {...}}`** → final dashboard.
+   Add `"refresh": true` to any PATCH to refetch the latest bars (incl. pre/post
+   market) and recompute everything before rebuilding — same id, same URL.
 
-- Any trend-template Fail → `PASS` 🚫 (red)
-- All 8 pass + price > MA50 by ≥ 25% → `WATCH LIST · Extended` 👀 (amber)
-- All 8 pass + not extended → `WATCH LIST · No pattern detected` 👀 (amber, prompts manual pattern check)
-- `STRONG BUY` ✅ is NOT auto-detected — caller must pass `context.verdict` after manually confirming a valid pattern + pivot ±5% buy zone.
+`prediction` schema:
 
-**Markers auto-detected on the main K-line:**
-
-| Event | Detection rule | Visual |
-|---|---|---|
-| Earnings | Date in `context.earnings_dates` | Blue circle below bar, label `E 财报` |
-| Climax top | Volume ≥ 2.5 × 20MA + close < open + bar high = max of last 6 bars | Red down-arrow above bar |
-| Drop below MA50 | Prev close ≥ MA50, current close < MA50 | Orange down-arrow below bar |
-| Drop below MA200 | Prev close ≥ MA200, current close < MA200 | Red down-arrow below bar |
-| 52w high | High = max of last 252 bars (first occurrence) | Purple square above bar |
-
-Hardcoded price lines on the main chart: 52w high (purple dashed), 52w low (green dashed), `MA50 × 1.25` extended-warning line (red dotted).
-
-## Output contract
-
-On success (stdout):
-```json
-{"ok": true, "data": {"path": "/abs/path/to/file.html", "type": "flow", "rows": 246}, "meta": {"chart_type": "flow"}}
+```jsonc
+{
+  "direction": "short",                              // long | short | neutral
+  "anchor": { "timeframe": "m15", "time": "2026-07-01T17:00:00Z", "price": 1049.81 },
+  "scenarios": [                                      // ≥ 2, probabilities ≈ 100
+    { "label": "继续探底", "probability": 45, "path": "...", "trigger": "..." }
+  ],
+  "range_bound_plan": { "condition": "...", "long_tactic": "...", "short_tactic": "..." },
+  "entry_plan": { "entry": 1049.81, "stop": 1030.00, "target1_pct": 3, "target2_pct": 6, "note": "..." },
+  "signals": [
+    { "type": "pin_bar", "timeframe": "m15", "time": "...", "price": 1044.17,
+      "bias": "bullish", "label": "看涨 Pin Bar" },
+    { "type": "macd_divergence", "timeframe": "h1", "bias": "bearish",
+      "points": [ { "time": "...", "price": 1097.0, "macd_value": 12.3 },
+                  { "time": "...", "price": 1085.0, "macd_value": -4.1 } ],
+      "label": "顶背离：价格新高但 MACD 走弱" }
+  ]
+}
 ```
 
-On failure:
-```json
-{"ok": false, "error": "...", "hint": "..."}
-```
-
-## Sparkline alternative (no script)
-
-For tiny in-chat previews, the LLM should render Unicode sparklines directly:
-`▁▂▄▆█` plus ANSI green/red. No file generated. Use for 5-20-point series
-where a full HTML chart would be overkill.
+R/R is direction-aware (`long`: risk = entry−stop; `short`: risk = stop−entry);
+the sidebar flags rr < 2:1 in red. 金叉/死叉 + simplified 背离/背驰 are
+auto-detected and drawn on every render regardless of `prediction`. The
+auto-detectors only fire on confirmed swing pivots — the last 1-2 bars can never
+be flagged; read `last_dif/last_dea/last_hist` directly for the newest bar.
 
 ## Storage
 
-- HTML files: `journal/charts/YYYY-MM-DD-<slug>.html` — gitignored (under `journal/`)
-- The skill itself: `.claude/skills/chart/` — committed to public repo
+- Chart docs: `journal/charts/data/<YYYY-MM-DD>-<slug>.json` — gitignored,
+  `schema_version` field for forward compatibility. Date = US session date
+  (derived from the data, not local clock).
+- Old single-file HTML archives stay in `journal/charts/*.html`, listed in the
+  app under 旧版存档 and served at `/legacy/<file>`.
+- The app itself: `app/` (pnpm workspace, `server/` Hono + TS, `web/` Vite +
+  React). Analysis parity with the retired Python implementation is locked by
+  vitest golden tests: `cd app && pnpm test`.
+
+## Sparkline alternative (no API)
+
+For tiny in-chat previews render Unicode sparklines directly: `▁▂▄▆█` plus ANSI
+green/red. Use for 5-20-point series where a full chart is overkill.
 
 ## Related skills
 
-- `longbridge-capital-flow` — produces `flow` JSON
-- `longbridge-kline` — produces `kline` JSON (used by both `kline` and `sepa`)
-- `capital-rotation` — should call `cohort` at the end
-- `market-session-tracker` — may call `flow` and `kline`
-- `sepa-strategy` — calls `sepa` as the last step of Step 9, after the textual report
+- `longbridge-capital-flow` / `longbridge-kline` — same data the server pulls; call directly only for in-chat analysis
+- `capital-rotation` — should end with a `cohort` chart
+- `market-session-tracker` — may create `flow` and `kline` charts
+- `sepa-strategy` — calls `sepa` as the last step of its Step 10
+- `intraday-signal` — calls `intraday` twice (POST preview, then PATCH prediction)
