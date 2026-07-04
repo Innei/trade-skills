@@ -74,6 +74,7 @@ export function useIntradayCharts(
   const builtRef = useRef(built);
   builtRef.current = built;
   const lastTfRef = useRef<TimeframeKey | null>(null);
+  const lastBuiltRef = useRef<IntradayBuilt | null>(null);
   const barCountRef = useRef(0);
   const firstTimeRef = useRef<number | null>(null);
   const onNearRef = useRef(onNearLeftEdge);
@@ -227,7 +228,7 @@ export function useIntradayCharts(
     if (lastTfRef.current !== activeTf) {
       lastTfRef.current = activeTf;
       showLastBars(h.main, d.candles);
-    } else {
+    } else if (lastBuiltRef.current !== built) {
       const prepended = firstTimeRef.current === null ? 0 : timeline.indexOf(firstTimeRef.current);
       if (prepended > 0 && prevRange) {
         h.main.timeScale().setVisibleLogicalRange({ from: prevRange.from + prepended, to: prevRange.to + prepended });
@@ -235,6 +236,7 @@ export function useIntradayCharts(
         h.main.timeScale().scrollToRealTime();
       }
     }
+    lastBuiltRef.current = built;
     barCountRef.current = d.candles.length;
     firstTimeRef.current = timeline[0] ?? null;
   }, [built, activeTf, toggles]);
