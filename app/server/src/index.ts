@@ -1,6 +1,7 @@
 import middie from "@fastify/middie";
 import { join } from "node:path";
 import { createServer as createViteServer } from "vite";
+import { startAiScheduler } from "./ai/scheduler.js";
 import { createApp } from "./app.js";
 import { BASE_URL, PORT, WEB_ROOT } from "./env.js";
 
@@ -21,3 +22,5 @@ app.use((req, res, next) => {
 
 await app.listen({ port: PORT });
 console.log(`trade chart server listening on ${BASE_URL}`);
+
+if (startAiScheduler()) console.log("ai scheduler started");
