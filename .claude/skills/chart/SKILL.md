@@ -73,10 +73,31 @@ Base URL `http://localhost:5199`. All responses follow the
 | `GET /api/legacy` | list old single-file HTML archives (served at `/legacy/<file>`) |
 | `GET /api/stream/quotes?extra=` | SSE quote snapshots (watchlist ∪ positions ∪ extra), 10s cadence |
 | `GET /api/stream/charts/:id` | SSE live rebuilds for flow/intraday charts, 60s cadence |
+| `GET /api/symbols/:sym/{flow,benchmark,position,analyses,latest}` | live per-symbol cockpit data (server-computed, never AI) |
 
 The stream endpoints power the web UI's realtime display; the AI workflow never
 needs them — created charts update themselves in the browser while open, and
 the persisted JSON stays frozen at analysis time.
+
+### Symbol cockpit (`/#/symbol/<SYM>`)
+
+Every symbol also gets a stable dashboard URL, `http://localhost:5199/#/symbol/<SYM>`,
+that aggregates live data with the symbol's latest `intraday` analysis — it is
+the caller-facing counterpart of `GET /api/symbols/:sym/*`. `/#/charts/<id>`
+remains the frozen per-analysis archive; the cockpit page is a live view on top
+of the same underlying chart docs, not a replacement. These `/api/symbols/*`
+routes are server plumbing for that page — direct callers rarely need them,
+listed here only for completeness:
+
+- `GET /api/symbols/:sym/flow` — today's capital-flow curve + large/medium/small distribution (live, via `longbridge capital`)
+- `GET /api/symbols/:sym/benchmark` — SMH/QQQ normalized same-session comparison (live, via `longbridge kline`)
+- `GET /api/symbols/:sym/position` — shares/cost/unrealized + distance to stop/target from the latest analysis's entry plan (live)
+- `GET /api/symbols/:sym/analyses` — past `intraday` analyses for this symbol with mechanical outcome judgments (`hit_target` / `hit_stop` / `open`, computed server-side from post-anchor bars — never AI recall)
+- `GET /api/symbols/:sym/latest` — the latest `intraday` chart doc in full, plus `prediction_stale`
+
+The client-side indicator toggle bar (show/hide 金叉/死叉、自动背离、自动背驰、123
+结构、AI 信号标注、入场/止损/目标价位线、swing 高低点; state in localStorage) has
+no API surface — it's a pure front-end feature on both the cockpit and archive pages.
 
 ### POST body per type
 
@@ -263,6 +284,35 @@ with an 酝酿中/已确认 badge.
 Off-session bars (盘前/盘后浅蓝、夜盘深蓝) get a full-height backdrop on both
 panes — thin-volume price action outside regular hours is visually discounted at
 a glance. Regular hours = 09:30-16:00 ET (DST-aware via America/New_York).
+
+### `context` — AI-classified news + conclusion (optional, schema_version 2)
+
+Both `POST /api/charts` (type `intraday`) and `PATCH /api/charts/:id` accept an
+optional `context` field alongside `prediction`. It's frozen at write time like
+`prediction` — the server never generates or judges it. `schema_version` is now
+`2`; older (`v1`) chart docs without `context` still load and render fine.
+
+```jsonc
+"context": {
+  "generated_at": "2026-07-06T14:30:00Z",         // ISO timestamp
+  "conclusion": {
+    "stance": "short",                            // long | short | neutral
+    "summary": "一句话综合判断",
+    "action": "现在该做什么（挂单/等待/减仓）"
+  },
+  "news": [
+    { "time": "2026-07-06T13:10:00Z",
+      "source": "longbridge",                     // longbridge | x | trump | sec | gdelt
+      "tag": "catalyst",                          // catalyst | regulatory | sentiment | macro
+      "title": "...", "note": "AI 一句话解读", "url": "可选" }
+  ],
+  "sources_used": ["longbridge-news", "twitter-reader"]
+}
+```
+
+The dashboard shows `context.generated_at`'s age and a stale badge, sharing the
+same ~15-min staleness rule as `prediction` (`prediction_updated_at` /
+`prediction_stale` on chart metas cover both).
 
 ### Realtime prediction upkeep
 

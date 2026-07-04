@@ -42,16 +42,25 @@ and writing a journal entry.
 
 If ambiguous (e.g. a company name with multiple listings), ask back rather than guessing.
 
-### Step 2 — Optional grounding context
+### Step 2 — Tiered grounding context
 
 The chart server pulls the three timeframes of K-line itself (5m/15m/1h × 150
-bars) — no manual `longbridge kline` calls needed. When the read needs grounding
-beyond price action — e.g. an unusual move — pull supporting context (not
-mandatory every run):
+bars) — no manual `longbridge kline` calls needed. Multi-source grounding is
+tiered so runs stay fast — pull the "always" tier every run, judge the rest by
+the day's tape:
 
-- `longbridge capital <SYM>.US --format json` — triple-bucket flow, checks for distribution
-- `longbridge-news` on the symbol — checks for a same-day catalyst
-- The user's live position via `longbridge positions --format json`, if they hold this symbol
+- **Always**: `longbridge-news` on the symbol — same-day catalyst check. The
+  chart server also auto-attaches raw headlines to the sidebar's `news` list,
+  but that's unclassified — the AI must still read and tag them for `context`.
+- **Default**: `twitter-reader` — X sentiment on the symbol.
+- **On-demand** (judge by the day's tape, don't run every time): `trump-truth-monitor`
+  (policy-sensitive days), `sec-edgar` (filing/insider leads), `gdelt` / `fred`
+  (macro event days).
+- Whatever was actually pulled goes into `context.sources_used` (Step 4).
+- Housekeeping, pulled as needed regardless of tiering: `longbridge capital
+  <SYM>.US --format json` (triple-bucket flow, checks for distribution), the
+  user's live position via `longbridge positions --format json` if they hold
+  this symbol.
 
 ### Step 3 — Preview: read the technicals
 
@@ -108,21 +117,33 @@ Using the timeframe data + Step 3's numbers, decide:
    each ideally carrying `macd_value` so the dashboard can draw the connecting
    line on the MACD sub-pane too). Never write "看起来背离了" without pointing
    at the two actual bars being compared.
+6. **`context`** — besides `prediction`, write the `context` payload (see
+   `chart` skill's `context` schema): tag every news/sentiment item pulled in
+   Step 2 with `source` + `tag` + a one-line `note`, list what was actually
+   pulled in `sources_used`, and write the `conclusion` card (`stance` /
+   `summary` / `action`). `generated_at` = now, ISO timestamp.
 
 ### Step 5 — Final render
 
-PATCH the same chart with `prediction` filled in (see `chart` skill's
-`prediction` schema for the full shape):
+PATCH the same chart with BOTH `prediction` and `context` filled in, in one
+call (see `chart` skill's `prediction` / `context` schemas for the full shapes):
 
 ```bash
 curl -s -X PATCH http://localhost:5199/api/charts/<id-from-step-3> \
   -H 'Content-Type: application/json' \
-  -d '{"prediction": { ... }}'
+  -d '{
+    "prediction": { "direction": "short", "anchor": {"timeframe":"m15","time":"2026-07-06T14:15:00Z","price":61.10}, "scenarios": [ ... ] },
+    "context": {
+      "generated_at": "2026-07-06T14:30:00Z",
+      "conclusion": { "stance": "short", "summary": "一句话综合判断", "action": "现在该做什么" },
+      "news": [ { "time": "2026-07-06T13:10:00Z", "source": "longbridge", "tag": "catalyst", "title": "...", "note": "AI 一句话解读" } ],
+      "sources_used": ["longbridge-news", "twitter-reader"]
+    }
+  }'
 ```
 
 Include `position` in the Step-3 POST (from the optional `longbridge positions`
 pull) if the user holds this symbol — the dashboard renders a 持仓视角 card.
-The chart URL for the report is `data.url` from either response.
 
 ### Step 6 — Report structure
 
@@ -133,13 +154,19 @@ Present in this order (mirrors the user's original ask):
 3. 震荡应对（若为震荡情景：多、空两种打法）
 4. 入场计划（盈亏比 + 具体入场点/止损/目标）
 5. 支撑信号（Pin Bar / MACD 背离等，指到具体 K 线）
-6. 图表链接
+6. 图表链接：主链接是标的驾驶舱 `http://localhost:5199/#/symbol/<SYM>`（聚合活数据 +
+   最新分析），存档链接 `data.url`（本次分析的冻结快照）附后
 7. 免责声明：仅供参考，不构成投资建议
 
 ### Step 7 — Journal
 
 Write `journal/YYYY-MM-DD-<symbol>-intraday.md` (US session date). Same-day
 re-run on the same symbol appends a new timestamped section — never overwrite.
+The cockpit's 历史 tab (`GET /api/symbols/:sym/analyses`, rendered on
+`/#/symbol/<SYM>`) now lists past analyses for this symbol with a mechanical
+outcome judgment (`hit_target` / `hit_stop` / `open`, computed server-side from
+post-anchor bars) — that's a quick mechanical scoreboard, not a substitute for
+the journal's narrative record.
 
 ## Anti-patterns
 
@@ -151,12 +178,19 @@ re-run on the same symbol appends a new timestamped section — never overwrite.
 - ❌ Skipping the preview call and guessing MACD values instead of reading them
 - ❌ Skipping the journal write
 - ❌ Contradicting a live `market-session-tracker` read for the same symbol without reconciling — this is a narrower, single-symbol lens, not an override
+- ❌ Writing a `context.news` item without a `source`
+- ❌ A `conclusion.action` that contradicts the prediction's direction without explaining why
+- ❌ Pulling every on-demand source (`trump-truth-monitor` / `sec-edgar` / `gdelt` / `fred`) on every run — tiering exists to keep runs fast; judge by the day's tape
 
 ## Related skills
 
 - `chart` — renders type `intraday`; this skill is chart's primary caller for that type
 - `longbridge-kline` — same data the chart server pulls; call directly only for in-chat analysis
 - `longbridge-capital-flow` — optional grounding context (distribution check)
-- `longbridge-news` — optional grounding context (same-day catalyst check)
+- `longbridge-news` — always-tier grounding context (same-day catalyst check)
+- `twitter-reader` — default-tier grounding context (X sentiment on the symbol)
+- `trump-truth-monitor` — on-demand grounding context (policy-sensitive days)
+- `sec-edgar` — on-demand grounding context (filing/insider leads)
+- `gdelt` / `fred` — on-demand grounding context (macro event days)
 - `market-session-tracker` — broader live multi-symbol session monitoring; this skill is the single-symbol short-term drill-down
 - `sepa-strategy` — the weeks/months-horizon counterpart for swing entries
