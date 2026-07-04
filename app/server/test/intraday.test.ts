@@ -79,4 +79,68 @@ describe("intraday parity vs python golden fixture", () => {
     expect(plan.price_zones.map((z) => z.label)).toEqual(["上方阻力区"]);
     expect(plan.price_zones[0].sources).toEqual(["前高密集区"]);
   });
+
+  it("carries a valid context through to sidebar.context", () => {
+    const context = {
+      generated_at: "2026-07-05T14:00:00.000Z",
+      conclusion: { stance: "long" as const, summary: "多头结构未破坏", action: "回踩不破前低可加仓" },
+      news: [
+        {
+          time: "2026-07-05T13:00:00.000Z",
+          source: "longbridge" as const,
+          tag: "catalyst" as const,
+          title: "订单超预期",
+          note: "利好持续性待验证",
+        },
+      ],
+      sources_used: ["longbridge-news"],
+    };
+    const { built } = buildIntraday({ ...input, context });
+    expect(built.sidebar.context).toEqual(context);
+  });
+
+  it("defaults sidebar.context to null when input.context is absent", () => {
+    const { built } = buildIntraday(input);
+    expect(built.sidebar.context).toBeNull();
+  });
+
+  it("throws ClientError on a missing generated_at", () => {
+    const context = {
+      generated_at: "",
+      conclusion: { stance: "long" as const, summary: "x", action: "y" },
+      news: [],
+      sources_used: [],
+    };
+    expect(() => buildIntraday({ ...input, context })).toThrow(/generated_at/);
+  });
+
+  it("throws ClientError on an invalid stance", () => {
+    const context = {
+      generated_at: "2026-07-05T14:00:00.000Z",
+      conclusion: { stance: "sideways" as unknown as "long", summary: "x", action: "y" },
+      news: [],
+      sources_used: [],
+    };
+    expect(() => buildIntraday({ ...input, context })).toThrow(/stance/);
+  });
+
+  it("throws ClientError when news is not an array", () => {
+    const context = {
+      generated_at: "2026-07-05T14:00:00.000Z",
+      conclusion: { stance: "long" as const, summary: "x", action: "y" },
+      news: "nope" as unknown as [],
+      sources_used: [],
+    };
+    expect(() => buildIntraday({ ...input, context })).toThrow(/news/);
+  });
+
+  it("throws ClientError when sources_used is not an array", () => {
+    const context = {
+      generated_at: "2026-07-05T14:00:00.000Z",
+      conclusion: { stance: "long" as const, summary: "x", action: "y" },
+      news: [],
+      sources_used: "nope" as unknown as [],
+    };
+    expect(() => buildIntraday({ ...input, context })).toThrow(/sources_used/);
+  });
 });
