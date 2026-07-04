@@ -83,4 +83,52 @@ describe("predictionStale", () => {
     });
     expect(predictionStale(doc, now)).toBe(false);
   });
+
+  it("is stale when a context-only doc's generated_at is older than 15 minutes during regular hours", () => {
+    const now = new Date(REGULAR_TS);
+    const doc = makeDoc({
+      input: {
+        symbol: "NVDA.US",
+        prediction: null,
+        context: { generated_at: new Date(now.getTime() - PREDICTION_STALE_MS - 1000).toISOString() },
+      },
+      prediction_updated_at: undefined,
+    });
+    expect(predictionStale(doc, now)).toBe(true);
+  });
+
+  it("is not stale when a context-only doc's generated_at is fresh during regular hours", () => {
+    const now = new Date(REGULAR_TS);
+    const doc = makeDoc({
+      input: {
+        symbol: "NVDA.US",
+        prediction: null,
+        context: { generated_at: new Date(now.getTime() - 5 * 60_000).toISOString() },
+      },
+      prediction_updated_at: undefined,
+    });
+    expect(predictionStale(doc, now)).toBe(false);
+  });
+
+  it("is not stale for an old context outside regular hours", () => {
+    const now = new Date(PRE_MARKET_TS);
+    const doc = makeDoc({
+      input: {
+        symbol: "NVDA.US",
+        prediction: null,
+        context: { generated_at: new Date(now.getTime() - PREDICTION_STALE_MS - 1000).toISOString() },
+      },
+      prediction_updated_at: undefined,
+    });
+    expect(predictionStale(doc, now)).toBe(false);
+  });
+
+  it("is not stale when doc.input.context is absent", () => {
+    const now = new Date(REGULAR_TS);
+    const doc = makeDoc({
+      input: { symbol: "NVDA.US", prediction: null },
+      prediction_updated_at: undefined,
+    });
+    expect(predictionStale(doc, now)).toBe(false);
+  });
 });

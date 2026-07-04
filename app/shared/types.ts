@@ -411,6 +411,32 @@ export interface IntradayPrediction {
   signals?: PredictionSignal[];
 }
 
+export type ContextStance = "long" | "short" | "neutral";
+export type ContextNewsSource = "longbridge" | "x" | "trump" | "sec" | "gdelt";
+export type ContextNewsTag = "catalyst" | "regulatory" | "sentiment" | "macro";
+
+export interface ContextConclusion {
+  stance: ContextStance;
+  summary: string;
+  action: string;
+}
+
+export interface ContextNewsItem {
+  time: string;
+  source: ContextNewsSource;
+  tag: ContextNewsTag;
+  title: string;
+  note: string;
+  url?: string;
+}
+
+export interface IntradayContext {
+  generated_at: string;
+  conclusion: ContextConclusion;
+  news: ContextNewsItem[];
+  sources_used: string[];
+}
+
 export interface IntradaySidebar {
   symbol: string;
   name: string;
@@ -421,6 +447,7 @@ export interface IntradaySidebar {
   position: PositionView | null;
   technicals: Record<TimeframeKey, IntradayTfSummary>;
   news: NewsItem[];
+  context: IntradayContext | null;
 }
 
 export interface IntradayBuilt {
@@ -439,6 +466,8 @@ export interface EChartsBuilt {
 }
 
 export type ChartBuilt = EChartsBuilt | SepaBuilt | IntradayBuilt;
+
+export const CURRENT_SCHEMA_VERSION = 2;
 
 export interface ChartMeta {
   id: string;

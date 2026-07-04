@@ -97,6 +97,7 @@ async function prepareInput(type: ChartType, body: Body): Promise<Record<string,
         news: await newsPromise,
         position: body.position,
         prediction: body.prediction ?? null,
+        context: body.context ?? null,
       };
     }
     case "flow": {
@@ -214,6 +215,7 @@ export function refreshBody(type: ChartType, input: Record<string, unknown>): Re
         ema_periods: input.ema_periods,
         position: input.position,
         prediction: input.prediction,
+        context: input.context,
       };
     case "sepa":
       return { type, symbol, name: input.name, position: input.position, context: input.context };
@@ -224,7 +226,7 @@ export function refreshBody(type: ChartType, input: Record<string, unknown>): Re
 
 const PATCHABLE: Record<ChartType, string[]> = {
   sepa: ["name", "as_of_date", "position", "context"],
-  intraday: ["name", "as_of", "position", "prediction", "session"],
+  intraday: ["name", "as_of", "position", "prediction", "session", "context"],
   flow: ["subtitle"],
   cohort: ["subtitle"],
 };

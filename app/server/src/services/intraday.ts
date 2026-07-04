@@ -7,6 +7,7 @@ import {
   type DivergencePoint,
   type EmaLine,
   type IntradayBuilt,
+  type IntradayContext,
   type IntradayEntryPlan,
   type IntradayPriceZone,
   type IntradayPrediction,
@@ -548,6 +549,30 @@ export interface IntradayInput {
   news?: NewsItem[];
   position?: { shares?: number; cost?: number };
   prediction?: IntradayPrediction | null;
+  context?: IntradayContext | null;
+}
+
+const CONTEXT_STANCES = new Set(["long", "short", "neutral"]);
+
+function validateIntradayContext(context: IntradayContext): void {
+  if (typeof context.generated_at !== "string" || !context.generated_at) {
+    throw new ClientError(
+      "intraday: context.generated_at must be a non-empty ISO timestamp string",
+      'e.g. {"context": {"generated_at": "2026-07-05T14:00:00.000Z", ...}}',
+    );
+  }
+  if (!CONTEXT_STANCES.has(context.conclusion?.stance)) {
+    throw new ClientError(
+      "intraday: context.conclusion.stance must be one of long | short | neutral",
+      'e.g. {"conclusion": {"stance": "long", "summary": "...", "action": "..."}}',
+    );
+  }
+  if (!Array.isArray(context.news)) {
+    throw new ClientError("intraday: context.news must be an array (may be empty)");
+  }
+  if (!Array.isArray(context.sources_used)) {
+    throw new ClientError("intraday: context.sources_used must be an array (may be empty)");
+  }
 }
 
 export interface IntradayMeta {
@@ -571,6 +596,9 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
       "Pull each with `longbridge kline <SYM> --period <5m|15m|1h> --count 150 --format json`.",
     );
   }
+
+  const context = input.context ?? null;
+  if (context) validateIntradayContext(context);
 
   const prediction = input.prediction
     ? {
@@ -679,6 +707,7 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
       position,
       technicals,
       news: input.news ?? [],
+      context,
     },
   };
 
