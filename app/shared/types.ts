@@ -518,3 +518,43 @@ export interface ApiErr {
 }
 
 export type ApiResult<T> = ApiOk<T> | ApiErr;
+
+export interface CapitalBucket {
+  in: number;
+  out: number;
+  net: number;
+}
+
+export interface CockpitFlow {
+  curve: LinePoint[];
+  distribution: { large: CapitalBucket; medium: CapitalBucket; small: CapitalBucket } | null;
+  timestamp: string | null;
+}
+
+export interface BenchmarkPoint {
+  time: number;
+  pct: number;
+}
+
+export interface BenchmarkSeries {
+  symbol: string;
+  points: BenchmarkPoint[];
+}
+
+export interface CockpitPosition {
+  symbol: string;
+  shares: number;
+  cost: number;
+  last: number;
+  unrealized: number;
+  unrealizedPct: number;
+  distances: { stop_pct: number | null; target1_pct: number | null; target2_pct: number | null } | null;
+}
+
+export type OutcomeStatus = "hit_target" | "hit_stop" | "open";
+
+export interface AnalysisOutcome {
+  status: OutcomeStatus;
+  pct_since_anchor: number;
+  resolved_at: number | null;
+}

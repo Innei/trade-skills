@@ -42,6 +42,31 @@ export function fetchFlow(symbol: string): Promise<FlowRow[]> {
   return longbridgeJson<FlowRow[]>(["capital", symbol, "--flow"]);
 }
 
+export interface RawCapitalDistribution {
+  capital_in: { large: string; medium: string; small: string };
+  capital_out: { large: string; medium: string; small: string };
+  symbol: string;
+  timestamp: string;
+}
+
+export function fetchCapitalDistribution(symbol: string): Promise<RawCapitalDistribution> {
+  return longbridgeJson<RawCapitalDistribution>(["capital", symbol]);
+}
+
+export interface RawPosition {
+  available: string;
+  cost_price: string;
+  currency: string;
+  market: string;
+  name: string;
+  quantity: string;
+  symbol: string;
+}
+
+export function fetchPositions(): Promise<RawPosition[]> {
+  return longbridgeJson<RawPosition[]>(["positions"]);
+}
+
 interface RawNewsItem {
   id: string | number;
   title: string;
