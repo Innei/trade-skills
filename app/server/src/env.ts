@@ -9,4 +9,5 @@ export const CHART_DATA_DIR = join(PROJECT_ROOT, "journal", "charts", "data");
 export const LEGACY_CHARTS_DIR = join(PROJECT_ROOT, "journal", "charts");
 export const WEB_DIST = join(APP_ROOT, "web", "dist");
 export const PORT = Number(process.env.PORT || 5199);
+export const VITE_DEV_ORIGIN = process.env.VITE_DEV_ORIGIN || "http://localhost:5198";
 export const BASE_URL = `http://localhost:${PORT}`;

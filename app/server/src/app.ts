@@ -4,7 +4,7 @@ import { relative } from "node:path";
 import { Hono } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { ClientError } from "./errors.js";
-import { CHART_DATA_DIR, LEGACY_CHARTS_DIR, PORT, WEB_DIST } from "./env.js";
+import { CHART_DATA_DIR, LEGACY_CHARTS_DIR, PORT, VITE_DEV_ORIGIN, WEB_DIST } from "./env.js";
 import { chartsRoute } from "./routes/charts.js";
 import { streamsRoute } from "./routes/streams.js";
 
@@ -45,6 +45,28 @@ export function createApp(): Hono {
     "/legacy/*",
     serveStatic({ root: legacyRoot, rewriteRequestPath: (p) => p.replace(/^\/legacy/, "") }),
   );
+
+  app.use("/*", async (c, next) => {
+    const path = c.req.path;
+    if (c.req.method !== "GET" || path.startsWith("/api") || path.startsWith("/legacy")) {
+      return next();
+    }
+    try {
+      const target = new URL(path, VITE_DEV_ORIGIN);
+      target.search = new URL(c.req.url).search;
+      const res = await fetch(target, {
+        headers: { accept: c.req.header("accept") ?? "*/*" },
+        redirect: "manual",
+      });
+      const headers = new Headers(res.headers);
+      // undici decompresses the body but keeps the original encoding headers
+      headers.delete("content-encoding");
+      headers.delete("content-length");
+      return new Response(res.body, { status: res.status, headers });
+    } catch {
+      return next();
+    }
+  });
 
   const webRoot = relative(process.cwd(), WEB_DIST) || ".";
   app.use("/*", serveStatic({ root: webRoot, index: "index.html" }));
