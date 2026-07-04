@@ -130,6 +130,51 @@ describe("aiScheduler tick", () => {
     expect(rec.analystCalls).toHaveLength(0);
   });
 
+  it("feeds real entry/stop/target1/target2 into trigger levels", async () => {
+    let seen: import("../src/ai/triggers.js").TriggerInput | null = null;
+    const { deps } = harness({
+      buildCommentPack: async (symbol) => ({
+        ...makePack(symbol),
+        prediction: {
+          chartId: "c1",
+          direction: "long",
+          anchor: { timeframe: "m5", time: "2026-07-05T15:00:00Z", price: 99 },
+          entry: 100,
+          stop: 96,
+          target1: 106,
+          target2: 112,
+        },
+      }),
+      detectTriggers: (input) => {
+        seen = input;
+        return [];
+      },
+      shouldHeartbeat: () => true,
+    });
+    await createAiScheduler(deps).tick();
+    expect(seen!.levels).toEqual({ entry: 100, stop: 96, target1: 106, target2: 112 });
+  });
+
+  it("swallows and logs a discoverTargets throw, later ticks still run", async () => {
+    let calls = 0;
+    const { deps, rec } = harness({
+      discoverTargets: async () => {
+        calls++;
+        if (calls === 1) throw new Error("discover boom");
+        return ["MU.US"];
+      },
+      detectTriggers: () => [{ kind: "macd_cross", detail: "x" }],
+    });
+    const errSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const scheduler = createAiScheduler(deps);
+    await expect(scheduler.tick()).resolves.toBeUndefined();
+    expect(errSpy).toHaveBeenCalled();
+    expect(rec.commentatorCalls).toHaveLength(0);
+    await scheduler.tick();
+    expect(rec.commentatorCalls.map((c) => c.symbol)).toEqual(["MU.US"]);
+    errSpy.mockRestore();
+  });
+
   it("keeps processing later symbols when one symbol throws", async () => {
     const { deps, rec } = harness({
       discoverTargets: async () => ["BAD.US", "MU.US"],

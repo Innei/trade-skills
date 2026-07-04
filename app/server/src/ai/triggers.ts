@@ -14,7 +14,8 @@ export interface TriggerBar {
 export interface PredictionLevels {
   entry?: number | null;
   stop?: number | null;
-  target?: number | null;
+  target1?: number | null;
+  target2?: number | null;
 }
 
 export interface TriggerInput {
@@ -55,7 +56,8 @@ function detectLevelBreak(bars: TriggerBar[], levels: PredictionLevels): Trigger
   const named: [string, number | null | undefined][] = [
     ["entry", levels.entry],
     ["stop", levels.stop],
-    ["target", levels.target],
+    ["target1", levels.target1],
+    ["target2", levels.target2],
   ];
   for (const [name, level] of named) {
     if (level == null) continue;

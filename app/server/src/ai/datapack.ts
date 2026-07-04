@@ -60,6 +60,7 @@ export interface PredictionSummary {
   chartId: string;
   direction: IntradayPrediction["direction"] | null;
   anchor: IntradayPrediction["anchor"] | null;
+  entry: number | null;
   stop: number | null;
   target1: number | null;
   target2: number | null;
@@ -111,6 +112,7 @@ function predictionSummary(doc: ChartDoc | null): PredictionSummary | null {
     chartId: doc.id,
     direction: prediction?.direction ?? null,
     anchor: prediction?.anchor ?? null,
+    entry: plan?.entry ?? null,
     stop: plan?.stop ?? null,
     target1: plan?.target1 ?? null,
     target2: plan?.target2 ?? null,

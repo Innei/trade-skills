@@ -60,9 +60,10 @@ function triggerInputFromPack(pack: CommentPack): TriggerInput {
     macdHist,
     flow,
     levels: {
-      entry: prediction?.anchor?.price ?? null,
+      entry: prediction?.entry ?? null,
       stop: prediction?.stop ?? null,
-      target: prediction?.target1 ?? null,
+      target1: prediction?.target1 ?? null,
+      target2: prediction?.target2 ?? null,
     },
   };
 }
@@ -134,6 +135,8 @@ export function createAiScheduler(deps: SchedulerDeps = defaultSchedulerDeps): A
     ticking = true;
     try {
       await runTick(deps, lastCommentatorRunAt);
+    } catch (err) {
+      console.error("[ai-scheduler] tick failed:", err instanceof Error ? err.message : String(err));
     } finally {
       ticking = false;
     }

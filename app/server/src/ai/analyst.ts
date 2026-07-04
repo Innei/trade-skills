@@ -59,7 +59,7 @@ const entryPlanSchema = Type.Object({
 
 const scenarioSchema = Type.Object({
   label: Type.String(),
-  probability: Type.Number(),
+  probability: Type.Number({ minimum: 0, maximum: 1 }),
   trigger: Type.Optional(Type.String()),
   path: Type.Optional(Type.String()),
 });
@@ -74,7 +74,7 @@ const predictionSchema = Type.Object({
   direction: Type.Union([Type.Literal("long"), Type.Literal("short"), Type.Literal("neutral")]),
   anchor: Type.Optional(anchorSchema),
   entry_plan: entryPlanSchema,
-  scenarios: Type.Array(scenarioSchema, { minItems: 1 }),
+  scenarios: Type.Array(scenarioSchema, { minItems: 3 }),
   range_plan: Type.Optional(rangePlanSchema),
   comment: Type.String({ description: "一句话中文白话结论，写入点评" }),
 });
@@ -134,6 +134,9 @@ const runningAnalysts = new Set<string>();
 const lastEscalationStart = new Map<string, number>();
 
 export function escalationOnCooldown(symbol: string, now: number): boolean {
+  for (const [key, ts] of lastEscalationStart) {
+    if (now - ts >= ESCALATION_COOLDOWN_MS) lastEscalationStart.delete(key);
+  }
   const last = lastEscalationStart.get(symbol);
   return last != null && now - last < ESCALATION_COOLDOWN_MS;
 }

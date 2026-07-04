@@ -64,9 +64,17 @@ describe("detectTriggers level_break", () => {
 
   it("fires when price lands exactly on a level from below", () => {
     const out = detectTriggers(
-      baseInput({ bars: [bar(1, 99, 1000), bar(2, 100, 1000)], levels: { target: 100 } }),
+      baseInput({ bars: [bar(1, 99, 1000), bar(2, 100, 1000)], levels: { target1: 100 } }),
     );
     expect(out.map((t) => t.kind)).toContain("level_break");
+  });
+
+  it("fires when price crosses target2", () => {
+    const out = detectTriggers(
+      baseInput({ bars: [bar(1, 99, 1000), bar(2, 106, 1000)], levels: { target2: 105 } }),
+    );
+    const level = out.find((t) => t.kind === "level_break");
+    expect(level?.detail).toContain("target2");
   });
 
   it("does not fire when price stays below a level", () => {

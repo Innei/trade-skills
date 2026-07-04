@@ -8,7 +8,7 @@ const SOURCE_LABEL: Record<string, string> = { analyst: "分析员", system: "�
 const RUN_TIMEOUT_MS = 10 * 60 * 1000;
 
 function CommentItem({ comment }: { comment: CockpitComment }) {
-  const dim = comment.source !== "commentator" && comment.level === "info";
+  const dim = comment.source === "commentator" && comment.level === "info";
   const meta: React.ReactNode[] = [];
   if (comment.trigger) meta.push(<span key="trigger">触发：{comment.trigger}</span>);
   if (comment.escalated) meta.push(<span key="escalated">已升级重估</span>);

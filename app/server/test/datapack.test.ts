@@ -116,6 +116,7 @@ describe("buildCommentPack", () => {
       chartId: "2026-07-02-mu",
       direction: "long",
       anchor: { timeframe: "m15", time: "2026-07-02T14:00:00Z", price: 100 },
+      entry: 100,
       stop: 96,
       target1: 106,
       target2: 112,
