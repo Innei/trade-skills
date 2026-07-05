@@ -43,7 +43,7 @@ function SettlementTable({ recap }: { recap: OverviewRecap }) {
   return (
     <div className="recap-settlements">
       {recap.settlements.map((s) => (
-        <Card link key={s.symbol} className="recap-row" href={`#/charts/${encodeURIComponent(s.chart_id)}`}>
+        <Card link key={s.symbol} className="recap-row" href={`/charts/${encodeURIComponent(s.chart_id)}`}>
           <span className="sym">{s.symbol.replace(/\.US$/, "")}</span>
           <span className="dir">{s.direction ? DIRECTION_LABEL[s.direction] : "—"}</span>
           {s.day_pct != null ? <Num value={s.day_pct} diff suffix="%" /> : <span>—</span>}

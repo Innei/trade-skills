@@ -36,7 +36,7 @@ export function HistoryTab({ rows, currentId }: HistoryTabProps) {
           key={row.id}
           className="zone-item"
           style={{ "--zc": DIRECTION_COLOR[row.direction ?? ""] ?? theme.textSecondary } as CSSProperties}
-          href={`#/charts/${encodeURIComponent(row.id)}`}
+          href={`/charts/${encodeURIComponent(row.id)}`}
         >
           <div className="zone-head">
             <span className="zone-label plain">

@@ -20,7 +20,7 @@ export function ChartDetail({ id }: { id: string }) {
       <div className="page">
         <ErrorBox>{error}</ErrorBox>
         <p>
-          <a href="#/charts">
+          <a href="/charts">
             <ArrowLeft className="icon" size={13} /> 返回列表
           </a>
         </p>
@@ -39,7 +39,7 @@ export function ChartDetail({ id }: { id: string }) {
   return (
     <div className="fullpage">
       <div className="detail-topbar">
-        <a href="#/charts">
+        <a href="/charts">
           <ArrowLeft className="icon" size={13} /> 列表
         </a>
         <span className="title">{doc.title}</span>
@@ -50,7 +50,7 @@ export function ChartDetail({ id }: { id: string }) {
         <span className="topbar-actions">
           {activeIntradayTf && <IntradayTimeframeSwitch activeTf={activeIntradayTf} onChange={setIntradayTf} />}
           {doc.type === "intraday" && doc.symbol && (
-            <a href={`#/symbol/${encodeURIComponent(doc.symbol)}`}>
+            <a href={`/symbol/${encodeURIComponent(doc.symbol)}`}>
               驾驶舱 <ArrowUpRight className="icon" size={13} />
             </a>
           )}

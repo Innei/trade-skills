@@ -8,7 +8,7 @@ import { predictionStale } from "../services/staleness.js";
 import { allocateId, deleteChart, listCharts, loadChart, saveChart } from "../services/store.js";
 
 function chartUrl(id: string): string {
-  return `${BASE_URL}/#/charts/${encodeURIComponent(id)}`;
+  return `${BASE_URL}/charts/${encodeURIComponent(id)}`;
 }
 
 type Query = Record<string, string | undefined>;

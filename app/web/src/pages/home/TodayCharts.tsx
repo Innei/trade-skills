@@ -13,7 +13,7 @@ export function TodayCharts({ date }: { date: string | null }) {
       <SectionTitle>今日图表</SectionTitle>
       <div className="today-charts-row">
         {today.map((m) => (
-          <Card link className="today-chart-item" key={m.id} href={`#/charts/${encodeURIComponent(m.id)}`}>
+          <Card link className="today-chart-item" key={m.id} href={`/charts/${encodeURIComponent(m.id)}`}>
             <Badge>{m.type}</Badge>
             <span className="title">{m.title}</span>
           </Card>

@@ -12,7 +12,7 @@ description: >
   template, volume profile, divergence/beichi detection) in TypeScript; the
   caller only POSTs `{type, symbol, ...}` to `/api/charts` and gets back
   `{id, url, technicals?}`. Charts persist as data JSON under
-  `journal/charts/data/` and render live at `http://localhost:5199/#/charts/<id>`.
+  `journal/charts/data/` and render live at `http://localhost:5199/charts/<id>`.
   Triggers: 出图、生成图表、画 K 线、画资金流曲线、画对比图、SEPA 仪表盘、
   短线预测、多周期K线、MACD、入场判断可视化、可视化、render chart, plot,
   visualise, sepa dashboard, intraday prediction dashboard.
@@ -79,11 +79,11 @@ The stream endpoints power the web UI's realtime display; the AI workflow never
 needs them — created charts update themselves in the browser while open, and
 the persisted JSON stays frozen at analysis time.
 
-### Symbol cockpit (`/#/symbol/<SYM>`)
+### Symbol cockpit (`/symbol/<SYM>`)
 
-Every symbol also gets a stable dashboard URL, `http://localhost:5199/#/symbol/<SYM>`,
+Every symbol also gets a stable dashboard URL, `http://localhost:5199/symbol/<SYM>`,
 that aggregates live data with the symbol's latest `intraday` analysis — it is
-the caller-facing counterpart of `GET /api/symbols/:sym/*`. `/#/charts/<id>`
+the caller-facing counterpart of `GET /api/symbols/:sym/*`. `/charts/<id>`
 remains the frozen per-analysis archive; the cockpit page is a live view on top
 of the same underlying chart docs, not a replacement. During regular session the cockpit also carries a live AI comment stream and auto-reassessment (commentator + escalated analyst, gated on `AI_COMMENT_MODEL` / `AI_ANALYST_MODEL`) whose output shares the manual `intraday-signal` format. These `/api/symbols/*`
 routes are server plumbing for that page — direct callers rarely need them,

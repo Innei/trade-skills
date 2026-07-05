@@ -88,7 +88,7 @@ export function SymbolCockpit({ sym }: { sym: string }) {
           </>
         )}
         <p>
-          <a href="#/">
+          <a href="/">
             <ArrowLeft className="icon" size={13} /> 返回列表
           </a>
         </p>
@@ -101,7 +101,7 @@ export function SymbolCockpit({ sym }: { sym: string }) {
       <div className="page">
         <ErrorBox>{error}</ErrorBox>
         <p>
-          <a href="#/">
+          <a href="/">
             <ArrowLeft className="icon" size={13} /> 返回列表
           </a>
         </p>
@@ -171,7 +171,7 @@ export function SymbolCockpit({ sym }: { sym: string }) {
   return (
     <div className="fullpage">
       <div className="detail-topbar">
-        <a href="#/">
+        <a href="/">
           <ArrowLeft className="icon" size={13} /> 列表
         </a>
         <span className="title">{doc.title}</span>
@@ -193,7 +193,7 @@ export function SymbolCockpit({ sym }: { sym: string }) {
           )}
           <IntradayTimeframeSwitch activeTf={activeIntradayTf} onChange={setIntradayTf} />
           {latestId && (
-            <a href={`#/charts/${encodeURIComponent(latestId)}`}>
+            <a href={`/charts/${encodeURIComponent(latestId)}`}>
               存档 <ArrowUpRight className="icon" size={13} />
             </a>
           )}

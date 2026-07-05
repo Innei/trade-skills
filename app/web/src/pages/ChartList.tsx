@@ -36,7 +36,7 @@ function groupBy(charts: MetaWithUrl[], key: (m: MetaWithUrl) => string): [strin
 
 function ChartCard({ meta }: { meta: MetaWithUrl }) {
   return (
-    <Card link className="charts-card" href={`#/charts/${encodeURIComponent(meta.id)}`}>
+    <Card link className="charts-card" href={`/charts/${encodeURIComponent(meta.id)}`}>
       <div className="charts-card-head">
         <Badge>{meta.type}</Badge>
         {meta.symbol && <span className="sym">{meta.symbol.replace(/\.US$/, "")}</span>}
@@ -87,7 +87,7 @@ export function ChartList() {
       <h1>图表库</h1>
       <div className="sub">
         图表数据存于 journal/charts/data · 渲染永远是最新版 ·{" "}
-        <a href="#/">
+        <a href="/">
           <ArrowLeft className="icon" size={13} /> 首页
         </a>
       </div>

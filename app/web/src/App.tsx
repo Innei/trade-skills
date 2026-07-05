@@ -3,7 +3,7 @@ import { ChartDetail } from "./pages/ChartDetail";
 import { ChartList } from "./pages/ChartList";
 import { Home } from "./pages/Home";
 import { SymbolCockpit } from "./pages/SymbolCockpit";
-import { navigate, useHashRoute } from "./router";
+import { navigate, useRoute } from "./router";
 
 function RedirectHome() {
   useEffect(() => navigate("/"), []);
@@ -11,7 +11,7 @@ function RedirectHome() {
 }
 
 export function App() {
-  const route = useHashRoute();
+  const route = useRoute();
 
   if (route === "/overview") {
     return <RedirectHome />;
