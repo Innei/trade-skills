@@ -1,6 +1,6 @@
-# trade
+# trade-skills
 
-> 个人美股交易日志，外加一套 Agent Skill（pi / Claude Code 通用）和一个本地图表应用。
+> 个人美股交易研究工作台：交易日志、市场情报 Agent Skill，以及本地实时图表应用。
 
 这是**交易日志仓库**，不是对外发布的软件产品。它做三件事：
 
@@ -149,7 +149,7 @@ cd app && pnpm test        # 金标测试（与原 Python 实现逐数对齐）
 ## 安装
 
 ```bash
-git clone https://github.com/Innei/trade.git ~/git/trade
+git clone https://github.com/Innei/trade-skills.git ~/git/trade
 cd ~/git/trade
 pnpm install   # 会触发 prepare 钩子，自动还原第三方 skill
 ```
