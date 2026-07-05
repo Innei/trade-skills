@@ -3,6 +3,7 @@ import type { ChartMeta, LegacyChart } from "../../../shared/types";
 import { formatMarketClock } from "../../../shared/time";
 import { useQuery } from "../apiHooks";
 import { QuoteBar } from "../QuoteBar";
+import { Badge, Card, Chip, Dot, Empty, ErrorBox, Input, SectionTitle } from "../ui";
 
 interface MetaWithUrl extends ChartMeta {
   url: string;
@@ -34,15 +35,15 @@ function groupBy(charts: MetaWithUrl[], key: (m: MetaWithUrl) => string): [strin
 
 function ChartCard({ meta }: { meta: MetaWithUrl }) {
   return (
-    <a className="chart-card" href={`#/charts/${encodeURIComponent(meta.id)}`}>
-      <div className="chart-card-head">
-        <span className={`badge ${meta.type}`}>{meta.type}</span>
+    <Card link className="charts-card" href={`#/charts/${encodeURIComponent(meta.id)}`}>
+      <div className="charts-card-head">
+        <Badge>{meta.type}</Badge>
         {meta.symbol && <span className="sym">{meta.symbol.replace(/\.US$/, "")}</span>}
-        {meta.prediction_stale && <span className="stale-dot" title="预测已过期" />}
+        {meta.prediction_stale && <Dot tone="accent" title="预测已过期" />}
         <span className="time">{timeOf(meta)}</span>
       </div>
-      <div className="chart-card-title">{meta.title}</div>
-    </a>
+      <div className="charts-card-title">{meta.title}</div>
+    </Card>
   );
 }
 
@@ -88,30 +89,25 @@ export function ChartList() {
       </div>
       <QuoteBar />
       <div className="chartlist-toolbar">
-        <span className={`filter-chip ${type === "" ? "active" : ""}`} onClick={() => setType("")}>
+        <Chip active={type === ""} onClick={() => setType("")}>
           全部
-        </span>
+        </Chip>
         {TYPES.map((t) => (
-          <span key={t} className={`filter-chip ${type === t ? "active" : ""}`} onClick={() => setType(t)}>
+          <Chip key={t} active={type === t} onClick={() => setType(t)}>
             {t}
-          </span>
+          </Chip>
         ))}
-        <input
-          className="quickbar-search"
-          placeholder="按 symbol 过滤，如 MRVL"
-          value={symbol}
-          onChange={(e) => setSymbol(e.target.value)}
-        />
+        <Input placeholder="按 symbol 过滤，如 MRVL" value={symbol} onChange={(e) => setSymbol(e.target.value)} />
         <span className="toolbar-spacer" />
-        <span className={`filter-chip ${view === "date" ? "active" : ""}`} onClick={() => setView("date")}>
+        <Chip active={view === "date"} onClick={() => setView("date")}>
           按日期
-        </span>
-        <span className={`filter-chip ${view === "symbol" ? "active" : ""}`} onClick={() => setView("symbol")}>
+        </Chip>
+        <Chip active={view === "symbol"} onClick={() => setView("symbol")}>
           按标的
-        </span>
+        </Chip>
       </div>
-      {error && <div className="error-box">{error}</div>}
-      {filtered && filtered.length === 0 && <div className="empty">没有匹配的图表 —— 让 Claude 出一张即可出现在这里</div>}
+      {error && <ErrorBox>{error}</ErrorBox>}
+      {filtered && filtered.length === 0 && <Empty>没有匹配的图表 —— 让 Claude 出一张即可出现在这里</Empty>}
       {groups.map(([key, metas]) => (
         <div key={key} className="chart-group">
           <div className="chart-group-head">
@@ -127,14 +123,14 @@ export function ChartList() {
       ))}
       {legacy.length > 0 && (
         <>
-          <div className="section-title" style={{ marginTop: 32, cursor: "pointer" }} onClick={() => setShowLegacy(!showLegacy)}>
+          <SectionTitle className="legacy-toggle" onClick={() => setShowLegacy(!showLegacy)}>
             旧版单文件 HTML 存档（{legacy.length}） {showLegacy ? "▾" : "▸"}
-          </div>
+          </SectionTitle>
           {showLegacy &&
             legacy.map((f) => (
               <a key={f.file} className="chart-row" href={f.url} target="_blank" rel="noreferrer">
                 <span className="date">{f.date}</span>
-                <span className="badge">html</span>
+                <Badge>html</Badge>
                 <span className="title">{f.file}</span>
               </a>
             ))}

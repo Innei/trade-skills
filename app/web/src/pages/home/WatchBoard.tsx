@@ -2,7 +2,8 @@ import { useState } from "react";
 import type { OverviewBoard, OverviewRow } from "../../../../shared/types";
 import { formatMarketClock } from "../../../../shared/time";
 import { api, errorMessage } from "../../api";
-import { fmt, signed, upDown } from "../../format";
+import { fmt, signed } from "../../format";
+import { Badge, Button, Card, Dot, Empty, ErrorBox, Num } from "../../ui";
 
 const DIRECTION_LABEL: Record<string, string> = { long: "做多", short: "做空", neutral: "观望" };
 
@@ -33,41 +34,46 @@ function ReassessButton({ symbol }: { symbol: string }) {
 
   const label =
     state === "running" ? "分析中…" : state === "done" ? "已触发 ✓" : state === "failed" ? "未启动" : "重新分析";
+  const btnState = state === "running" ? "busy" : state === "idle" ? undefined : state;
   return (
-    <button type="button" className={`reassess-btn ${state}`} onClick={run} disabled={state === "running"}>
+    <Button className="reassess-action" state={btnState} onClick={run} disabled={state === "running"}>
       {label}
-    </button>
+    </Button>
   );
 }
 
 function SymbolCard({ row }: { row: OverviewRow }) {
   const comment = row.latest_comment;
   return (
-    <a className="overview-card" href={`#/symbol/${encodeURIComponent(row.symbol)}`}>
-      <div className="overview-card-head">
+    <Card link className="symbol-card" href={`#/symbol/${encodeURIComponent(row.symbol)}`}>
+      <div className="symbol-card-head">
         <span className="sym">{row.symbol}</span>
-        {row.direction && <span className={`dir-badge ${row.direction}`}>{DIRECTION_LABEL[row.direction]}</span>}
+        {row.direction && (
+          <Badge tone={row.direction === "long" ? "up" : row.direction === "short" ? "down" : undefined}>
+            {DIRECTION_LABEL[row.direction]}
+          </Badge>
+        )}
         {row.last != null && (
-          <span className={`quote ${row.pct != null ? upDown(row.pct) : ""}`}>
+          <span className="quote">
             {fmt(row.last)}
-            {row.pct != null && ` ${signed(row.pct)}%`}
+            {row.pct != null && <Num value={row.pct} diff />}
           </span>
         )}
-        {row.prediction_stale && <span className="stale-dot" title="预测已过期" />}
+        {row.prediction_stale && <Dot tone="accent" title="预测已过期" />}
         {row.alert_count > 0 && <span className="ai-unread">{row.alert_count}</span>}
       </div>
-      <div className="overview-card-levels">
+      <div className="symbol-card-levels">
         <span>止损 {pctCell(row.stop_distance_pct)}</span>
         <span>目标1 {pctCell(row.target1_distance_pct)}</span>
         {row.entry != null && <span>入场 {fmt(row.entry)}</span>}
         <ReassessButton symbol={row.symbol} />
       </div>
       {comment && (
-        <div className={`overview-card-comment ${comment.level}`}>
+        <div className={`symbol-card-comment ${comment.level}`}>
           {formatMarketClock(comment.ts)} · {comment.text}
         </div>
       )}
-    </a>
+    </Card>
   );
 }
 
@@ -80,20 +86,24 @@ export function WatchBoard({
   error: string | null;
   compact: boolean;
 }) {
-  if (error) return <div className="error-box">{error}</div>;
+  if (error) return <ErrorBox>{error}</ErrorBox>;
   if (!board) return <div className="note-block">看盘数据加载中…</div>;
   if (board.rows.length === 0) {
-    return <div className="empty">今天还没有 intraday 分析——去 cockpit 或跑一次 intraday-signal</div>;
+    return <Empty>今天还没有 intraday 分析——去 cockpit 或跑一次 intraday-signal</Empty>;
   }
   if (compact) {
     return (
       <div className="watch-strip">
         {board.rows.map((row) => (
-          <a key={row.symbol} className="watch-strip-item" href={`#/symbol/${encodeURIComponent(row.symbol)}`}>
+          <Card link className="watch-strip-cell" key={row.symbol} href={`#/symbol/${encodeURIComponent(row.symbol)}`}>
             <span className="sym">{row.symbol.replace(/\.US$/, "")}</span>
-            {row.direction && <span className={`dir-badge ${row.direction}`}>{DIRECTION_LABEL[row.direction]}</span>}
-            {row.pct != null && <span className={upDown(row.pct)}>{signed(row.pct)}%</span>}
-          </a>
+            {row.direction && (
+              <Badge tone={row.direction === "long" ? "up" : row.direction === "short" ? "down" : undefined}>
+                {DIRECTION_LABEL[row.direction]}
+              </Badge>
+            )}
+            {row.pct != null && <Num value={row.pct} diff />}
+          </Card>
         ))}
       </div>
     );

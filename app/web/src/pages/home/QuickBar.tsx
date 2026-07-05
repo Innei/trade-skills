@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { navigate } from "../../router";
 import { listRecentCharts } from "../../recentCharts";
+import { Chip, Input } from "../../ui";
 
 function normalizeSymbol(raw: string): string | null {
   let sym = raw.trim().toUpperCase();
@@ -22,8 +23,8 @@ export function QuickBar({ shortcuts }: { shortcuts: string[] }) {
 
   return (
     <div className="quickbar">
-      <input
-        className="quickbar-search"
+      <Input
+        className="quickbar-input"
         placeholder="代码直达，如 MRVL"
         value={input}
         onChange={(e) => setInput(e.target.value)}
@@ -32,9 +33,9 @@ export function QuickBar({ shortcuts }: { shortcuts: string[] }) {
         }}
       />
       {shortcuts.map((sym) => (
-        <a key={sym} className="quickbar-chip" href={`#/symbol/${encodeURIComponent(sym)}`}>
+        <Chip key={sym} className="quickbar-shortcut" href={`#/symbol/${encodeURIComponent(sym)}`}>
           {sym.replace(/\.US$/, "")}
-        </a>
+        </Chip>
       ))}
       {recent.length > 0 && (
         <span className="quickbar-recent">
@@ -46,7 +47,7 @@ export function QuickBar({ shortcuts }: { shortcuts: string[] }) {
           ))}
         </span>
       )}
-      <a className="quickbar-all" href="#/charts">
+      <a className="quickbar-all-link" href="#/charts">
         全部图表 →
       </a>
     </div>

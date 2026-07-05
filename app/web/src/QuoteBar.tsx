@@ -2,15 +2,16 @@ import { useState } from "react";
 import type { QuoteCell, QuoteSnapshot } from "../../shared/types";
 import { signed, upDown } from "./format";
 import { useSSE } from "./useSSE";
+import { Badge, Dot } from "./ui";
 
 function Cell({ q }: { q: QuoteCell }) {
   return (
-    <div className="quote-cell">
+    <a className="quote-cell" href={`#/symbol/${encodeURIComponent(q.symbol)}`}>
       <span className="qc-symbol">{q.symbol.replace(/\.US$/, "")}</span>
-      <span className={`qc-price ${upDown(q.pct)}`}>${q.last < 10 ? q.last.toFixed(3) : q.last.toFixed(2)}</span>
-      <span className={`qc-pct ${upDown(q.pct)}`}>{signed(q.pct)}%</span>
-      {q.session !== "日盘" && <span className="qc-session">{q.session}</span>}
-    </div>
+      <span className={`num qc-price ${upDown(q.pct)}`}>${q.last < 10 ? q.last.toFixed(3) : q.last.toFixed(2)}</span>
+      <span className={`num qc-pct ${upDown(q.pct)}`}>{signed(q.pct)}%</span>
+      {q.session !== "日盘" && <Badge className="qc-session">{q.session}</Badge>}
+    </a>
   );
 }
 
@@ -21,7 +22,7 @@ export function QuoteBar() {
 
   return (
     <div className="quote-bar">
-      {degraded && <span className="degraded-dot" title="数据延迟：行情拉取失败，正在重试" />}
+      {degraded && <Dot tone="accent" pulse title="数据延迟：行情拉取失败，正在重试" />}
       {quotes.length === 0 ? (
         <div className="quote-cell quote-placeholder">行情连接中…</div>
       ) : (
@@ -49,9 +50,9 @@ export function TopbarQuote({ symbol }: { symbol: string }) {
 
   return (
     <span className="topbar-quote">
-      <span className={`qc-price ${upDown(q.pct)}`}>${q.last.toFixed(2)}</span>
-      <span className={`qc-pct ${upDown(q.pct)}`}>{signed(q.pct)}%</span>
-      <span className="qc-session">{q.session}</span>
+      <span className={`num qc-price ${upDown(q.pct)}`}>${q.last.toFixed(2)}</span>
+      <span className={`num qc-pct ${upDown(q.pct)}`}>{signed(q.pct)}%</span>
+      <Badge className="qc-session">{q.session}</Badge>
     </span>
   );
 }

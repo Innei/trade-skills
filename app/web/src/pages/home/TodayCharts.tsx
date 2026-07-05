@@ -1,5 +1,6 @@
 import type { ChartMeta } from "../../../../shared/types";
 import { useQuery } from "../../apiHooks";
+import { Badge, Card, SectionTitle } from "../../ui";
 
 export function TodayCharts({ date }: { date: string | null }) {
   const { data: charts } = useQuery<ChartMeta[]>("/api/charts");
@@ -9,13 +10,13 @@ export function TodayCharts({ date }: { date: string | null }) {
 
   return (
     <div className="today-charts">
-      <div className="section-title">今日图表</div>
+      <SectionTitle>今日图表</SectionTitle>
       <div className="today-charts-row">
         {today.map((m) => (
-          <a key={m.id} className="today-chart-chip" href={`#/charts/${encodeURIComponent(m.id)}`}>
-            <span className={`badge ${m.type}`}>{m.type}</span>
+          <Card link className="today-chart-item" key={m.id} href={`#/charts/${encodeURIComponent(m.id)}`}>
+            <Badge>{m.type}</Badge>
             <span className="title">{m.title}</span>
-          </a>
+          </Card>
         ))}
       </div>
     </div>

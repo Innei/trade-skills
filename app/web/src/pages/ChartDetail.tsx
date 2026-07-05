@@ -5,6 +5,7 @@ import { resolveIntradayTf, useIntradayDoc } from "../charts/intraday/useIntrada
 import { SepaDashboard } from "../charts/sepa/SepaDashboard";
 import { TopbarQuote } from "../QuoteBar";
 import { recordRecentChart } from "../recentCharts";
+import { Dot, Empty, ErrorBox } from "../ui";
 
 export function ChartDetail({ id }: { id: string }) {
   const { doc, error, degraded, live, intradayTf, setIntradayTf, loadHistory } = useIntradayDoc(id);
@@ -16,14 +17,19 @@ export function ChartDetail({ id }: { id: string }) {
   if (error) {
     return (
       <div className="page">
-        <div className="error-box">{error}</div>
+        <ErrorBox>{error}</ErrorBox>
         <p>
           <a href="#/charts">← 返回列表</a>
         </p>
       </div>
     );
   }
-  if (!doc) return <div className="page empty">加载中…</div>;
+  if (!doc)
+    return (
+      <div className="page">
+        <Empty>加载中…</Empty>
+      </div>
+    );
 
   const activeIntradayTf = doc.built.kind === "intraday" ? resolveIntradayTf(doc.built, intradayTf) : null;
 
@@ -35,7 +41,7 @@ export function ChartDetail({ id }: { id: string }) {
         <span className="meta">
           {doc.id} · 更新 {doc.updated_at.slice(0, 16).replace("T", " ")}
         </span>
-        {live && degraded && <span className="degraded-dot" title="数据延迟：行情拉取失败，正在重试" />}
+        {live && degraded && <Dot tone="accent" pulse title="数据延迟：行情拉取失败，正在重试" />}
         <span className="topbar-actions">
           {activeIntradayTf && <IntradayTimeframeSwitch activeTf={activeIntradayTf} onChange={setIntradayTf} />}
           {doc.type === "intraday" && doc.symbol && (
@@ -47,7 +53,7 @@ export function ChartDetail({ id }: { id: string }) {
       <div className="detail-body">
         {doc.built.kind === "simple" && <SimpleChartView built={doc.built} />}
         {!["simple", "sepa", "intraday"].includes(doc.built.kind) && (
-          <div className="error-box">该图表格式已不再支持，请重新生成（旧格式重建失败）</div>
+          <ErrorBox>该图表格式已不再支持，请重新生成（旧格式重建失败）</ErrorBox>
         )}
         {doc.built.kind === "sepa" && <SepaDashboard built={doc.built} />}
         {doc.built.kind === "intraday" && activeIntradayTf && (

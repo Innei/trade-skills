@@ -1,5 +1,6 @@
 import type { OverviewBoard, PortfolioSummary } from "../../../shared/types";
 import { QuoteBar } from "../QuoteBar";
+import { Badge, ErrorBox, SectionTitle } from "../ui";
 import { useIntervalFetch } from "./cockpit/useIntervalFetch";
 import { PositionsCard } from "./home/PositionsCard";
 import { QuickBar } from "./home/QuickBar";
@@ -20,20 +21,18 @@ export function Home() {
 
   return (
     <div className="page home-page">
-      <h1>
-        盘面 {session && <span className="session-tag">{SESSION_LABEL[session] ?? session}</span>}
-      </h1>
+      <h1>盘面 {session && <Badge className="session-tag">{SESSION_LABEL[session] ?? session}</Badge>}</h1>
       <div className="sub">{board?.date ?? ""} · 盘中看盘、盘后复盘，随时段自动切换</div>
       <QuoteBar />
       <QuickBar shortcuts={shortcuts} />
       {!board && !boardError && <div className="note-block">盘面加载中…</div>}
-      {boardError && !board && <div className="error-box">{boardError}</div>}
+      {boardError && !board && <ErrorBox>{boardError}</ErrorBox>}
       {board && (
       <div className="home-grid">
         <div className="home-main">
           {trading ? (
             <>
-              <div className="section-title">看盘</div>
+              <SectionTitle>看盘</SectionTitle>
               <WatchBoard board={board} error={boardError} compact={false} />
               <TodayCharts date={board?.date ?? null} />
             </>
@@ -46,15 +45,15 @@ export function Home() {
         <div className="home-side">
           {trading ? (
             <>
-              <div className="section-title">持仓</div>
+              <SectionTitle>持仓</SectionTitle>
               <PositionsCard portfolio={portfolio} error={portfolioError} watching={watching} />
               <RecapBoard defaultExpanded={false} />
             </>
           ) : (
             <>
-              <div className="section-title">看盘（定格）</div>
+              <SectionTitle>看盘（定格）</SectionTitle>
               <WatchBoard board={board} error={boardError} compact />
-              <div className="section-title">持仓</div>
+              <SectionTitle>持仓</SectionTitle>
               <PositionsCard portfolio={portfolio} error={portfolioError} watching={watching} />
               <TodayCharts date={board?.date ?? null} />
             </>

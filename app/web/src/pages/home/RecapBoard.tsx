@@ -1,7 +1,8 @@
 import { useState } from "react";
 import type { OverviewRecap, PredictionStats, StatsBucket } from "../../../../shared/types";
 import { formatMarketClock } from "../../../../shared/time";
-import { signed, upDown } from "../../format";
+import { signed } from "../../format";
+import { Badge, Card, ErrorBox, Num, SectionTitle } from "../../ui";
 import { useIntervalFetch } from "../cockpit/useIntervalFetch";
 
 const DIRECTION_LABEL: Record<string, string> = { long: "做多", short: "做空", neutral: "观望" };
@@ -41,18 +42,22 @@ function SettlementTable({ recap }: { recap: OverviewRecap }) {
   return (
     <div className="recap-settlements">
       {recap.settlements.map((s) => (
-        <a key={s.symbol} className="recap-settle-row" href={`#/charts/${encodeURIComponent(s.chart_id)}`}>
+        <Card link key={s.symbol} className="recap-row" href={`#/charts/${encodeURIComponent(s.chart_id)}`}>
           <span className="sym">{s.symbol.replace(/\.US$/, "")}</span>
           <span className="dir">{s.direction ? DIRECTION_LABEL[s.direction] : "—"}</span>
-          <span className={s.day_pct != null ? upDown(s.day_pct) : ""}>
-            {s.day_pct != null ? `${signed(s.day_pct)}%` : "—"}
-          </span>
+          {s.day_pct != null ? <Num value={s.day_pct} diff /> : <span>—</span>}
           {s.outcome ? (
-            <span className={`outcome-badge ${s.outcome.status}`}>{OUTCOME_LABEL[s.outcome.status]}</span>
+            <Badge
+              tone={
+                s.outcome.status === "hit_target" ? "up" : s.outcome.status === "hit_stop" ? "down" : undefined
+              }
+            >
+              {OUTCOME_LABEL[s.outcome.status]}
+            </Badge>
           ) : (
-            <span className="outcome-badge">无法判定</span>
+            <Badge>无法判定</Badge>
           )}
-        </a>
+        </Card>
       ))}
     </div>
   );
@@ -70,7 +75,7 @@ function AiActivity({ recap }: { recap: OverviewRecap }) {
           <span className="text">{a.text}</span>
         </div>
       ))}
-      <div className="stats-line" style={{ marginTop: 8 }}>
+      <div className="stats-line stats-line--spaced">
         <span className="k">今日 AI 花费</span>
         <span className="v">
           {usage.runs === 0
@@ -89,23 +94,19 @@ export function RecapBoard({ defaultExpanded }: { defaultExpanded: boolean }) {
 
   return (
     <div className="recap-board">
-      <div className="section-title recap-toggle" onClick={() => setExpanded(!expanded)}>
+      <SectionTitle className="recap-toggle" onClick={() => setExpanded(!expanded)}>
         今日复盘 {expanded ? "▾" : "▸"}
-      </div>
+      </SectionTitle>
       {expanded && (
         <>
-          {error && <div className="error-box">{error}</div>}
+          {error && <ErrorBox>{error}</ErrorBox>}
           {!recap && !error && <div className="note-block">复盘加载中…</div>}
           {recap && (
             <>
               <SettlementTable recap={recap} />
-              <div className="section-title" style={{ marginTop: 16 }}>
-                预测战绩（全部历史）
-              </div>
+              <SectionTitle className="recap-subhead">预测战绩（全部历史）</SectionTitle>
               <StatsBlock stats={stats} />
-              <div className="section-title" style={{ marginTop: 16 }}>
-                AI 活动
-              </div>
+              <SectionTitle className="recap-subhead">AI 活动</SectionTitle>
               <AiActivity recap={recap} />
             </>
           )}

@@ -1,5 +1,6 @@
 import type { PortfolioSummary } from "../../../../shared/types";
 import { fmt, signed, upDown } from "../../format";
+import { Card, Dot, ErrorBox } from "../../ui";
 
 function signedMoney(value: number): string {
   const sign = value < 0 ? "−" : "+";
@@ -15,11 +16,11 @@ export function PositionsCard({
   error: string | null;
   watching: Set<string>;
 }) {
-  if (error) return <div className="error-box">持仓拉取失败：{error}</div>;
+  if (error) return <ErrorBox>持仓拉取失败：{error}</ErrorBox>;
   if (!portfolio) return <div className="note-block">持仓加载中…</div>;
 
   return (
-    <div className="positions-card">
+    <Card className="positions-card">
       <div className="positions-summary">
         <span>
           今日 <b className={upDown(portfolio.today_pl)}>{signedMoney(portfolio.today_pl)}</b>
@@ -37,7 +38,7 @@ export function PositionsCard({
       {portfolio.positions.map((p) => (
         <div key={p.symbol} className="positions-row">
           <span className="sym">
-            {watching.has(p.symbol) && <span className="watch-dot" title="今日跟踪中" />}
+            {watching.has(p.symbol) && <Dot title="今日跟踪中" />}
             {p.symbol.replace(/\.US$/, "")}
           </span>
           <span className="detail">
@@ -47,6 +48,6 @@ export function PositionsCard({
           <span className={upDown(p.pnl_pct)}>{signed(p.pnl_pct)}%</span>
         </div>
       ))}
-    </div>
+    </Card>
   );
 }
