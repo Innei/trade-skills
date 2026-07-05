@@ -11,6 +11,37 @@
 > [!NOTE]
 > 这套工具针对**美股**。Skill 内置的 cohort、宏观系列、新闻流都默认美股口径。
 
+## 界面预览
+
+图表应用（`app/`）本地跑在 `http://localhost:5199`。下面几张图分别是它的四类图表、个股驾驶舱和图表库——数据全部服务端实算，页面打开时走 SSE 实时刷新。
+
+**个股驾驶舱**：一屏看完一只票——左侧多周期 K 线叠加均线 / MACD / K 线形态标注，右侧页签在预测、资金流、消息、持仓&环境、AI 点评之间切换。
+
+![个股驾驶舱](https://github.com/Innei/trade-skills/releases/download/web-preview/cockpit.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="https://github.com/Innei/trade-skills/releases/download/web-preview/chart-sepa.png" alt="SEPA 策略仪表盘"></td>
+    <td width="50%"><img src="https://github.com/Innei/trade-skills/releases/download/web-preview/chart-intraday.png" alt="短线多周期预测面板"></td>
+  </tr>
+  <tr>
+    <td><b>SEPA 策略仪表盘</b>——Minervini 趋势模板逐条打钩，长期均线值区、成交密集区、RS 相对强弱、量能比一屏呈现。</td>
+    <td><b>短线多周期预测面板</b>——5m/15m/1h 切换，入场 / 止损 / 目标价位线，MACD 背离与 K 线形态自动标注，右栏给三档情景推演。</td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="https://github.com/Innei/trade-skills/releases/download/web-preview/chart-flow.png" alt="主力资金流曲线"></td>
+    <td width="50%"><img src="https://github.com/Innei/trade-skills/releases/download/web-preview/chart-cohort.png" alt="跨标的资金净额对比"></td>
+  </tr>
+  <tr>
+    <td><b>主力资金流曲线</b>——日内累计主力净流入，正负分区着色。</td>
+    <td><b>跨标的资金净额对比</b>——一组标的的资金净额横向对比，看板块内谁在流入流出。</td>
+  </tr>
+</table>
+
+**图表库**：所有出过的图按日期归档，可按类型（sepa / intraday / flow / cohort）筛选；数据存在 `journal/charts/data/`，渲染永远用最新前端代码。
+
+![图表库](https://github.com/Innei/trade-skills/releases/download/web-preview/chart-list.png)
+
 ## 三层结构
 
 仓库按层分工，每一层只做一件事。
