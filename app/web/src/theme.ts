@@ -13,4 +13,4 @@ export const theme = {
   fontMono: "ui-monospace, 'SF Mono', Menlo, monospace",
 } as const;
 
-export const seriesPalette = ["#ffb000", "#4fc3f7", "#ffee58", "#66bb6a", "#ff8a65"] as const;
+export const seriesPalette = [theme.accent, theme.textPrimary, theme.up, theme.down, theme.textSecondary] as const;

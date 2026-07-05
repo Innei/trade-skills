@@ -25,7 +25,7 @@ export function SepaDashboard({ built }: { built: SepaBuilt }) {
               MA50 ${fmt(kv.ma50)}
             </span>
             <span>
-              <span className="swatch" style={{ background: seriesPalette[3] }} />
+              <span className="swatch" style={{ background: seriesPalette[4] }} />
               MA150 ${fmt(kv.ma150)}
             </span>
             <span>

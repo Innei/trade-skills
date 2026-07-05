@@ -49,7 +49,7 @@ export function useSepaCharts(
 
     const lineOpts = { lineWidth: 2, priceLineVisible: false, lastValueVisible: false } as const;
     const ma50 = main.addLineSeries({ color: seriesPalette[0], ...lineOpts });
-    const ma150 = main.addLineSeries({ color: seriesPalette[3], ...lineOpts });
+    const ma150 = main.addLineSeries({ color: seriesPalette[4], ...lineOpts });
     const ma200 = main.addLineSeries({ color: seriesPalette[1], ...lineOpts });
     ma50.setData(toLineData(chart.ma50));
     ma150.setData(toLineData(chart.ma150));
@@ -217,7 +217,7 @@ export function useSepaCharts(
         title: "均线",
         items: [
           { key: "ma50", label: "MA50", color: seriesPalette[0], toggle: (v) => ma50.applyOptions({ visible: v }) },
-          { key: "ma150", label: "MA150", color: seriesPalette[3], toggle: (v) => ma150.applyOptions({ visible: v }) },
+          { key: "ma150", label: "MA150", color: seriesPalette[4], toggle: (v) => ma150.applyOptions({ visible: v }) },
           { key: "ma200", label: "MA200", color: seriesPalette[1], toggle: (v) => ma200.applyOptions({ visible: v }) },
         ],
       },

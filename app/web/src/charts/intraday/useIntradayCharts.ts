@@ -21,7 +21,7 @@ import {
 import type { IndicatorToggleKey } from "./useIndicatorToggles";
 import { seriesPalette, theme } from "../../theme";
 
-export const EMA_COLORS = seriesPalette;
+export const EMA_COLORS = [theme.accent, theme.textPrimary, theme.textSecondary, theme.up, theme.down] as const;
 
 interface Handle {
   main: IChartApi;
