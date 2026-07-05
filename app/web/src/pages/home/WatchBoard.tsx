@@ -56,7 +56,7 @@ function SymbolCard({ row }: { row: OverviewRow }) {
         {row.last != null && (
           <span className="quote">
             {fmt(row.last)}
-            {row.pct != null && <Num value={row.pct} diff />}
+            {row.pct != null && <Num value={row.pct} diff suffix="%" />}
           </span>
         )}
         {row.prediction_stale && <Dot tone="accent" title="预测已过期" />}
@@ -102,7 +102,7 @@ export function WatchBoard({
                 {DIRECTION_LABEL[row.direction]}
               </Badge>
             )}
-            {row.pct != null && <Num value={row.pct} diff />}
+            {row.pct != null && <Num value={row.pct} diff suffix="%" />}
           </Card>
         ))}
       </div>

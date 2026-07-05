@@ -45,7 +45,7 @@ function SettlementTable({ recap }: { recap: OverviewRecap }) {
         <Card link key={s.symbol} className="recap-row" href={`#/charts/${encodeURIComponent(s.chart_id)}`}>
           <span className="sym">{s.symbol.replace(/\.US$/, "")}</span>
           <span className="dir">{s.direction ? DIRECTION_LABEL[s.direction] : "—"}</span>
-          {s.day_pct != null ? <Num value={s.day_pct} diff /> : <span>—</span>}
+          {s.day_pct != null ? <Num value={s.day_pct} diff suffix="%" /> : <span>—</span>}
           {s.outcome ? (
             <Badge
               tone={
