@@ -23,6 +23,8 @@
 }
 
 .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.up { color: var(--up); }
+.down { color: var(--down); }
 
 .card {
   background: var(--bg-surface);
@@ -210,8 +212,15 @@ a:hover { color: var(--accent); }
 .chart-row .sym { font-size: 12px; color: #949494; }
 .chart-row .stale-dot { width: 7px; height: 7px; border-radius: 50%; background: #ffc107; flex-shrink: 0; }
 
-.empty { padding: 40px 0; text-align: center; color: #777777; font-size: 13px; }
-.error-box { padding: 14px; background: #2d1516; border: 1px solid #f85149; color: #ffa198; font-size: 13px; }
+.empty { padding: 40px 0; text-align: center; color: var(--text-muted); font-size: var(--fs-md); }
+.error-box {
+  padding: 14px;
+  background: var(--bg-surface);
+  border: 1px solid var(--down);
+  color: var(--down);
+  border-radius: var(--radius);
+  font-size: var(--fs-md);
+}
 
 .detail-topbar {
   display: flex; align-items: center; gap: 12px;
