@@ -15,6 +15,7 @@ import { EnvTab } from "./cockpit/EnvTab";
 import { FlowTab } from "./cockpit/FlowTab";
 import { GenerateAnalysis } from "./cockpit/GenerateAnalysis";
 import { HistoryTab } from "./cockpit/HistoryTab";
+import { NoteTab } from "./cockpit/NoteTab";
 import { useCockpitComments } from "./cockpit/useCockpitComments";
 import { useIntervalFetch } from "./cockpit/useIntervalFetch";
 
@@ -156,6 +157,11 @@ export function SymbolCockpit({ sym }: { sym: string }) {
       label: "历史",
       hidden: analysesRows.length === 0,
       content: <HistoryTab rows={analysesRows} currentId={latestId} />,
+    },
+    {
+      key: "note",
+      label: "研究笔记",
+      content: <NoteTab symbol={sym} />,
     },
     {
       key: "ai",
