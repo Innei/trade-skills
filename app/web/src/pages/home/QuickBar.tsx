@@ -34,7 +34,7 @@ export function QuickBar({ shortcuts }: { shortcuts: string[] }) {
         }}
       />
       {shortcuts.map((sym) => (
-        <Chip key={sym} className="quickbar-shortcut" href={`#/symbol/${encodeURIComponent(sym)}`}>
+        <Chip key={sym} className="quickbar-shortcut" href={`/symbol/${encodeURIComponent(sym)}`}>
           {sym.replace(/\.US$/, "")}
         </Chip>
       ))}
@@ -42,13 +42,13 @@ export function QuickBar({ shortcuts }: { shortcuts: string[] }) {
         <span className="quickbar-recent">
           最近：
           {recent.map((c) => (
-            <a key={c.id} href={`#/charts/${encodeURIComponent(c.id)}`} title={c.title}>
+            <a key={c.id} href={`/charts/${encodeURIComponent(c.id)}`} title={c.title}>
               {c.title.length > 14 ? `${c.title.slice(0, 14)}…` : c.title}
             </a>
           ))}
         </span>
       )}
-      <a className="quickbar-all-link" href="#/charts">
+      <a className="quickbar-all-link" href="/charts">
         全部图表 <ArrowRight className="icon" size={13} />
       </a>
     </div>

@@ -22,7 +22,7 @@ function CommentItem({ comment }: { comment: CockpitComment }) {
   if (comment.escalated) meta.push(<span key="escalated">已升级重估</span>);
   if (comment.chartId)
     meta.push(
-      <a key="chart" href={`#/charts/${encodeURIComponent(comment.chartId)}`}>
+      <a key="chart" href={`/charts/${encodeURIComponent(comment.chartId)}`}>
         查看图表
       </a>,
     );

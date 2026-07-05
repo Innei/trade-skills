@@ -6,7 +6,7 @@ import { Badge, Dot } from "./ui";
 
 function Cell({ q }: { q: QuoteCell }) {
   return (
-    <a className="quote-cell" href={`#/symbol/${encodeURIComponent(q.symbol)}`}>
+    <a className="quote-cell" href={`/symbol/${encodeURIComponent(q.symbol)}`}>
       <span className="qc-symbol">{q.symbol.replace(/\.US$/, "")}</span>
       <span className={`num qc-price ${upDown(q.pct)}`}>${q.last < 10 ? q.last.toFixed(3) : q.last.toFixed(2)}</span>
       <span className={`num qc-pct ${upDown(q.pct)}`}>{signed(q.pct)}%</span>

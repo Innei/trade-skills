@@ -170,7 +170,7 @@ async function defaultCreateChart(body: Record<string, unknown>): Promise<{ id: 
     built: result.built,
   };
   await saveChart(doc);
-  return { id, url: `${BASE_URL}/#/charts/${encodeURIComponent(id)}` };
+  return { id, url: `${BASE_URL}/charts/${encodeURIComponent(id)}` };
 }
 
 interface RunState {

@@ -28,7 +28,7 @@ const OUTCOME_BARS = 300;
 const RECAP_TTL_MS = 60_000;
 
 function chartUrl(id: string): string {
-  return `${BASE_URL}/#/charts/${encodeURIComponent(id)}`;
+  return `${BASE_URL}/charts/${encodeURIComponent(id)}`;
 }
 
 function latestPerSymbol(metas: ChartMeta[]): Map<string, ChartMeta> {

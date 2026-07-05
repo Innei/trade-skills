@@ -33,7 +33,7 @@ export function normalizeSymbol(raw: string): string {
 }
 
 function chartUrl(id: string): string {
-  return `${BASE_URL}/#/charts/${encodeURIComponent(id)}`;
+  return `${BASE_URL}/charts/${encodeURIComponent(id)}`;
 }
 
 async function latestIntradayDoc(sym: string): Promise<ChartDoc | null> {
