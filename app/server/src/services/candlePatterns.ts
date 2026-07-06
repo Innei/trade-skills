@@ -5,15 +5,14 @@ const TREND_LOOKBACK = 4;
 const MIN_BODY_RATIO = 0.8;
 const STAR_BODY_RATIO = 0.5;
 const STAR_TOLERANCE_RATIO = 0.25;
-const SHADOW_BODY_RATIO = 2;
-const SMALL_SHADOW_RATIO = 0.3;
 const HARAMI_BODY_RATIO = 0.6;
 const TREND_MIN_BODY_RATIO = 1;
 const TREND_MIN_DIRECTIONAL_STEPS = 2;
 const CLOSE_NEAR_EXTREME_BODY_RATIO = 0.5;
-const PIN_BAR_EXTREME_LOOKBACK = 5;
-const PIN_BAR_MIN_RANGE_RATIO = 1;
-const AVG_RANGE_WINDOW = 14;
+const PIN_BAR_EXTREME_LOOKBACK = 3;
+const LONG_SHADOW_RANGE_RATIO = 0.6;
+const SMALL_BODY_RANGE_RATIO = 0.3;
+const SMALL_SHADOW_RANGE_RATIO = 0.15;
 
 export const CANDLE_PATTERN_META: Record<
   CandlePatternKind,
@@ -154,32 +153,24 @@ export function detectCandlePatterns(
     return count ? sum / count : 0;
   };
 
-  const avgRange = (i: number) => {
-    const from = Math.max(0, i - AVG_RANGE_WINDOW);
-    let sum = 0;
-    let count = 0;
-    for (let j = from; j < i; j++) {
-      if (!validBar(j)) continue;
-      sum += range(j);
-      count += 1;
-    }
-    return count ? sum / count : 0;
-  };
-
   const isLocalLow = (i: number) => {
     if (i < PIN_BAR_EXTREME_LOOKBACK) return false;
+    let minPrevLow = Infinity;
     for (let j = i - PIN_BAR_EXTREME_LOOKBACK; j < i; j++) {
-      if (!validBar(j) || lows[j] <= lows[i]) return false;
+      if (!validBar(j)) return false;
+      minPrevLow = Math.min(minPrevLow, lows[j]);
     }
-    return true;
+    return lows[i] <= minPrevLow;
   };
 
   const isLocalHigh = (i: number) => {
     if (i < PIN_BAR_EXTREME_LOOKBACK) return false;
+    let maxPrevHigh = -Infinity;
     for (let j = i - PIN_BAR_EXTREME_LOOKBACK; j < i; j++) {
-      if (!validBar(j) || highs[j] >= highs[i]) return false;
+      if (!validBar(j)) return false;
+      maxPrevHigh = Math.max(maxPrevHigh, highs[j]);
     }
-    return true;
+    return highs[i] >= maxPrevHigh;
   };
 
   const trendInto = (s: number, direction: "down" | "up") => {
@@ -371,20 +362,23 @@ export function detectCandlePatterns(
     if (!validBar(i)) continue;
     const r = range(i);
     const b = body(i);
-    if (r <= 0 || b <= 0) continue;
-    const longLower = lowerShadow(i) >= SHADOW_BODY_RATIO * b && upperShadow(i) <= SMALL_SHADOW_RATIO * b;
-    const longUpper = upperShadow(i) >= SHADOW_BODY_RATIO * b && lowerShadow(i) <= SMALL_SHADOW_RATIO * b;
+    if (r <= 0) continue;
+    const longLower =
+      lowerShadow(i) >= LONG_SHADOW_RANGE_RATIO * r &&
+      b <= SMALL_BODY_RANGE_RATIO * r &&
+      upperShadow(i) <= SMALL_SHADOW_RANGE_RATIO * r;
+    const longUpper =
+      upperShadow(i) >= LONG_SHADOW_RANGE_RATIO * r &&
+      b <= SMALL_BODY_RANGE_RATIO * r &&
+      lowerShadow(i) <= SMALL_SHADOW_RANGE_RATIO * r;
     if (!longLower && !longUpper) continue;
-    if (b > 0.35 * r) continue;
 
     if (longLower && downtrendInto(i)) push("hammer", i, lows[i]);
     else if (longLower && uptrendInto(i)) push("hanging_man", i, highs[i]);
     else if (longUpper && downtrendInto(i)) push("inverted_hammer", i, lows[i]);
     else if (longUpper && uptrendInto(i)) push("shooting_star", i, highs[i]);
-    else if (r >= PIN_BAR_MIN_RANGE_RATIO * avgRange(i) && avgRange(i) > 0) {
-      if (longLower && isLocalLow(i)) push("pin_bar_lower", i, lows[i]);
-      else if (longUpper && isLocalHigh(i)) push("pin_bar_upper", i, highs[i]);
-    }
+    else if (longLower && isLocalLow(i)) push("pin_bar_lower", i, lows[i]);
+    else if (longUpper && isLocalHigh(i)) push("pin_bar_upper", i, highs[i]);
   }
 
   return out.sort((a, b) => a.time - b.time);
