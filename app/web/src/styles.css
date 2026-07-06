@@ -469,8 +469,37 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 
 .ai-reassess { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .ai-hint { font-size: var(--fs-sm); color: var(--text-secondary); }
-.ai-date-select { margin-left: auto; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; font-size: var(--fs-sm); padding: 3px 6px; }
-.analysis-timeline-select { margin-left: 0; }
+.ai-date-select { margin-left: auto; }
+
+.ui-select-trigger {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 26px; box-sizing: border-box; padding: 0 7px;
+  background: var(--bg-canvas); color: var(--text-secondary);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: var(--fs-sm); font-variant-numeric: tabular-nums;
+  cursor: pointer; white-space: nowrap;
+}
+.ui-select-trigger:hover { color: var(--text-primary); background: var(--bg-hover); }
+.ui-select-trigger:focus-visible { outline: 1px solid var(--accent); outline-offset: 1px; }
+.ui-select-trigger[data-popup-open] { color: var(--text-primary); background: var(--bg-hover); }
+.ui-select-icon { display: inline-flex; color: var(--text-secondary); }
+.ui-select-positioner { z-index: 60; }
+.ui-select-popup {
+  min-width: var(--anchor-width);
+  background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.35);
+  padding: 3px; max-height: min(320px, var(--available-height));
+  overflow-y: auto;
+}
+.ui-select-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 4px 8px; border-radius: var(--radius);
+  font-size: var(--fs-sm); font-variant-numeric: tabular-nums;
+  color: var(--text-secondary); cursor: pointer; white-space: nowrap;
+}
+.ui-select-item[data-highlighted] { color: var(--text-primary); background: var(--bg-hover); }
+.ui-select-item[data-selected] { color: var(--text-primary); }
+.ui-select-item-check { display: inline-flex; color: var(--accent); }
 
 .journal-section { margin-top: 18px; }
 .journal-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }

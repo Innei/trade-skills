@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CockpitComment } from "../../../../shared/types";
 import { marketDate } from "../../../../shared/time";
 import { useQuery } from "../../apiHooks";
-import { Badge, Button, MarketTime, Spinner } from "../../ui";
+import { Badge, Button, MarketTime, Select, Spinner } from "../../ui";
 import { buildFeed, type FeedRow } from "./aiFeed";
 import { symbolUrl } from "./analysisMode";
 import { useReassessSymbol } from "./useReassessSymbol";
@@ -149,18 +149,12 @@ export function AiTab({
           </Button>
           {hint && <span className="ai-hint">{hint}</span>}
           {pastDates.length > 0 && (
-            <select
+            <Select
               className="ai-date-select"
               value={selectedDate ?? "today"}
-              onChange={(e) => setSelectedDate(e.target.value === "today" ? null : e.target.value)}
-            >
-              <option value="today">今天</option>
-              {pastDates.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
+              options={[{ value: "today", label: "今天" }, ...pastDates.map((d) => ({ value: d, label: d }))]}
+              onChange={(v) => setSelectedDate(v === "today" ? null : v)}
+            />
           )}
         </div>
       )}
