@@ -4,6 +4,7 @@ import { marketDate } from "../../../../shared/time";
 import { useQuery } from "../../apiHooks";
 import { Badge, Button, MarketTime, Spinner } from "../../ui";
 import { buildFeed, type FeedRow } from "./aiFeed";
+import { symbolUrl } from "./analysisMode";
 import { useReassessSymbol } from "./useReassessSymbol";
 
 const LEVEL_LABEL: Record<string, string> = { info: "info", warn: "warn", alert: "alert", error: "error" };
@@ -16,14 +17,14 @@ const LEVEL_TONE: Record<string, "up" | "down" | "accent" | "solid" | undefined>
 const SOURCE_LABEL: Record<string, string> = { analyst: "分析员", system: "系统" };
 const RUN_TIMEOUT_MS = 10 * 60 * 1000;
 
-function CommentItem({ comment }: { comment: CockpitComment }) {
+function CommentItem({ symbol, comment }: { symbol: string; comment: CockpitComment }) {
   const dim = comment.source === "commentator" && comment.level === "info";
   const meta: React.ReactNode[] = [];
   if (comment.trigger) meta.push(<span key="trigger">触发：{comment.trigger}</span>);
   if (comment.escalated) meta.push(<span key="escalated">已升级重估</span>);
   if (comment.chartId)
     meta.push(
-      <a key="chart" href={`/charts/${encodeURIComponent(comment.chartId)}`}>
+      <a key="chart" href={symbolUrl(symbol, comment.chartId)}>
         查看图表
       </a>,
     );
@@ -172,7 +173,7 @@ export function AiTab({
 
   function renderRow(row: FeedRow) {
     if (row.kind === "comment") {
-      return <CommentItem key={`${row.comment.ts}-${row.comment.text}`} comment={row.comment} />;
+      return <CommentItem key={`${row.comment.ts}-${row.comment.text}`} symbol={symbol} comment={row.comment} />;
     }
     if (!expanded.has(row.id)) {
       return (
@@ -187,7 +188,7 @@ export function AiTab({
           <MarketTime value={row.from} format="clock" /> – <MarketTime value={row.to} format="clock" /> 无事 ×{row.count}（收起）
         </div>
         {[...row.comments].reverse().map((c) => (
-          <CommentItem key={`${c.ts}-${c.text}`} comment={c} />
+          <CommentItem key={`${c.ts}-${c.text}`} symbol={symbol} comment={c} />
         ))}
       </div>
     );

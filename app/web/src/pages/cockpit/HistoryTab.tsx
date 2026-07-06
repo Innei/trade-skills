@@ -3,6 +3,7 @@ import { Check, CircleX, Clock, NotebookText } from "lucide-react";
 import type { OutcomeStatus, SymbolAnalysisRow } from "../../../../shared/types";
 import { marketDate } from "../../../../shared/time";
 import { fmt, signed } from "../../format";
+import { symbolUrl } from "./analysisMode";
 import { DIRECTION_COLOR, DIRECTION_LABEL } from "../../charts/intraday/directionLabels";
 import { theme } from "../../theme";
 import { Badge, MarketTime, SectionTitle } from "../../ui";
@@ -23,13 +24,14 @@ function OutcomeText({ status }: { status: OutcomeStatus }) {
 }
 
 interface HistoryTabProps {
+  symbol: string;
   rows: SymbolAnalysisRow[];
   currentId: string | null;
   journalByDate?: Map<string, string>;
   onOpenJournal?: (name: string) => void;
 }
 
-export function HistoryTab({ rows, currentId, journalByDate, onOpenJournal }: HistoryTabProps) {
+export function HistoryTab({ symbol, rows, currentId, journalByDate, onOpenJournal }: HistoryTabProps) {
   const journalFor = (row: SymbolAnalysisRow): string | undefined =>
     journalByDate?.get(marketDate(row.created_at));
   return (
@@ -40,7 +42,7 @@ export function HistoryTab({ rows, currentId, journalByDate, onOpenJournal }: Hi
           key={row.id}
           className="zone-item"
           style={{ "--zc": DIRECTION_COLOR[row.direction ?? ""] ?? theme.textSecondary } as CSSProperties}
-          href={`/charts/${encodeURIComponent(row.id)}`}
+          href={symbolUrl(symbol, row.id)}
         >
           <div className="zone-head">
             <span className="zone-label plain">

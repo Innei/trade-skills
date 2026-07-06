@@ -1,12 +1,11 @@
+import { symbolAnalysisPath } from "../../../../shared/chartUrl";
+
 export function sameSymbol(a: string, b: string): boolean {
   const norm = (s: string) => s.trim().toUpperCase().replace(/\.US$/, "");
   return norm(a) === norm(b);
 }
 
-export function symbolUrl(sym: string, analysisId: string | null): string {
-  const base = `/symbol/${encodeURIComponent(sym)}`;
-  return analysisId ? `${base}?analysis=${encodeURIComponent(analysisId)}` : base;
-}
+export const symbolUrl = symbolAnalysisPath;
 
 export interface AnalysisFeedState {
   latestId: string | null;

@@ -53,7 +53,13 @@ export function ReviewTab({
         (rows.length === 0 ? (
           <p className="note-block">还没有历史分析</p>
         ) : (
-          <HistoryTab rows={rows} currentId={currentId} journalByDate={journalByDate} onOpenJournal={openJournal} />
+          <HistoryTab
+            symbol={symbol}
+            rows={rows}
+            currentId={currentId}
+            journalByDate={journalByDate}
+            onOpenJournal={openJournal}
+          />
         ))}
       {section === "journal" && (
         <JournalSection symbol={symbol} entries={journal} selected={selectedJournal} onSelect={onSelectJournal} />

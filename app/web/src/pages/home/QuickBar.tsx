@@ -1,7 +1,6 @@
 import { useState } from "react";
-import { ArrowRight } from "lucide-react";
 import { navigate } from "../../router";
-import { listRecentCharts } from "../../recentCharts";
+import { listRecentSymbols } from "../../recentCharts";
 import { Chip, Input } from "../../ui";
 
 function normalizeSymbol(raw: string): string | null {
@@ -13,7 +12,8 @@ function normalizeSymbol(raw: string): string | null {
 
 export function QuickBar({ shortcuts }: { shortcuts: string[] }) {
   const [input, setInput] = useState("");
-  const recent = listRecentCharts();
+  const shortcutSet = new Set(shortcuts);
+  const recent = listRecentSymbols().filter((s) => !shortcutSet.has(s.symbol));
 
   const go = () => {
     const sym = normalizeSymbol(input);
@@ -41,16 +41,13 @@ export function QuickBar({ shortcuts }: { shortcuts: string[] }) {
       {recent.length > 0 && (
         <span className="quickbar-recent">
           最近：
-          {recent.map((c) => (
-            <a key={c.id} href={`/charts/${encodeURIComponent(c.id)}`} title={c.title}>
-              {c.title.length > 14 ? `${c.title.slice(0, 14)}…` : c.title}
+          {recent.map((s) => (
+            <a key={s.symbol} href={`/symbol/${encodeURIComponent(s.symbol)}`}>
+              {s.symbol.replace(/\.US$/, "")}
             </a>
           ))}
         </span>
       )}
-      <a className="quickbar-all-link" href="/charts">
-        全部图表 <ArrowRight className="icon" size={13} />
-      </a>
     </div>
   );
 }

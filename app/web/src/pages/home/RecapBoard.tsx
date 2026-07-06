@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import type { OverviewRecap, PredictionStats, StatsBucket } from "../../../../shared/types";
 import { signed } from "../../format";
 import { Badge, Card, ErrorBox, MarketTime, Num, SectionTitle } from "../../ui";
+import { symbolUrl } from "../cockpit/analysisMode";
 import { useIntervalFetch } from "../cockpit/useIntervalFetch";
 
 const DIRECTION_LABEL: Record<string, string> = { long: "做多", short: "做空", neutral: "观望" };
@@ -43,7 +44,7 @@ function SettlementTable({ recap }: { recap: OverviewRecap }) {
   return (
     <div className="recap-settlements">
       {recap.settlements.map((s) => (
-        <Card link key={s.symbol} className="recap-row" href={`/charts/${encodeURIComponent(s.chart_id)}`}>
+        <Card link key={s.symbol} className="recap-row" href={symbolUrl(s.symbol, s.chart_id)}>
           <span className="sym">{s.symbol.replace(/\.US$/, "")}</span>
           <span className="dir">{s.direction ? DIRECTION_LABEL[s.direction] : "—"}</span>
           {s.day_pct != null ? <Num value={s.day_pct} diff suffix="%" /> : <span>—</span>}

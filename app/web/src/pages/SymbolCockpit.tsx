@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import type { BenchmarkSeries, CockpitPosition, RelativeVolume } from "../../../shared/types";
 import { useQuery } from "../apiHooks";
 import { IntradayDashboard, IntradayTimeframeSwitch } from "../charts/intraday/IntradayDashboard";
@@ -8,6 +8,7 @@ import { PredictionTab } from "../charts/intraday/tabs/PredictionTab";
 import { resolveIntradayTf, useIntradayDoc } from "../charts/intraday/useIntradayDoc";
 import type { SidebarTab } from "../charts/SidebarTabs";
 import { TopbarQuote } from "../QuoteBar";
+import { recordRecentSymbol } from "../recentCharts";
 import { Badge, Dot, Empty, ErrorBox, MarketTime } from "../ui";
 import { useTitle } from "../useTitle";
 import { AiTab } from "./cockpit/AiTab";
@@ -28,6 +29,10 @@ export function SymbolCockpit({ sym }: { sym: string }) {
   const { doc, error, degraded, intradayTf, setIntradayTf, loadHistory } = useIntradayDoc(latestId);
 
   useTitle(doc?.title ?? symLabel);
+
+  useEffect(() => {
+    if (doc) recordRecentSymbol(sym);
+  }, [sym, doc?.id]);
 
   const { data: position, error: positionError } = useIntervalFetch<CockpitPosition>(
     `/api/symbols/${encodeURIComponent(sym)}/position`,
@@ -212,11 +217,6 @@ export function SymbolCockpit({ sym }: { sym: string }) {
             </button>
           )}
           <IntradayTimeframeSwitch activeTf={activeIntradayTf} onChange={setIntradayTf} />
-          {latestId && (
-            <a href={`/charts/${encodeURIComponent(latestId)}`}>
-              存档 <ArrowUpRight className="icon" size={13} />
-            </a>
-          )}
           {doc.symbol && <TopbarQuote symbol={doc.symbol} />}
         </span>
       </div>
