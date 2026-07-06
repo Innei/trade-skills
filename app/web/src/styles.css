@@ -561,7 +561,6 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 .quickbar-input { width: 170px; }
 .quickbar-recent { font-size: var(--fs-base); color: var(--text-muted); display: flex; gap: 8px; align-items: center; }
 .quickbar-recent a { color: var(--text-secondary); }
-.quickbar-all-link { margin-left: auto; font-size: var(--fs-base); }
 
 .reassess-action { margin-left: auto; }
 
@@ -608,22 +607,10 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 .cross-section-card-title { font-size: var(--fs-md); font-weight: 600; color: var(--text-primary); margin-bottom: 8px; }
 .cross-section-card-body { height: 340px; }
 
-.chartlist-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 8px; }
-.chartlist-toolbar .toolbar-spacer { flex: 1; }
-
-.legacy-toggle { margin-top: 32px; cursor: pointer; }
 .chart-group { margin-top: 18px; }
 .chart-group-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
 .chart-group-head .label { font-size: var(--fs-md); font-weight: 600; color: var(--text-primary); }
 .chart-group-head .count { font-size: var(--fs-sm); color: var(--text-muted); }
-.chart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
-.charts-card-head { display: flex; align-items: center; gap: 8px; }
-.charts-card-head .sym { font-size: var(--fs-base); font-weight: 600; color: var(--text-primary); }
-.charts-card-head .time { margin-left: auto; font-size: var(--fs-sm); color: var(--text-muted); font-variant-numeric: tabular-nums; }
-.charts-card-title {
-  margin-top: 6px; font-size: var(--fs-md); color: var(--text-secondary); line-height: 1.4;
-  overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-}
 
 .note-tab { min-width: 0; max-width: 100%; }
 .note-tab-header {

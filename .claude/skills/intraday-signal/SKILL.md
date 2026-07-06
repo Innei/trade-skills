@@ -224,10 +224,12 @@ Present in this order (mirrors the user's original ask):
 6. 仓位建议（股数、名义金额、占账户 %、单笔风险额）+ 入场后管理（T1 减半推保本 / 时间止损）
 7. 持仓处置（若已持仓：加 / 减 / 持 / 清，对照成本价）
 8. 支撑信号（引用图上自动检测的 MACD 背离/背驰、K 线形态、123 结构，指到具体 K 线；如有 `other` 补充备注一并说明；量能 relvol 佐证）
-9. 图表链接：主链接是本次分析的冻结快照 `data.url`
-   （`http://localhost:5199/charts/<id>`——含本次预测/情景/入场/信号，
-   分析完立即打开就是看它），辅链接是标的驾驶舱
-   `http://localhost:5199/symbol/<SYM>`（聚合活数据 + 历史分析），附在后面
+9. 图表链接：主链接是 `data.url`（形如
+   `http://localhost:5199/symbol/<SYM>?analysis=<id>`——标的驾驶舱页面钉在本次
+   分析上，含本次预测/情景/入场/信号，分析完立即打开就是看它；旧的
+   `http://localhost:5199/charts/<id>` 链接依然有效，会自动跳转到这里），辅链接是
+   去掉 `?analysis=` 参数的驾驶舱主页 `http://localhost:5199/symbol/<SYM>`
+   （聚合活数据 + 历史分析，永远跟随最新一次分析），附在后面
 10. 免责声明：仅供参考，不构成投资建议
 
 ### Step 7 — Journal

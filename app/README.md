@@ -19,10 +19,10 @@ pnpm start          # http://localhost:5199
 
 | 路由 | 功能 |
 |---|---|
-| `#/` | 图表列表页 —— 按类型过滤、按日期搜索、查看元数据与 stale 状态 |
-| `#/overview` | 盘中总览 —— 今天所有 intraday 标的一页看完（方向、现价、离止损/目标距离、最新点评、警报数），下方带预测战绩统计和当日 AI 花费 |
-| `#/charts/:id` | 单图详情页 —— 根据 `type`（flow / cohort / sepa / intraday）加载对应渲染组件，右侧显示侧边栏（技术指标、新闻、持仓、context） |
-| `#/symbol/:sym` | 个股仪表盘（Cockpit）—— 四个标签页：环境对照、资金流、实时持仓、历史分析 |
+| `/` | 首页 —— 盘中看盘 + 持仓 + 跨标的图表（flow / cohort），盘后自动切到复盘视图；`?date=YYYY-MM-DD` 定位到某天的跨标的图 |
+| `/symbol/:sym` | 个股仪表盘（Cockpit）—— 四个标签页：环境对照、资金流、实时持仓、历史分析；`?analysis=<id>` 把页面钉在某一次具体的 sepa / intraday 分析上（不带这个参数就跟随最新分析实时刷新） |
+| `/overview`、`/charts` | 旧路由，自动跳回首页 `/` |
+| `/charts/:id` | 旧的单图详情页路由，已下线；前端查出该图表的 `type` 后自动跳转到新位置——sepa / intraday 图 → `/symbol/:sym?analysis=:id`，flow / cohort 图 → `/?date=YYYY-MM-DD`；查不到该图表则跳回首页并提示 |
 
 ## REST API
 
@@ -77,7 +77,7 @@ pnpm start          # http://localhost:5199
 
 ## 个体仪表盘（Cockpit）
 
-访问 `http://localhost:5199/#/symbol/NVDA.US` 进入个股追踪面板，四个标签页：
+访问 `http://localhost:5199/symbol/NVDA.US` 进入个股追踪面板，四个标签页：
 
 - **环境（Environment）**：多头寸 vs SMH / QQQ 基准的归一化走势对照，持仓快照（成本、盈亏、目标/止损距离）
 - **资金流（Flow）**：日内资金流曲线 + 大/中/小单分布柱状图，实时刷新
