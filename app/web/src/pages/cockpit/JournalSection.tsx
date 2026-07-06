@@ -1,7 +1,8 @@
-import ReactMarkdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { useState } from "react";
+import { Maximize2 } from "lucide-react";
 import { useQuery } from "../../apiHooks";
-import { ErrorBox, SectionTitle, Spinner } from "../../ui";
+import { ErrorBox, Spinner } from "../../ui";
+import { Markdown, MarkdownModal } from "./markdown";
 
 export interface JournalEntryMeta {
   name: string;
@@ -13,14 +14,13 @@ export function JournalSection({
   entries,
   selected,
   onSelect,
-  markdownComponents,
 }: {
   symbol: string;
   entries: JournalEntryMeta[];
   selected: string | null;
   onSelect: (name: string | null) => void;
-  markdownComponents: Components;
 }) {
+  const [reading, setReading] = useState(false);
   const url = selected
     ? `/api/symbols/${encodeURIComponent(symbol)}/journal/${encodeURIComponent(selected)}`
     : null;
@@ -28,7 +28,6 @@ export function JournalSection({
 
   return (
     <div className="journal-section">
-      <SectionTitle>分析日志</SectionTitle>
       {entries.length === 0 ? (
         <p className="note-block">还没有分析日志——跑一次 intraday-signal 会写入 journal/</p>
       ) : (
@@ -51,11 +50,13 @@ export function JournalSection({
         ) : loading ? (
           <Spinner />
         ) : data?.markdown ? (
-          <div className="note-md">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-              {data.markdown}
-            </ReactMarkdown>
-          </div>
+          <>
+            <button className="link-button" onClick={() => setReading(true)}>
+              <Maximize2 className="icon" size={13} /> 全屏阅读
+            </button>
+            <Markdown>{data.markdown}</Markdown>
+            {reading && <MarkdownModal title={selected} markdown={data.markdown} onClose={() => setReading(false)} />}
+          </>
         ) : null)}
     </div>
   );

@@ -14,8 +14,7 @@ import { AiTab } from "./cockpit/AiTab";
 import { EnvTab } from "./cockpit/EnvTab";
 import { FlowTab } from "./cockpit/FlowTab";
 import { GenerateAnalysis } from "./cockpit/GenerateAnalysis";
-import { HistoryTab } from "./cockpit/HistoryTab";
-import { NoteTab } from "./cockpit/NoteTab";
+import { ReviewTab, type ReviewSection } from "./cockpit/ReviewTab";
 import { useCockpitComments } from "./cockpit/useCockpitComments";
 import { useIntervalFetch } from "./cockpit/useIntervalFetch";
 
@@ -59,19 +58,13 @@ export function SymbolCockpit({ sym }: { sym: string }) {
   );
 
   const [activeTab, setActiveTab] = useState("prediction");
+  const [reviewSection, setReviewSection] = useState<ReviewSection>("history");
   const [selectedJournal, setSelectedJournal] = useState<string | null>(null);
   useEffect(() => {
     setSelectedJournal(null);
+    setReviewSection("history");
   }, [sym]);
   const journalEntries = journal ?? [];
-  const journalByDate = useMemo(
-    () => new Map(journalEntries.map((e) => [e.date, e.name] as [string, string])),
-    [journalEntries],
-  );
-  const openJournal = useCallback((name: string) => {
-    setSelectedJournal(name);
-    setActiveTab("note");
-  }, []);
   const { comments, error: commentsError, loaded: commentsLoaded } = useCockpitComments(sym);
 
   const warnAlertCount = comments.reduce((n, c) => (c.level === "warn" || c.level === "alert" ? n + 1 : n), 0);
@@ -139,7 +132,6 @@ export function SymbolCockpit({ sym }: { sym: string }) {
   const activeIntradayTf = resolveIntradayTf(doc.built, intradayTf);
   const s = doc.built.sidebar;
   const hasNews = Boolean(s.context?.news?.length) || Boolean(s.news?.length);
-  const envHidden = position === null && Boolean(benchmarkError);
   const analysesRows = analyses ?? [];
 
   const sidebarTabs: SidebarTab[] = [
@@ -155,37 +147,34 @@ export function SymbolCockpit({ sym }: { sym: string }) {
         />
       ),
     },
-    { key: "flow", label: "资金流", content: <FlowTab symbol={sym} /> },
-    { key: "news", label: "消息", hidden: !hasNews, content: <NewsTab context={s.context} news={s.news ?? []} /> },
     {
       key: "env",
-      label: "持仓&环境",
-      hidden: envHidden,
+      label: "环境",
       content: (
-        <EnvTab
-          position={position}
-          positionError={positionError}
-          benchmark={benchmark}
-          benchmarkError={benchmarkError}
-          relvol={relvol}
-        />
+        <>
+          <EnvTab
+            position={position}
+            positionError={positionError}
+            benchmark={benchmark}
+            benchmarkError={benchmarkError}
+            relvol={relvol}
+          />
+          <FlowTab symbol={sym} />
+        </>
       ),
     },
+    { key: "news", label: "消息", hidden: !hasNews, content: <NewsTab context={s.context} news={s.news ?? []} /> },
     {
-      key: "history",
-      label: "历史",
-      hidden: analysesRows.length === 0,
+      key: "review",
+      label: "复盘",
       content: (
-        <HistoryTab rows={analysesRows} currentId={latestId} journalByDate={journalByDate} onOpenJournal={openJournal} />
-      ),
-    },
-    {
-      key: "note",
-      label: "研究笔记",
-      content: (
-        <NoteTab
+        <ReviewTab
           symbol={sym}
+          rows={analysesRows}
+          currentId={latestId}
           journal={journalEntries}
+          section={reviewSection}
+          onSectionChange={setReviewSection}
           selectedJournal={selectedJournal}
           onSelectJournal={setSelectedJournal}
         />

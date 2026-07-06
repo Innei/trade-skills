@@ -1,18 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import ReactMarkdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { Maximize2 } from "lucide-react";
 import { Button, Empty, ErrorBox, MarketTime, Spinner } from "../../ui";
-import { JournalSection, type JournalEntryMeta } from "./JournalSection";
+import { Markdown, MarkdownModal } from "./markdown";
 import { bareSymbol, useDeepDive } from "./useDeepDive";
 import { useNote } from "./useNote";
-
-const MARKDOWN_COMPONENTS: Components = {
-  table: ({ children }) => (
-    <div className="note-md-table-wrap">
-      <table>{children}</table>
-    </div>
-  ),
-};
 
 function elapsedLabel(startedAt: string | null): string {
   if (!startedAt) return "";
@@ -22,21 +13,12 @@ function elapsedLabel(startedAt: string | null): string {
   return m > 0 ? `${m}分${s}秒` : `${s}秒`;
 }
 
-export function NoteTab({
-  symbol,
-  journal = [],
-  selectedJournal = null,
-  onSelectJournal,
-}: {
-  symbol: string;
-  journal?: JournalEntryMeta[];
-  selectedJournal?: string | null;
-  onSelectJournal?: (name: string | null) => void;
-}) {
+export function NoteTab({ symbol }: { symbol: string }) {
   const { note, error, reload } = useNote(symbol);
   const onNoteReady = useCallback(() => reload(), [reload]);
   const deepDive = useDeepDive(symbol, onNoteReady);
   const [, forceTick] = useState(0);
+  const [reading, setReading] = useState(false);
 
   useEffect(() => {
     if (!deepDive.running) return;
@@ -77,15 +59,17 @@ export function NoteTab({
         <>
           <div className="note-tab-header">
             <span className="note-tab-mtime">更新于 {note.mtime ? <MarketTime value={note.mtime} /> : "—"}</span>
+            <button className="link-button" onClick={() => setReading(true)}>
+              <Maximize2 className="icon" size={13} /> 全屏阅读
+            </button>
             {button}
           </div>
           {deepDive.inlineMessage && <span className="ai-hint">{deepDive.inlineMessage}</span>}
           {deepDive.successNote && <span className="ai-hint">{deepDive.successNote}</span>}
-          <div className="note-md">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
-              {note.markdown}
-            </ReactMarkdown>
-          </div>
+          <Markdown>{note.markdown}</Markdown>
+          {reading && (
+            <MarkdownModal title={`${symbol} 研究笔记`} markdown={note.markdown} onClose={() => setReading(false)} />
+          )}
         </>
       ) : (
         <>
@@ -97,13 +81,6 @@ export function NoteTab({
           {deepDive.successNote && <span className="ai-hint">{deepDive.successNote}</span>}
         </>
       )}
-      <JournalSection
-        symbol={symbol}
-        entries={journal}
-        selected={selectedJournal}
-        onSelect={(name) => onSelectJournal?.(name)}
-        markdownComponents={MARKDOWN_COMPONENTS}
-      />
     </div>
   );
 }

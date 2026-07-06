@@ -17,7 +17,7 @@ function Cell({ q }: { q: QuoteCell }) {
 
 export function QuoteBar() {
   const [snap, setSnap] = useState<QuoteSnapshot | null>(null);
-  const { degraded } = useSSE<QuoteSnapshot>("/api/stream/quotes", setSnap);
+  const { degraded } = useSSE<QuoteSnapshot>({ kind: "quotes" }, setSnap);
   const quotes = snap?.quotes ?? [];
 
   return (
@@ -44,7 +44,7 @@ export function QuoteBar() {
 
 export function TopbarQuote({ symbol }: { symbol: string }) {
   const [snap, setSnap] = useState<QuoteSnapshot | null>(null);
-  useSSE<QuoteSnapshot>(`/api/stream/quotes?extra=${encodeURIComponent(symbol)}`, setSnap);
+  useSSE<QuoteSnapshot>({ kind: "quotes", extra: [symbol] }, setSnap);
   const q = snap?.quotes.find((x) => x.symbol === symbol);
   if (!q) return null;
 

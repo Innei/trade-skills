@@ -48,7 +48,7 @@ export function useIntradayDoc(id: string | null) {
 
   const live = Boolean(id && doc && LIVE_TYPES.has(doc.type) && doc.symbol);
   const { degraded } = useSSE<{ built: ChartBuilt; prediction_updated_at?: string; prediction_stale?: boolean }>(
-    live && id ? `/api/stream/charts/${encodeURIComponent(id)}${viewCount ? `?count=${viewCount}` : ""}` : null,
+    live && id ? { kind: "chart", id, ...(viewCount ? { count: viewCount } : {}) } : null,
     (d) =>
       setDoc((prev) =>
         prev

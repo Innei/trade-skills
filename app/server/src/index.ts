@@ -15,7 +15,9 @@ const vite = await createViteServer({
   configFile: join(WEB_ROOT, "vite.config.ts"),
   root: WEB_ROOT,
   appType: "spa",
-  server: { middlewareMode: true, hmr: { server: app.server } },
+  // HMR gets its own port: @fastify/websocket owns the upgrade event on PORT,
+  // sharing app.server would break the HMR websocket handshake.
+  server: { middlewareMode: true, hmr: { port: PORT + 1 } },
 });
 
 app.use((req, res, next) => {
