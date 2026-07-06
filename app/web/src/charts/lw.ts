@@ -105,7 +105,9 @@ export function baseChart(el: HTMLElement, timeVisible: boolean, marketTime = fa
     layout: { background: { color: theme.bgSurface }, textColor: theme.textSecondary },
     grid: { vertLines: { visible: false }, horzLines: { visible: false } },
     crosshair: { mode: 0 },
-    rightPriceScale: { borderColor: theme.border },
+    // minimumWidth pins the axis width so live price ticks with varying digit
+    // counts don't resize the pane and make the chart jitter horizontally.
+    rightPriceScale: { borderColor: theme.border, minimumWidth: 64 },
     localization: marketTime
       ? {
           timeFormatter: marketTimeFormatter,
@@ -175,6 +177,12 @@ export function syncTimeScales(charts: IChartApi[]): void {
       syncing = false;
     });
   });
+}
+
+export function centerLastBar(chart: IChartApi, candles: Candle[], n = 90): void {
+  if (!candles.length) return;
+  const last = candles.length - 1;
+  chart.timeScale().setVisibleLogicalRange({ from: last - n / 2, to: last + n / 2 });
 }
 
 export function showLastBars(chart: IChartApi, candles: Candle[], n = 90): void {

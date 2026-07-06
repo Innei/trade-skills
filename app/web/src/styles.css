@@ -241,7 +241,7 @@ a:hover { color: var(--accent); }
 .chart-legend {
   position: absolute; top: 8px; left: 110px; z-index: 10; font-size: var(--fs-base);
   color: var(--text-primary); display: flex; gap: 14px; background: rgba(10, 10, 10, 0.7);
-  padding: 2px 8px;
+  padding: 2px 8px; font-variant-numeric: tabular-nums;
 }
 .chart-legend .swatch { display: inline-block; width: 10px; height: 2px; vertical-align: middle; margin-right: 4px; }
 

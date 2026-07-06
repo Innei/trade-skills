@@ -13,8 +13,8 @@ import { isPushFresh, pollIntervalMs } from "./pushFallback.js";
 const LIVE_TYPES = new Set(["flow", "intraday"]);
 
 const TF_TO_CANDLE_PERIOD: Record<TimeframeKey, CandlePeriod> = { m5: "5m", m15: "15m", h1: "60m" };
-const DEBOUNCE_MS = 1_500;
-const PUSH_FRESH_WINDOW_MS = DEBOUNCE_MS * 2;
+const DEBOUNCE_MS = 250;
+const PUSH_FRESH_WINDOW_MS = 3_000;
 
 function chartIntervalMs(key?: string): number {
   const session = classifySession(Math.floor(Date.now() / 1000));
@@ -42,6 +42,7 @@ interface CandleState {
   viewCount: number | undefined;
   timeframes: Partial<Record<TimeframeKey, RawBar[]>>;
   lastPushAt: number | null;
+  lastRebuildAt: number;
   pushMode: boolean;
   debounceTimer: ReturnType<typeof setTimeout> | null;
   unsubs: Array<() => void>;
@@ -49,15 +50,19 @@ interface CandleState {
 
 const candleStates = new Map<string, CandleState>();
 
+// Leading-edge throttle: an idle chart rebuilds immediately on the first push,
+// then at most every DEBOUNCE_MS while pushes keep streaming in.
 function scheduleDebouncedRebuild(key: string): void {
   const state = candleStates.get(key);
   if (!state || state.debounceTimer) return;
+  const wait = Math.max(0, DEBOUNCE_MS - (Date.now() - state.lastRebuildAt));
   state.debounceTimer = setTimeout(() => {
     state.debounceTimer = null;
+    state.lastRebuildAt = Date.now();
     void runPushRebuild(key).catch((err) => {
       console.warn("[chart-live] push rebuild failed", key, err);
     });
-  }, DEBOUNCE_MS);
+  }, wait);
 }
 
 async function runPushRebuild(key: string): Promise<void> {
@@ -87,6 +92,7 @@ function setupCandleState(key: string, id: string, viewCount: number | undefined
     viewCount,
     timeframes: { ...((doc.input as Record<string, unknown>).timeframes as Partial<Record<TimeframeKey, RawBar[]>>) },
     lastPushAt: null,
+    lastRebuildAt: 0,
     pushMode: false,
     debounceTimer: null,
     unsubs: [],

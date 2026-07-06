@@ -5,11 +5,11 @@ import type { IntradayBuilt, IntradayPriceZone, SeriesMarker, TimeframeKey } fro
 import {
   addPriceLine,
   baseChart,
+  centerLastBar,
   markerTooltip,
   observeSize,
   padHistData,
   padLineData,
-  showLastBars,
   syncTimeScales,
   toCandleData,
   toLineData,
@@ -241,13 +241,20 @@ export function useIntradayCharts(
 
     if (lastTfRef.current !== activeTf) {
       lastTfRef.current = activeTf;
-      showLastBars(h.main, d.candles);
+      centerLastBar(h.main, d.candles);
     } else if (lastBuiltRef.current !== built) {
       const prepended = firstTimeRef.current === null ? 0 : timeline.indexOf(firstTimeRef.current);
+      const appended = d.candles.length - barCountRef.current - Math.max(prepended, 0);
       if (prepended > 0 && prevRange) {
         h.main.timeScale().setVisibleLogicalRange({ from: prevRange.from + prepended, to: prevRange.to + prepended });
-      } else if (wasAtRight) {
-        h.main.timeScale().scrollToRealTime();
+      } else if (wasAtRight && appended > 0) {
+        // Shift instead of scrollToRealTime(): live pushes arrive every ~2s and the
+        // scroll animation would keep the chart in constant motion.
+        if (prevRange) {
+          h.main.timeScale().setVisibleLogicalRange({ from: prevRange.from + appended, to: prevRange.to + appended });
+        } else {
+          h.main.timeScale().scrollToRealTime();
+        }
       }
     }
     lastBuiltRef.current = built;
