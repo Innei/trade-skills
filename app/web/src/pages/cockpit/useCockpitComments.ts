@@ -43,6 +43,7 @@ export function useCockpitComments(
   }, [initialComments]);
 
   useEffect(() => {
+    if (!live) return;
     let cancelled = false;
     const es = new EventSource(`/api/stream/comments/${encodeURIComponent(symbol)}`);
     es.onmessage = (e) => {
