@@ -224,7 +224,7 @@ a:hover { color: var(--accent); }
 .chart-block.rs { flex: 0 0 19%; }
 .chart-block.vol { flex: 0 0 19%; border-bottom: none; }
 .chart-block.intraday-main { flex: 1 1 auto; min-height: 0; }
-.chart-block.macd { border-bottom: none; }
+.chart-block.macd { border-bottom: none; min-height: 0; }
 .chart-host { width: 100%; height: 100%; }
 .pane-resizer { flex: 0 0 6px; position: relative; cursor: row-resize; background: var(--bg-surface); touch-action: none; z-index: 11; }
 .pane-resizer::after {
