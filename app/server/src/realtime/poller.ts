@@ -1,6 +1,7 @@
 export interface PollerHandle {
   subscribe(listener: (envelope: string) => void): () => void;
   subscriberCount(): number;
+  pushData(data: unknown): void;
 }
 
 export interface PollerOptions {
@@ -26,21 +27,25 @@ export function createPoller(opts: PollerOptions): PollerHandle {
     for (const l of listeners) l(envelope);
   };
 
+  const applyData = (data: unknown) => {
+    const serialized = JSON.stringify({ type: "data", data });
+    if (serialized !== lastData) {
+      lastData = serialized;
+      emit(serialized);
+    }
+  };
+
   const tick = async () => {
     if (stopped || running) return;
     running = true;
     try {
       const data = await opts.task();
-      const serialized = JSON.stringify({ type: "data", data });
       failStreak = 0;
       if (degraded) {
         degraded = false;
         emit(JSON.stringify({ type: "status", degraded: false }));
       }
-      if (serialized !== lastData) {
-        lastData = serialized;
-        emit(serialized);
-      }
+      applyData(data);
     } catch (err) {
       failStreak += 1;
       degraded = true;
@@ -81,6 +86,10 @@ export function createPoller(opts: PollerOptions): PollerHandle {
     },
     subscriberCount() {
       return listeners.size;
+    },
+    pushData(data: unknown) {
+      if (stopped) return;
+      applyData(data);
     },
   };
 }
