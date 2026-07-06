@@ -115,6 +115,11 @@ describe("detectTriggers flow_flip", () => {
     expect(out.map((t) => t.kind)).not.toContain("flow_flip");
   });
 
+  it("suppresses flips hovering near the zero line relative to the series peak", () => {
+    const out = detectTriggers(baseInput({ flow: [800, 200, -5] }));
+    expect(out.map((t) => t.kind)).not.toContain("flow_flip");
+  });
+
   it("does not fire with fewer than two values", () => {
     const out = detectTriggers(baseInput({ flow: [-100] }));
     expect(out.map((t) => t.kind)).not.toContain("flow_flip");

@@ -7,6 +7,7 @@ import {
   escalationOnCooldown,
   executeAnalystRun,
   runAnalyst,
+  validatePrediction,
 } from "../src/ai/analyst.js";
 import type { ReassessPack } from "../src/ai/datapack.js";
 import type { AiModel } from "../src/ai/models.js";
@@ -20,6 +21,10 @@ function makePack(overrides: Partial<ReassessPack> = {}): ReassessPack {
     as_of: "2026-07-05T15:00:00.000Z",
     timeframes: {} as ReassessPack["timeframes"],
     flow: [],
+    rel_volume: null,
+    day_levels: null,
+    market: { spy: null, qqq: null },
+    news: [],
     prediction: null,
     prediction_chart_id: null,
     position: null,
@@ -95,12 +100,73 @@ const validPrediction = {
   anchor: { timeframe: "m5" as const, time: "2026-07-05T15:00:00Z", price: 100 },
   entry_plan: { entry: 100, stop: 97, target1: 104, target2: 108 },
   scenarios: [
-    { label: "上破", probability: 0.5 },
-    { label: "震荡", probability: 0.3 },
-    { label: "下破", probability: 0.2 },
+    { label: "上破", probability: 50 },
+    { label: "震荡", probability: 30 },
+    { label: "下破", probability: 20 },
   ],
   comment: "多头结构完好，站上 100 看 104。",
 };
+
+describe("validatePrediction", () => {
+  it("passes a coherent long plan", () => {
+    expect(validatePrediction(validPrediction)).toEqual([]);
+  });
+
+  it("rejects a long plan whose stop sits above the entry", () => {
+    const issues = validatePrediction({
+      ...validPrediction,
+      entry_plan: { entry: 100, stop: 103, target1: 104 },
+    });
+    expect(issues.join("")).toContain("止损必须低于入场价");
+  });
+
+  it("rejects a plan whose T1 reward is below 1:1", () => {
+    const issues = validatePrediction({
+      ...validPrediction,
+      entry_plan: { entry: 100, stop: 96, target1: 102 },
+    });
+    expect(issues.join("")).toContain("不足 1:1");
+  });
+
+  it("rejects a short plan whose target1 sits above the entry", () => {
+    const issues = validatePrediction({
+      ...validPrediction,
+      direction: "short",
+      entry_plan: { entry: 100, stop: 103, target1: 105 },
+    });
+    expect(issues.join("")).toContain("做空 target1 必须低于入场价");
+  });
+
+  it("rejects scenario probabilities that do not sum to ~100", () => {
+    const issues = validatePrediction({
+      ...validPrediction,
+      scenarios: [
+        { label: "上破", probability: 0.5 },
+        { label: "震荡", probability: 0.3 },
+        { label: "下破", probability: 0.2 },
+      ],
+    });
+    expect(issues.join("")).toContain("约为 100");
+  });
+
+  it("resolves pct-based targets before judging R/R", () => {
+    const issues = validatePrediction({
+      ...validPrediction,
+      entry_plan: { entry: 100, stop: 98, target1_pct: 1 },
+    });
+    expect(issues.join("")).toContain("不足 1:1");
+  });
+
+  it("skips direction checks for neutral calls", () => {
+    expect(
+      validatePrediction({
+        ...validPrediction,
+        direction: "neutral",
+        entry_plan: { entry: 100, stop: 103, target1: 99 },
+      }),
+    ).toEqual([]);
+  });
+});
 
 describe("analyst tools", () => {
   it("read_data_pack returns the pack json", async () => {
@@ -163,6 +229,20 @@ describe("analyst tools", () => {
     expect(analyst[0].level).toBe("warn");
     expect(analyst[0].text).toBe("量能背离");
     expect(analyst[0].chartId).toBe("old-chart");
+  });
+
+  it("submit_prediction rejects an incoherent plan without creating a chart", async () => {
+    let text: string | undefined;
+    const { deps, createCalls } = harness(async (tools) => {
+      const res = await tool(tools, "submit_prediction").execute("c1", {
+        ...validPrediction,
+        entry_plan: { entry: 100, stop: 103, target1: 104 },
+      });
+      text = (res.content[0] as { text: string }).text;
+    });
+    await executeAnalystRun("MU.US", deps);
+    expect(text).toContain("未通过校验");
+    expect(createCalls).toHaveLength(0);
   });
 
   it("writes a system error comment when the agent never submits", async () => {

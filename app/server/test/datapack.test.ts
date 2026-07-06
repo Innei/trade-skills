@@ -72,6 +72,7 @@ function makeDeps(overrides: Partial<DatapackDeps> = {}): DatapackDeps {
     fetchQuote: async () => ({ symbol: "MU.US", session: "日盘", last: 101, pct: 1, regularLast: 101, regularPct: 1 }),
     fetchKline: async () => genBars(80),
     fetchFlow: async () => [{ time: "2026-07-02T13:30:00Z", inflow: "123.4" }],
+    fetchNews: async () => [],
     fetchPositions: async () => [],
     listComments: async () => Array.from({ length: 7 }, (_, i) => comment(`c${i}`)),
     listCharts: async () => [{ ...doc } as ChartMeta],
@@ -207,6 +208,35 @@ describe("buildReassessPack", () => {
     const pack = await buildReassessPack("MU.US", makeDeps());
     expect(pack.position).toBeNull();
     expect(pack.prediction?.direction).toBe("long");
+  });
+
+  it("includes market context, day levels, news and rel_volume", async () => {
+    const pack = await buildReassessPack(
+      "MU.US",
+      makeDeps({ fetchNews: async () => [{ id: "1", title: "t", published_at: "", url: "" }] }),
+    );
+    expect(pack.market.spy).not.toBeNull();
+    expect(pack.market.qqq).not.toBeNull();
+    expect(pack.day_levels?.prev_day).toBeDefined();
+    expect(pack.news).toHaveLength(1);
+    expect(pack).toHaveProperty("rel_volume");
+  });
+
+  it("degrades market/news to null/empty when the extra fetches fail", async () => {
+    const pack = await buildReassessPack(
+      "MU.US",
+      makeDeps({
+        fetchQuote: async () => {
+          throw new Error("quote down");
+        },
+        fetchNews: async () => {
+          throw new Error("news down");
+        },
+      }),
+    );
+    expect(pack.market.spy).toBeNull();
+    expect(pack.market.qqq).toBeNull();
+    expect(pack.news).toEqual([]);
   });
 
   it("summary null when a timeframe has too few bars", async () => {

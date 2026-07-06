@@ -47,6 +47,7 @@ export interface TriggerInput {
 const VOLUME_BASELINE_BARS = 20;
 const VOLUME_SPIKE_MULTIPLE = 3;
 const HEARTBEAT_MS = 5 * 60 * 1000;
+const FLOW_FLIP_MIN_PEAK_RATIO = 0.05;
 
 function sign(value: number): number {
   if (value > 0) return 1;
@@ -139,6 +140,10 @@ function detectFlowFlip(flow: number[]): Trigger | null {
   const prevSign = sign(prev);
   const lastSign = sign(last);
   if (prevSign === 0 || lastSign === 0 || prevSign === lastSign) return null;
+  // Suppress flips that hover around zero: near the zero line the cumulative
+  // series can flip sign on every tick and would fire this trigger repeatedly.
+  const peak = flow.reduce((max, v) => Math.max(max, Math.abs(v)), 0);
+  if (peak <= 0 || Math.abs(last) < FLOW_FLIP_MIN_PEAK_RATIO * peak) return null;
   const direction = lastSign > 0 ? "inflow" : "outflow";
   return {
     kind: "flow_flip",

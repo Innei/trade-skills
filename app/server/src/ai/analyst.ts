@@ -29,16 +29,21 @@ const KLINE_PERIODS: Record<string, string> = { m5: "5m", m15: "15m", h1: "1h", 
 const SYSTEM_PROMPT = [
   "你是短线技术分析员，为单一美股标的做多周期（5 分钟 / 15 分钟 / 1 小时 / 日线）重估。",
   "工作流程：",
-  "1. 先调用 read_data_pack 拿到快照（多周期 K 线摘要、资金流、已归档预测、持仓）。",
-  "2. 需要时调用 fetch_news 看催化消息、fetch_kline 补拉某个周期的更多 K 线。",
+  "1. 先调用 read_data_pack 拿到快照（多周期 K 线摘要、资金流、相对成交量、日内关键价位、大盘参照 SPY/QQQ、新闻、已归档预测、持仓）。",
+  "2. 需要时调用 fetch_kline 补拉某个周期的更多 K 线、fetch_news 再拉最新消息。",
   "3. 想边看边记录判断，可调用 append_comment 写一条中文白话观察。",
   "4. 最后必须调用 submit_prediction 恰好一次，给出完整结论并落图。",
+  "判读纪律：",
+  "- 先定级：快照新闻里有当天能动价的事（财报/指引、政策、行业大消息、已明显砸出行情的新闻）就按催化日处理——消息主导，纯技术面情景的概率封顶 40，必要时直接 neutral；否则按平静日，技术面主导。",
+  "- 大盘对齐：对照快照 market 里 SPY/QQQ 的当日方向，逆着大盘的结论必须在 comment 里给一句理由。",
+  "- 量能：突破/反转类结论要引用相对成交量 rel_volume 佐证；无量突破按存疑处理，不要当确认信号。",
+  "- 事件风险：快照没有财报日历——新闻里若见财报/FOMC/CPI 在即，必须写进情景；若无法确认，在 comment 里注明事件风险未核实。",
   "结论纪律（写进 submit_prediction）：",
   "- direction：明确 long / short / neutral。",
   "- anchor：给出判断锚点（哪个周期、时间、价格）。",
-  "- entry_plan：给出入场价 entry、止损 stop、目标 target1 / target2。方向决定止损在上还是在下。",
-  "- scenarios：给出三个情景（如上破 / 震荡 / 下破），每个带概率 probability，三者概率之和为 1。",
-  "- comment：一句话中文白话结论，会作为点评写入。",
+  "- entry_plan：入场 entry、止损 stop、目标 target1 / target2。止损必须依托具体结构（摆动点外沿、123 结构的①、区间边界），在 rationale 里写明是哪个结构；做多止损在入场下方、目标在上方，做空相反。T1 口径盈亏比不足 1:1 的计划不要提交——换结构重做或转 neutral。",
+  "- scenarios：三个情景（如上破 / 震荡 / 下破），probability 用 0–100 的百分数，三者之和约为 100。",
+  "- comment：一句话中文白话结论，会作为点评写入。若快照里持仓不为空，comment 必须包含对现有持仓的处置（加 / 减 / 持 / 清）并对照成本价说明理由。",
   "若快照里没有已归档预测，说明这是该标的的首次分析而非重估，照常完成全部流程并给出完整结论。",
   "全程中文白话，只做美股，不要臆造数据，拿不到就说明。",
 ].join("\n");
@@ -62,7 +67,7 @@ const entryPlanSchema = Type.Object({
 
 const scenarioSchema = Type.Object({
   label: Type.String(),
-  probability: Type.Number({ minimum: 0, maximum: 1 }),
+  probability: Type.Number({ minimum: 0, maximum: 100, description: "0–100 百分数，三者之和约为 100" }),
   trigger: Type.Optional(Type.String()),
   path: Type.Optional(Type.String()),
 });
@@ -83,6 +88,61 @@ const predictionSchema = Type.Object({
 });
 
 type PredictionParams = Static<typeof predictionSchema>;
+
+const SCENARIO_SUM_TOLERANCE = 10;
+const MIN_T1_RR = 1;
+
+function resolveTarget(
+  entry: number,
+  direction: "long" | "short",
+  target: number | undefined,
+  targetPct: number | undefined,
+): number | null {
+  if (target != null && Number.isFinite(target)) return target;
+  if (targetPct != null && Number.isFinite(targetPct)) {
+    const sign = direction === "long" ? 1 : -1;
+    return entry * (1 + (sign * targetPct) / 100);
+  }
+  return null;
+}
+
+export function validatePrediction(params: PredictionParams): string[] {
+  const issues: string[] = [];
+  const { direction, entry_plan: plan, scenarios } = params;
+
+  const sum = scenarios.reduce((acc, s) => acc + s.probability, 0);
+  if (Math.abs(sum - 100) > SCENARIO_SUM_TOLERANCE) {
+    issues.push(`情景概率之和应约为 100（0–100 百分数），当前为 ${sum}`);
+  }
+
+  if (direction === "long" || direction === "short") {
+    const { entry, stop } = plan;
+    const risk = direction === "long" ? entry - stop : stop - entry;
+    if (risk <= 0) {
+      issues.push(direction === "long" ? "做多止损必须低于入场价" : "做空止损必须高于入场价");
+    }
+    const t1 = resolveTarget(entry, direction, plan.target1, plan.target1_pct);
+    const t2 = resolveTarget(entry, direction, plan.target2, plan.target2_pct);
+    if (t1 != null) {
+      const reward1 = direction === "long" ? t1 - entry : entry - t1;
+      if (reward1 <= 0) {
+        issues.push(direction === "long" ? "做多 target1 必须高于入场价" : "做空 target1 必须低于入场价");
+      } else if (risk > 0 && reward1 / risk < MIN_T1_RR) {
+        issues.push(
+          `T1 口径盈亏比 ${(reward1 / risk).toFixed(2)}:1 不足 ${MIN_T1_RR}:1——换结构重做入场/止损，或转 neutral`,
+        );
+      }
+    }
+    if (t2 != null) {
+      const reward2 = direction === "long" ? t2 - entry : entry - t2;
+      if (reward2 <= 0) {
+        issues.push(direction === "long" ? "做多 target2 必须高于入场价" : "做空 target2 必须低于入场价");
+      }
+    }
+  }
+
+  return issues;
+}
 
 const klineSchema = Type.Object({
   period: Type.Union([Type.Literal("m5"), Type.Literal("m15"), Type.Literal("h1"), Type.Literal("day")]),
@@ -204,7 +264,7 @@ function buildTools(
   const readDataPack: AgentTool = {
     name: "read_data_pack",
     label: "Read Data Pack",
-    description: "拉取该标的的多周期快照：K 线摘要、资金流、已归档预测、持仓。",
+    description: "拉取该标的的多周期快照：K 线摘要、资金流、相对成交量、日内关键价位、大盘参照 SPY/QQQ、新闻、已归档预测、持仓。",
     parameters: Type.Object({}),
     execute: async () => {
       cachedPack = cachedPack ?? (await deps.buildReassessPack(symbol));
@@ -264,6 +324,10 @@ function buildTools(
       if (state.done) return textResult("skipped", true);
       if (!Check(predictionSchema, params)) {
         return textResult("prediction 结构不合法，请补齐 direction / entry_plan / scenarios 后重试。");
+      }
+      const issues = validatePrediction(params);
+      if (issues.length) {
+        return textResult(`prediction 未通过校验：${issues.join("；")}。请修正后重新调用 submit_prediction。`);
       }
       const { comment, ...prediction } = params;
       const chart = await deps.createChart({

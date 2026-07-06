@@ -6,6 +6,7 @@ import type {
   FlowRow,
   IntradayPrediction,
   IntradayTfSummary,
+  NewsItem,
   QuoteCell,
   RawBar,
   RelativeVolume,
@@ -41,6 +42,7 @@ export interface DatapackDeps {
   fetchQuote: (symbol: string) => Promise<QuoteCell>;
   fetchKline: (symbol: string, period: string, count: number) => Promise<RawBar[]>;
   fetchFlow: (symbol: string) => Promise<FlowRow[]>;
+  fetchNews: (symbol: string) => Promise<NewsItem[]>;
   fetchPositions: () => Promise<RawPosition[]>;
   listComments: (symbol: string, date: string) => Promise<CockpitComment[]>;
   listCharts: (filter: ListFilter) => Promise<ChartMeta[]>;
@@ -56,6 +58,7 @@ export const defaultDatapackDeps: DatapackDeps = {
   },
   fetchKline: (symbol, period, count) => getProvider().getKline(symbol, period, count),
   fetchFlow: (symbol) => getProvider().getFlow?.(symbol) ?? Promise.resolve([]),
+  fetchNews: (symbol) => getProvider().getNews(symbol),
   fetchPositions: () => getProvider().getPositions?.() ?? Promise.resolve([]),
   listComments,
   listCharts,
@@ -96,6 +99,10 @@ export interface ReassessPack {
   as_of: string;
   timeframes: Record<TimeframeKey, ReassessTimeframe>;
   flow: FlowRow[];
+  rel_volume: RelativeVolume | null;
+  day_levels: DayLevels | null;
+  market: { spy: QuoteCell | null; qqq: QuoteCell | null };
+  news: NewsItem[];
   prediction: IntradayPrediction | null;
   prediction_chart_id: string | null;
   position: CockpitPosition | null;
@@ -184,11 +191,16 @@ export async function buildReassessPack(
   deps: DatapackDeps = defaultDatapackDeps,
 ): Promise<ReassessPack> {
   const now = deps.now();
-  const [barsList, flow, doc, positions] = await Promise.all([
+  const [barsList, flow, doc, positions, relvolBars, dayBars, news, spy, qqq] = await Promise.all([
     Promise.all(REASSESS_TIMEFRAMES.map((tf) => deps.fetchKline(symbol, tf.period, KLINE_COUNT))),
     deps.fetchFlow(symbol),
     findTodayLatestIntradayDoc(symbol, deps),
     deps.fetchPositions().catch(() => [] as RawPosition[]),
+    deps.fetchKline(symbol, "15m", RELVOL_M15_BARS).catch(() => [] as RawBar[]),
+    deps.fetchKline(symbol, "day", DAY_KLINE_COUNT).catch(() => [] as RawBar[]),
+    deps.fetchNews(symbol).catch(() => [] as NewsItem[]),
+    deps.fetchQuote("SPY.US").catch(() => null),
+    deps.fetchQuote("QQQ.US").catch(() => null),
   ]);
 
   const timeframes = {} as Record<TimeframeKey, ReassessTimeframe>;
@@ -211,11 +223,20 @@ export async function buildReassessPack(
         )
       : null;
 
+  const m5Bars = barsList[0];
   return {
     symbol,
     as_of: now.toISOString(),
     timeframes,
     flow,
+    rel_volume: relvolBars.length ? computeRelativeVolume(relvolBars, now) : null,
+    day_levels: {
+      prev_day: prevDayLevels(dayBars, now),
+      pre_market: preMarketRange(m5Bars, now),
+      opening_range: openingRange(m5Bars, now),
+    },
+    market: { spy, qqq },
+    news: news.slice(0, 6),
     prediction,
     prediction_chart_id: doc?.id ?? null,
     position,
