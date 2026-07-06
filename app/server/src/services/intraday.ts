@@ -22,6 +22,7 @@ import {
   type MarkerShape,
   type NewsItem,
   type Pattern123,
+  type PredictionScenario,
   type RawBar,
   type SeriesMarker,
   type SwingPoint,
@@ -753,6 +754,27 @@ function validateIntradayContext(context: IntradayContext): void {
   }
 }
 
+function normalizeScenarios(raw: unknown): PredictionScenario[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  return raw.map((sc) => {
+    const s = (sc && typeof sc === "object" ? sc : {}) as Record<string, unknown>;
+    const label = typeof s.label === "string" ? s.label : typeof s.name === "string" ? s.name : "";
+    let probability = 0;
+    if (typeof s.probability === "number" && Number.isFinite(s.probability)) {
+      probability = s.probability;
+    } else if (typeof s.prob === "number" && Number.isFinite(s.prob)) {
+      probability = s.prob;
+    }
+    if (probability > 0 && probability <= 1) probability = probability * 100;
+    return {
+      label,
+      probability,
+      path: typeof s.path === "string" ? s.path : undefined,
+      trigger: typeof s.trigger === "string" ? s.trigger : undefined,
+    };
+  });
+}
+
 export interface IntradayMeta {
   mode: "prediction" | "preview";
   bars: Record<TimeframeKey, number>;
@@ -782,6 +804,7 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
     ? {
         ...input.prediction,
         range_bound_plan: input.prediction.range_bound_plan ?? input.prediction.range_plan,
+        scenarios: normalizeScenarios(input.prediction.scenarios),
       }
     : null;
   const emaPeriods = sanitizeEmaPeriods(input.ema_periods);

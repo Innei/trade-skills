@@ -28,7 +28,23 @@ export function PredictionTab({ built, activeTf, predictionUpdatedAt, prediction
   const s = built.sidebar;
   const p = s.prediction;
   const ep = s.entryPlan;
-  const scenarios = p?.scenarios ?? [];
+  const scenarios = (p?.scenarios ?? []).map((sc) => {
+    const raw = sc as unknown as Record<string, unknown>;
+    const label =
+      typeof sc.label === "string" && sc.label
+        ? sc.label
+        : typeof raw.name === "string"
+          ? (raw.name as string)
+          : "";
+    const probRaw =
+      typeof sc.probability === "number" && Number.isFinite(sc.probability)
+        ? sc.probability
+        : typeof raw.prob === "number" && Number.isFinite(raw.prob as number)
+          ? (raw.prob as number)
+          : 0;
+    const probability = probRaw > 0 && probRaw <= 1 ? probRaw * 100 : probRaw;
+    return { ...sc, label, probability };
+  });
   const totalProb = scenarios.reduce((acc, sc) => acc + Number(sc.probability || 0), 0);
   const rbp = p?.range_bound_plan;
   const signals = p?.signals ?? [];

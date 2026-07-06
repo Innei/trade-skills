@@ -476,6 +476,8 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 .journal-entry { display: flex; gap: 10px; align-items: baseline; text-align: left; background: none; border: none; border-left: 2px solid var(--border); color: var(--text-primary); font-size: var(--fs-sm); padding: 5px 8px; cursor: pointer; }
 .journal-entry:hover { background: var(--bg-surface); }
 .journal-entry.active { border-left-color: var(--accent); background: var(--bg-surface); }
+.journal-entry.loading { border-left-color: var(--accent); }
+.journal-entry:disabled { cursor: progress; }
 .journal-entry-name { color: var(--text-secondary); font-size: var(--fs-xs); }
 
 .link-button { background: none; border: none; padding: 0; color: var(--accent); font-size: inherit; cursor: pointer; }
@@ -486,8 +488,21 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 .review-switch-item:hover { color: var(--text-primary); }
 .review-switch-item.active { color: var(--text-primary); border-bottom-color: var(--accent); }
 
-.modal-backdrop { position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, 0.6); display: flex; align-items: center; justify-content: center; padding: 32px; }
-.modal-panel { background: var(--bg-page, var(--bg-surface)); border: 1px solid var(--border); border-radius: 8px; width: min(860px, 100%); max-height: calc(100vh - 64px); display: flex; flex-direction: column; }
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 100; background: rgba(0, 0, 0, 0.6);
+  display: flex; align-items: center; justify-content: center; padding: 32px;
+  opacity: 1; transition: opacity 180ms ease;
+}
+.modal-backdrop[data-state="entering"], .modal-backdrop[data-state="closing"] { opacity: 0; }
+.modal-panel {
+  background: var(--bg-page, var(--bg-surface)); border: 1px solid var(--border); border-radius: 8px;
+  width: min(860px, 100%); max-height: calc(100vh - 64px); display: flex; flex-direction: column;
+  transform: translateY(0) scale(1); opacity: 1;
+  transition: transform 200ms cubic-bezier(0.2, 0.9, 0.3, 1), opacity 180ms ease;
+}
+.modal-panel[data-state="entering"], .modal-panel[data-state="closing"] {
+  transform: translateY(8px) scale(0.97); opacity: 0;
+}
 .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 18px; border-bottom: 1px solid var(--border); }
 .modal-title { font-size: var(--fs-md, 14px); color: var(--text-primary); font-weight: 600; }
 .modal-close { background: none; border: none; color: var(--text-secondary); cursor: pointer; padding: 2px; display: flex; }
@@ -609,12 +624,14 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 
 .note-tab { min-width: 0; max-width: 100%; }
 .note-tab-header {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
   margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid var(--border);
 }
 .note-tab-header--center { justify-content: center; border-bottom: none; }
-.note-tab-header .btn { white-space: nowrap; flex-shrink: 0; }
-.note-tab-mtime { font-size: var(--fs-sm); color: var(--text-secondary); }
+.note-tab-header .btn,
+.note-tab-header .link-button { white-space: nowrap; flex-shrink: 0; }
+.note-tab-actions { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.note-tab-mtime { font-size: var(--fs-sm); color: var(--text-secondary); white-space: nowrap; }
 
 .note-md {
   font-size: var(--fs-base); line-height: 1.6; color: var(--text-primary);

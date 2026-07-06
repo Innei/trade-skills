@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Maximize2 } from "lucide-react";
 import { Button, Empty, ErrorBox, MarketTime, Spinner } from "../../ui";
-import { Markdown, MarkdownModal } from "./markdown";
+import { Markdown, openMarkdownModal } from "./markdown";
 import { bareSymbol, useDeepDive } from "./useDeepDive";
 import { useNote } from "./useNote";
 
@@ -18,7 +18,6 @@ export function NoteTab({ symbol }: { symbol: string }) {
   const onNoteReady = useCallback(() => reload(), [reload]);
   const deepDive = useDeepDive(symbol, onNoteReady);
   const [, forceTick] = useState(0);
-  const [reading, setReading] = useState(false);
 
   useEffect(() => {
     if (!deepDive.running) return;
@@ -52,23 +51,27 @@ export function NoteTab({ symbol }: { symbol: string }) {
     </Button>
   );
 
+  const openFullscreen = () => {
+    if (!note?.markdown) return;
+    openMarkdownModal({ title: `${symbol} 研究笔记`, markdown: note.markdown });
+  };
+
   return (
     <div className="note-tab">
       {note?.markdown ? (
         <>
           <div className="note-tab-header">
             <span className="note-tab-mtime">更新于 {note.mtime ? <MarketTime value={note.mtime} /> : "—"}</span>
-            <button className="link-button" onClick={() => setReading(true)}>
-              <Maximize2 className="icon" size={13} /> 全屏阅读
-            </button>
-            {button}
+            <div className="note-tab-actions">
+              <button className="link-button" onClick={openFullscreen}>
+                <Maximize2 className="icon" size={13} /> 全屏阅读
+              </button>
+              {button}
+            </div>
           </div>
           {deepDive.inlineMessage && <span className="ai-hint">{deepDive.inlineMessage}</span>}
           {deepDive.successNote && <span className="ai-hint">{deepDive.successNote}</span>}
           <Markdown>{note.markdown}</Markdown>
-          {reading && (
-            <MarkdownModal title={`${symbol} 研究笔记`} markdown={note.markdown} onClose={() => setReading(false)} />
-          )}
         </>
       ) : (
         <>

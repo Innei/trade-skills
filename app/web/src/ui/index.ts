@@ -12,3 +12,6 @@ export { ErrorBox } from "./ErrorBox";
 export { Tooltip } from "./Tooltip";
 export { MarketTime } from "./MarketTime";
 export { Modal } from "./Modal";
+export { ModalHost } from "./ModalHost";
+export { openModal, closeModal } from "./modalStore";
+export type { ModalOptions } from "./modalStore";

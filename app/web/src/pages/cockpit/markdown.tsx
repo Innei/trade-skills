@@ -1,6 +1,6 @@
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Modal } from "../../ui";
+import { openModal } from "../../ui";
 
 export const MARKDOWN_COMPONENTS: Components = {
   table: ({ children }) => (
@@ -20,18 +20,18 @@ export function Markdown({ children }: { children: string }) {
   );
 }
 
-export function MarkdownModal({
+export function openMarkdownModal({
   title,
   markdown,
   onClose,
 }: {
   title: string;
   markdown: string;
-  onClose: () => void;
-}) {
-  return (
-    <Modal title={title} onClose={onClose}>
-      <Markdown>{markdown}</Markdown>
-    </Modal>
-  );
+  onClose?: () => void;
+}): () => void {
+  return openModal({
+    title,
+    body: <Markdown>{markdown}</Markdown>,
+    onClose,
+  });
 }
