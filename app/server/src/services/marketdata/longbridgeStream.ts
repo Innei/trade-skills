@@ -191,6 +191,10 @@ class LongbridgeStream {
     return this.candlestickLedger.subscribe(symbol, period, cb);
   }
 
+  async getQuoteContext(): Promise<QuoteContext> {
+    return this.connect();
+  }
+
   async getTradeContext(): Promise<TradeContext> {
     if (this.tradeCtx) return this.tradeCtx;
     if (this.tradeConnectPromise) return this.tradeConnectPromise;
