@@ -208,13 +208,9 @@ climax top (volume ≥ 2.5×20MA + red close + local high), MA50/MA200 breakdown
     { "kind": "resistance", "label": "反弹压力带", "low": 60.90, "high": 61.35,
       "note": "短线均线和第一修复位重合", "sources": ["5m EMA9/21", "第一修复位"] }
   ],
-  "signals": [
-    { "type": "pin_bar", "timeframe": "m15", "time": "...", "price": 1044.17,
-      "bias": "bullish", "label": "看涨 Pin Bar" },
-    { "type": "macd_divergence", "timeframe": "h1", "bias": "bearish",
-      "points": [ { "time": "...", "price": 1097.0, "macd_value": 12.3 },
-                  { "time": "...", "price": 1085.0, "macd_value": -4.1 } ],
-      "label": "顶背离：价格新高但 MACD 走弱" }
+  "signals": [                                          // 可选；背离/背驰/K线形态/123 结构均由服务端自动检测绘制，无需在此重复
+    { "type": "other", "timeframe": "m5", "time": "...", "price": 1032.28,
+      "bias": "bearish", "label": "尾盘放量长阴收在最低——摆动点未确认前的人工备注" }
   ]
 }
 ```

@@ -5,8 +5,9 @@ description: >
   pulls K-line across three timeframes, reads MACD + swing structure, writes a
   direction call (long/short/neutral) with an explicit anchor price, 3-scenario
   forward read, a range-bound playbook (long tactic + short tactic), an
-  entry/stop/target plan with direction-aware R/R, and MACD-divergence signal
-  annotations (candle patterns like Pin Bar are auto-detected server-side) —
+  entry/stop/target plan with direction-aware R/R — MACD divergence/背驰,
+  candle patterns like Pin Bar, and 123 structures are auto-detected and drawn
+  server-side —
   then renders it via the `chart` skill (type `intraday`,
   POST preview → PATCH prediction) and logs a journal entry. US-only, single-symbol, short horizon (intraday to
   a few sessions) — a companion to `market-session-tracker`, not a replacement.
@@ -19,9 +20,10 @@ description: >
 
 Single-symbol, short-horizon technical read across 5 分钟 / 15 分钟 / 1 小时—
 produces an explicit long/short call anchored to a price, a probability-weighted
-forward read, and a concrete entry/stop/target plan, backed by named K-line
-signals (MACD divergence plus server-side auto-detected candle patterns such as
-Pin Bar). Ends by rendering an interactive dashboard and writing a journal entry.
+forward read, and a concrete entry/stop/target plan, backed by server-side
+auto-detected K-line signals (MACD divergence/背驰, candle patterns such as
+Pin Bar, 123 structures). Ends by rendering an interactive dashboard and
+writing a journal entry.
 
 > **Scope**: one symbol per run. For a cross-section "where is money moving"
 > question use `capital-rotation`; for live tracking of a watchlist across a
@@ -131,16 +133,13 @@ timeframe data + Step 3's numbers, decide:
    direction-aware: for `long`, `risk = entry-stop`, `reward = target2-entry`;
    for `short`, `risk = stop-entry`, `reward = entry-target2`. **State the R/R
    explicitly; if < 2:1, say so — do not silently proceed with a poor ratio.**
-5. **Signals** — MACD divergence / other custom notes, each anchored to a
-   specific `timeframe` + `time` + `price` (divergence needs the two comparison
-   points, each ideally carrying `macd_value` so the dashboard can draw the
-   connecting line on the MACD sub-pane too). Never write "看起来背离了" without
-   pointing at the two actual bars being compared. **Never emit a `pin_bar` (or
-   any candle-shape) signal type** — candle patterns (pin bar / hammer /
-   engulfing / stars …) are auto-detected server-side and drawn as 🕯️ markers;
-   hand-labeling duplicates the detector and has mislabeled shapes before. If a
-   candle pattern matters to the thesis, cite the auto-detected marker in the
-   report, or anchor an `other`-type note to that bar.
+5. **Signals（可选）** — the chart auto-detects and draws MACD divergence/背驰,
+   candle patterns, and 123 structures server-side; cite those markers in the
+   report rather than re-labeling them. The only signal worth adding by hand is
+   an `other`-type note for something the detectors cannot see yet — e.g. a
+   last-bar blow-off whose pivot the swing algorithm can't confirm (the MU
+   2026-07-01 final hour) — anchored to a specific `timeframe` + `time` +
+   `price`.
 6. **`context`** — besides `prediction`, write the `context` payload (see
    `chart` skill's `context` schema): tag every news/sentiment item pulled in
    Step 2 with `source` + `tag` + a one-line `note`, list what was actually
@@ -177,7 +176,7 @@ Present in this order (mirrors the user's original ask):
 2. 情景推演（后续 K 线可能的多种走势，带百分比）
 3. 震荡应对（若为震荡情景：多、空两种打法）
 4. 入场计划（盈亏比 + 具体入场点/止损/目标）
-5. 支撑信号（MACD 背离 + 服务端自动检测的 K 线形态如 Pin Bar，指到具体 K 线）
+5. 支撑信号（引用图上自动检测的 MACD 背离/背驰、K 线形态、123 结构，指到具体 K 线；如有 `other` 补充备注一并说明）
 6. 图表链接：主链接是本次分析的冻结快照 `data.url`
    （`http://localhost:5199/charts/<id>`——含本次预测/情景/入场/信号，
    分析完立即打开就是看它），辅链接是标的驾驶舱
@@ -200,8 +199,7 @@ the journal's narrative record.
 - ❌ Scenarios that don't sum to ~100%, or only one scenario
 - ❌ A range-bound call that only covers one direction (must give both long and short tactics)
 - ❌ Omitting or silently glossing over an R/R below 2:1
-- ❌ "看起来有背离" without naming the two specific bars being compared
-- ❌ Hand-labeling a `pin_bar` / candle-shape signal — the server auto-detects candle patterns; AI signals are macd_divergence and `other` notes only
+- ❌ "看起来有背离" without citing the auto-detected marker (or the two specific bars, if the detector hasn't confirmed it yet)
 - ❌ Skipping the preview call and guessing MACD values instead of reading them
 - ❌ Skipping the journal write
 - ❌ Contradicting a live `market-session-tracker` read for the same symbol without reconciling — this is a narrower, single-symbol lens, not an override
