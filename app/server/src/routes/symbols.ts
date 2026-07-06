@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import type { FastifyPluginAsync } from "fastify";
 import type { ChartDoc, IntradayPrediction, RawBar, SymbolAnalysisRow } from "../../../shared/types.js";
-import { BASE_URL, STOCKS_DIR } from "../env.js";
+import { BASE_URL, JOURNAL_DIR, STOCKS_DIR } from "../env.js";
 import { ClientError } from "../errors.js";
 import { toTs } from "../services/indicators.js";
 import { buildBenchmark } from "../services/cockpit/benchmark.js";
@@ -14,7 +14,7 @@ import { computeRelativeVolume } from "../services/relvol.js";
 import { getProvider } from "../services/marketdata/registry.js";
 import type { RawPosition } from "../services/marketdata/types.js";
 import { classifySession, easternDate } from "../services/session.js";
-import { listComments } from "../ai/comments.js";
+import { listCommentDates, listComments } from "../ai/comments.js";
 import { runAnalyst } from "../ai/analyst.js";
 import { deepDiveState, startDeepDive } from "../ai/deepDive.js";
 import { aiConfig } from "../ai/models.js";
@@ -25,6 +25,8 @@ import { normalizeQuote } from "../realtime/quotes.js";
 const SYMBOL_RE = /^[A-Z0-9.]+$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const NOTE_NAME_RE = /^[A-Z0-9._-]+$/;
+const JOURNAL_FILE_RE = /^(\d{4}-\d{2}-\d{2})-([\w-]+)\.md$/;
+const JOURNAL_NAME_RE = /^\d{4}-\d{2}-\d{2}-[\w-]+\.md$/;
 const BENCHMARK_SYMBOLS = ["SMH.US", "QQQ.US"];
 
 function noteFileName(raw: string): string {
@@ -146,6 +148,48 @@ export const symbolsRoute: FastifyPluginAsync = async (app) => {
       throw new ClientError(`invalid date: ${date}`, "expected YYYY-MM-DD");
     }
     return { ok: true, data: await listComments(sym, date) };
+  });
+
+  app.get<{ Params: Params }>("/:sym/comment-dates", async (req) => {
+    const sym = normalizeSymbol(req.params.sym);
+    return { ok: true, data: await listCommentDates(sym) };
+  });
+
+  app.get<{ Params: Params }>("/:sym/journal", async (req) => {
+    const bare = normalizeSymbol(req.params.sym).replace(/\.US$/, "").toLowerCase();
+    let files: string[];
+    try {
+      files = await fs.readdir(JOURNAL_DIR);
+    } catch {
+      return { ok: true, data: [] };
+    }
+    const rows: { name: string; date: string }[] = [];
+    for (const f of files) {
+      const m = JOURNAL_FILE_RE.exec(f);
+      if (!m) continue;
+      const rest = m[2].toLowerCase();
+      if (rest !== bare && !rest.startsWith(`${bare}-`)) continue;
+      rows.push({ name: f, date: m[1] });
+    }
+    rows.sort((a, b) => (a.name < b.name ? 1 : -1));
+    return { ok: true, data: rows };
+  });
+
+  app.get<{ Params: Params & { name: string } }>("/:sym/journal/:name", async (req) => {
+    const name = req.params.name;
+    if (!JOURNAL_NAME_RE.test(name)) {
+      throw new ClientError(`invalid journal name: ${name}`, "expected YYYY-MM-DD-<slug>.md");
+    }
+    const path = join(JOURNAL_DIR, name);
+    try {
+      const [markdown, stat] = await Promise.all([fs.readFile(path, "utf8"), fs.stat(path)]);
+      return { ok: true, data: { name, markdown, mtime: stat.mtime.toISOString() } };
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+        throw new ClientError(`journal not found: ${name}`, undefined, 404);
+      }
+      throw err;
+    }
   });
 
   app.post<{ Params: Params }>("/:sym/reassess", async (req) => {

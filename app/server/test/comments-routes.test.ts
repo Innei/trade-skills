@@ -4,6 +4,7 @@ import type { CockpitComment } from "../../shared/types.js";
 
 const comments = vi.hoisted(() => ({
   listComments: vi.fn(),
+  listCommentDates: vi.fn(),
   onComment: vi.fn(),
   appendComment: vi.fn(),
 }));
@@ -70,5 +71,48 @@ describe("GET /:sym/comments", () => {
     const res = await app.inject({ method: "GET", url: "/MU.US/comments?date=../evil" });
     expect(res.statusCode).toBe(400);
     expect(comments.listComments).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /:sym/comment-dates", () => {
+  it("returns the distinct comment dates for the symbol", async () => {
+    comments.listCommentDates.mockResolvedValue(["2026-07-02", "2026-07-01"]);
+    const app = await testApp();
+    const res = await app.inject({ method: "GET", url: "/mu/comment-dates" });
+    expect(res.statusCode).toBe(200);
+    expect(comments.listCommentDates).toHaveBeenCalledWith("MU.US");
+    expect(res.json().data).toEqual(["2026-07-02", "2026-07-01"]);
+  });
+});
+
+describe("GET /:sym/journal", () => {
+  it("returns an ok-wrapped array", async () => {
+    const app = await testApp();
+    const res = await app.inject({ method: "GET", url: "/MU.US/journal" });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.ok).toBe(true);
+    expect(Array.isArray(body.data)).toBe(true);
+    for (const row of body.data) {
+      expect(row.name).toMatch(/^\d{4}-\d{2}-\d{2}-mu(-|\.)/);
+    }
+  });
+
+  it("rejects a journal name that is not a dated markdown file", async () => {
+    const app = await testApp();
+    const res = await app.inject({ method: "GET", url: "/MU.US/journal/evil.txt" });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("rejects path traversal in the journal name", async () => {
+    const app = await testApp();
+    const res = await app.inject({ method: "GET", url: "/MU.US/journal/..%2F..%2Fsecrets.md" });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("404s on a missing journal file", async () => {
+    const app = await testApp();
+    const res = await app.inject({ method: "GET", url: "/MU.US/journal/2020-01-01-mu-intraday.md" });
+    expect(res.statusCode).toBe(404);
   });
 });
