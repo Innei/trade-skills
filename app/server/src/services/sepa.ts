@@ -330,7 +330,9 @@ export function buildSepa(input: SepaInput): { built: SepaBuilt; meta: SepaMeta 
     const v20 = vol20Arr[i];
     if (!v20) continue;
     const r = vols[i] / v20;
-    const color = r >= 1.5 ? "#ff5722" : r < 0.5 ? "#9e9e9e" : "#42a5f5";
+    let color = "#42a5f5";
+    if (r >= 1.5) color = "#ff5722";
+    else if (r < 0.5) color = "#9e9e9e";
     volRatio.push({ time: timesTs[i], value: pyRound(r, 3), color });
   }
 

@@ -11,6 +11,11 @@ const CHECK_ICON: Record<string, { icon: typeof Check; tone: string }> = {
   unknown: { icon: TriangleAlert, tone: "" },
 };
 
+function rrTone(ep: { rr_great: boolean; rr_ok: boolean }): string {
+  if (ep.rr_great) return "up";
+  return ep.rr_ok ? "" : "down";
+}
+
 export function SepaSidebar({ built }: { built: SepaBuilt }) {
   const s = built.sidebar;
   const ep = built.chart.entryPlan;
@@ -127,7 +132,7 @@ export function SepaSidebar({ built }: { built: SepaBuilt }) {
             <div className="k">第二目标 (+{fmt(ep.target2_pct, 0)}%)</div>
             <div className="v up">${fmt(ep.target2)}</div>
             <div className="k">R/R 比例 (基于 T2)</div>
-            <div className={`v ${ep.rr_great ? "up" : ep.rr_ok ? "" : "down"}`}>
+            <div className={`v ${rrTone(ep)}`}>
               {fmt(ep.rr)} : 1
               {!ep.rr_ok && (
                 <span className="warn-red">

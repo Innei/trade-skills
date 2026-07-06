@@ -7,6 +7,7 @@ import { useIntervalFetch } from "../cockpit/useIntervalFetch";
 
 const DIRECTION_LABEL: Record<string, string> = { long: "做多", short: "做空", neutral: "观望" };
 const OUTCOME_LABEL: Record<string, string> = { hit_target: "命中目标", hit_stop: "打到止损", open: "未了结" };
+const OUTCOME_TONE: Record<string, "up" | "down"> = { hit_target: "up", hit_stop: "down" };
 
 function BucketLine({ label, bucket }: { label: string; bucket: StatsBucket }) {
   const resolved = bucket.hit_target + bucket.hit_stop;
@@ -47,13 +48,7 @@ function SettlementTable({ recap }: { recap: OverviewRecap }) {
           <span className="dir">{s.direction ? DIRECTION_LABEL[s.direction] : "—"}</span>
           {s.day_pct != null ? <Num value={s.day_pct} diff suffix="%" /> : <span>—</span>}
           {s.outcome ? (
-            <Badge
-              tone={
-                s.outcome.status === "hit_target" ? "up" : s.outcome.status === "hit_stop" ? "down" : undefined
-              }
-            >
-              {OUTCOME_LABEL[s.outcome.status]}
-            </Badge>
+            <Badge tone={OUTCOME_TONE[s.outcome.status]}>{OUTCOME_LABEL[s.outcome.status]}</Badge>
           ) : (
             <Badge>无法判定</Badge>
           )}

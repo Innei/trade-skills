@@ -3,7 +3,7 @@ import type { CockpitComment } from "../../../../shared/types";
 import { marketDate } from "../../../../shared/time";
 import { useQuery } from "../../apiHooks";
 import { Badge, Button, MarketTime, Spinner } from "../../ui";
-import { buildFeed } from "./aiFeed";
+import { buildFeed, type FeedRow } from "./aiFeed";
 import { useReassessSymbol } from "./useReassessSymbol";
 
 const LEVEL_LABEL: Record<string, string> = { info: "info", warn: "warn", alert: "alert", error: "error" };
@@ -166,34 +166,42 @@ export function AiTab({
 
       {selectedDate && <div className="note-block">显示 {selectedDate} 的点评（今天暂无新点评）</div>}
 
-      {shownError ? (
-        <div className="note-block">点评获取失败：{shownError}</div>
-      ) : rows.length === 0 ? (
+      {renderFeed()}
+    </div>
+  );
+
+  function renderRow(row: FeedRow) {
+    if (row.kind === "comment") {
+      return <CommentItem key={`${row.comment.ts}-${row.comment.text}`} comment={row.comment} />;
+    }
+    if (!expanded.has(row.id)) {
+      return (
+        <div key={row.id} className="ai-fold" onClick={() => toggleFold(row.id)}>
+          <MarketTime value={row.from} format="clock" /> – <MarketTime value={row.to} format="clock" /> 无事 ×{row.count}（点击展开）
+        </div>
+      );
+    }
+    return (
+      <div key={row.id}>
+        <div className="ai-fold open" onClick={() => toggleFold(row.id)}>
+          <MarketTime value={row.from} format="clock" /> – <MarketTime value={row.to} format="clock" /> 无事 ×{row.count}（收起）
+        </div>
+        {[...row.comments].reverse().map((c) => (
+          <CommentItem key={`${c.ts}-${c.text}`} comment={c} />
+        ))}
+      </div>
+    );
+  }
+
+  function renderFeed() {
+    if (shownError) return <div className="note-block">点评获取失败：{shownError}</div>;
+    if (rows.length === 0) {
+      return (
         <div className="note-block">
           {selectedDate ? `${selectedDate} 没有点评` : "还没有 AI 点评——点评由盘中自动监控（触发信号 / 定时心跳）产生；也可以点上面「重新分析」手动跑一次重估"}
         </div>
-      ) : (
-        <div className="ai-feed">
-          {rows.map((row) =>
-            row.kind === "comment" ? (
-              <CommentItem key={`${row.comment.ts}-${row.comment.text}`} comment={row.comment} />
-            ) : expanded.has(row.id) ? (
-              <div key={row.id}>
-                <div className="ai-fold open" onClick={() => toggleFold(row.id)}>
-                  <MarketTime value={row.from} format="clock" /> – <MarketTime value={row.to} format="clock" /> 无事 ×{row.count}（收起）
-                </div>
-                {[...row.comments].reverse().map((c) => (
-                  <CommentItem key={`${c.ts}-${c.text}`} comment={c} />
-                ))}
-              </div>
-            ) : (
-              <div key={row.id} className="ai-fold" onClick={() => toggleFold(row.id)}>
-                <MarketTime value={row.from} format="clock" /> – <MarketTime value={row.to} format="clock" /> 无事 ×{row.count}（点击展开）
-              </div>
-            ),
-          )}
-        </div>
-      )}
-    </div>
-  );
+      );
+    }
+    return <div className="ai-feed">{rows.map(renderRow)}</div>;
+  }
 }

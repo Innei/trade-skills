@@ -271,7 +271,32 @@ export function detectCandlePatterns(
     for (let j = start; j <= i; j++) if (taken.has(j)) return;
     for (let j = start; j <= i; j++) taken.set(j, kind);
     const meta = CANDLE_PATTERN_META[kind];
-    out.push({ kind, time: timesTs[i], price, bias: meta.bias, label: meta.label, implication: meta.implication });
+    let spanLow = Infinity;
+    let spanHigh = -Infinity;
+    for (let j = start; j <= i; j++) {
+      spanLow = Math.min(spanLow, lows[j]);
+      spanHigh = Math.max(spanHigh, highs[j]);
+    }
+    let confirm_price: number | null = null;
+    let invalidate_price: number | null = null;
+    if (meta.bias === "bullish") {
+      confirm_price = bodyTop(i);
+      invalidate_price = spanLow;
+    } else if (meta.bias === "bearish") {
+      confirm_price = bodyBottom(i);
+      invalidate_price = spanHigh;
+    }
+    out.push({
+      kind,
+      time: timesTs[i],
+      price,
+      bias: meta.bias,
+      label: meta.label,
+      implication: meta.implication,
+      span,
+      confirm_price,
+      invalidate_price,
+    });
   };
 
   for (let i = 2; i < n; i++) {

@@ -122,12 +122,12 @@ function detectZoneBreak(bars: TriggerBar[], zones: TriggerZone[]): Trigger | nu
     const prev = zonePosition(prevClose, zone);
     const last = zonePosition(lastClose, zone);
     if (prev === last) continue;
-    const detail =
-      last === 0
-        ? `Price entered zone "${zone.label}" ${zone.low}-${zone.high} (${prevClose} -> ${lastClose})`
-        : prev === 0
-          ? `Price exited zone "${zone.label}" ${zone.low}-${zone.high} ${last > 0 ? "upward" : "downward"} (${prevClose} -> ${lastClose})`
-          : `Price crossed through zone "${zone.label}" ${zone.low}-${zone.high} (${prevClose} -> ${lastClose})`;
+    const where = `zone "${zone.label}" ${zone.low}-${zone.high}`;
+    const move = `(${prevClose} -> ${lastClose})`;
+    let detail: string;
+    if (last === 0) detail = `Price entered ${where} ${move}`;
+    else if (prev === 0) detail = `Price exited ${where} ${last > 0 ? "upward" : "downward"} ${move}`;
+    else detail = `Price crossed through ${where} ${move}`;
     return { kind: "zone_break", detail };
   }
   return null;

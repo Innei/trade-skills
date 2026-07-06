@@ -300,6 +300,13 @@ export type CandlePatternKind =
   | "bullish_marubozu"
   | "bearish_marubozu";
 
+export type CandlePatternStatus = "pending" | "confirmed" | "invalidated" | "expired";
+
+export interface CandlePatternStats {
+  sample: number;
+  wins: number;
+}
+
 export interface CandlePattern {
   kind: CandlePatternKind;
   time: number;
@@ -307,6 +314,12 @@ export interface CandlePattern {
   bias: "bullish" | "bearish" | "neutral";
   label: string;
   implication: string;
+  span?: number;
+  confirm_price?: number | null;
+  invalidate_price?: number | null;
+  score?: number;
+  status?: CandlePatternStatus | null;
+  stats?: CandlePatternStats | null;
 }
 
 export interface Pattern123 {

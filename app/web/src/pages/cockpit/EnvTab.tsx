@@ -141,13 +141,13 @@ export function EnvTab({ position, positionError, benchmark, benchmarkError, rel
       <SectionTitle style={{ marginTop: position ? 16 : 0 }}>
         环境对照（相对首点百分比）
       </SectionTitle>
-      {benchmark && benchmark.length > 0 ? (
-        <BenchmarkChart series={benchmark} />
-      ) : benchmarkError ? (
-        <div className="note-block">环境对照数据获取失败：{benchmarkError}</div>
-      ) : (
-        <div className="note-block">加载中…</div>
-      )}
+      {renderBenchmark()}
     </>
   );
+
+  function renderBenchmark() {
+    if (benchmark && benchmark.length > 0) return <BenchmarkChart series={benchmark} />;
+    if (benchmarkError) return <div className="note-block">环境对照数据获取失败：{benchmarkError}</div>;
+    return <div className="note-block">加载中…</div>;
+  }
 }

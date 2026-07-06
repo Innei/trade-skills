@@ -38,13 +38,12 @@ export function NoteTab({ symbol }: { symbol: string }) {
   const runningElsewhere =
     deepDive.running && deepDive.runningSymbol && bareSymbol(deepDive.runningSymbol) !== bareSymbol(symbol);
 
-  const buttonLabel = deepDive.running
-    ? runningElsewhere
+  let buttonLabel = note?.markdown ? "重新深度分析" : "跑一次深度分析";
+  if (deepDive.running) {
+    buttonLabel = runningElsewhere
       ? `有分析进行中（${deepDive.runningSymbol}）`
-      : `分析中…${elapsedLabel(deepDive.startedAt)}`
-    : note?.markdown
-      ? "重新深度分析"
-      : "跑一次深度分析";
+      : `分析中…${elapsedLabel(deepDive.startedAt)}`;
+  }
 
   const button = (
     <Button onClick={confirmAndStart} disabled={deepDive.pending || deepDive.running || deepDive.disabled}>

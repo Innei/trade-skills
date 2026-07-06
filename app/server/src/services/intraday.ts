@@ -1,6 +1,7 @@
 import {
   AUTO_SIGNAL_META,
   type CandlePattern,
+  type CandlePatternStatus,
   type ColoredPoint,
   type Connector,
   type DivergencePair,
@@ -16,6 +17,8 @@ import {
   type IntradayTfData,
   type IntradayTfSummary,
   type MacdCross,
+  type MarkerPosition,
+  type MarkerShape,
   type NewsItem,
   type Pattern123,
   type RawBar,
@@ -30,6 +33,7 @@ import { detectFvgZones } from "./fvg.js";
 import { ema, findSwings, lineData, macd, pyRound, sma, toTs } from "./indicators.js";
 import { classifyMacdStructure, MACD_STRUCTURE_META, ZERO_TANGLE_NOTE, type MacdStructure } from "./macdStructure.js";
 import { detect123Patterns } from "./pattern123.js";
+import { enrichCandlePatterns, SCORE_DOT_MARKER, SCORE_FULL_MARKER } from "./patternScoring.js";
 import { offSessionSegments } from "./session.js";
 
 export const TIMEFRAME_ORDER: TimeframeKey[] = ["m5", "m15", "h1"];
@@ -48,6 +52,34 @@ const ZONE_COLORS: Record<string, string> = {
   invalidation: "#ef5350",
   watch: "#8b949e",
 };
+const BIAS_MARKER_STYLE: Record<
+  "bullish" | "bearish" | "neutral",
+  { position: MarkerPosition; color: string; shape: MarkerShape }
+> = {
+  bullish: { position: "belowBar", color: "#26a69a", shape: "arrowUp" },
+  bearish: { position: "aboveBar", color: "#ef5350", shape: "arrowDown" },
+  neutral: { position: "inBar", color: "#9e9e9e", shape: "circle" },
+};
+const SIGNAL_BIAS_STYLE: Record<"bullish" | "bearish" | "neutral", { color: string; shape: MarkerShape }> = {
+  bullish: { color: "#26a69a", shape: "arrowUp" },
+  bearish: { color: "#ef5350", shape: "arrowDown" },
+  neutral: { color: "#ffc107", shape: "circle" },
+};
+const ANCHOR_DIRECTION_STYLE: Record<
+  "long" | "short" | "neutral",
+  { label: string; shape: MarkerShape; position: MarkerPosition }
+> = {
+  long: { label: "做多", shape: "arrowUp", position: "belowBar" },
+  short: { label: "做空", shape: "arrowDown", position: "aboveBar" },
+  neutral: { label: "观望", shape: "circle", position: "inBar" },
+};
+const PATTERN_STATUS_TEXT: Record<CandlePatternStatus, string> = {
+  pending: "待确认",
+  confirmed: "✓已确认",
+  invalidated: "✗已失效",
+  expired: "已过期（3根内未触发确认或失效）",
+};
+const PATTERN_LABEL_SUFFIX: Partial<Record<CandlePatternStatus, string>> = { pending: "?", confirmed: "✓" };
 
 const barTimeShort = (t: number) => formatMarketMonthDayTime(t, true);
 
@@ -232,7 +264,18 @@ export function coerceIntradayTimeframe(bars: RawBar[], key: string, emaPeriods 
 
   const macdCrosses = findMacdCrosses(hist, timesTs);
   const structure = classifyMacdStructure(dif, hist, timesTs);
-  const candlePatterns = detectCandlePatterns(opens, highs, lows, closes, timesTs);
+  const fvgZones = detectFvgZones(candles);
+  const candlePatterns = enrichCandlePatterns(detectCandlePatterns(opens, highs, lows, closes, timesTs), {
+    highs,
+    lows,
+    closes,
+    vols,
+    timesTs,
+    emaArrs,
+    swingHighs,
+    swingLows,
+    fvgZones,
+  });
 
   const histByTime = new Map<number, number>();
   for (let i = 0; i < hist.length; i++) {
@@ -262,7 +305,7 @@ export function coerceIntradayTimeframe(bars: RawBar[], key: string, emaPeriods 
     autoDivergence: autoDivergence.slice(-2),
     autoBeichi: autoBeichi.slice(-2),
     pattern123,
-    fvgZones: detectFvgZones(candles),
+    fvgZones,
     lastClose: closes[closes.length - 1],
     summary: {
       last_dif: lastNonNull(dif),
@@ -297,8 +340,7 @@ function buildIntradaySignals(signals: IntradayPrediction["signals"]): Record<Ti
     if (!tf || !(tf in perTf)) continue;
     const stype = sig.type ?? sig.kind ?? "other";
     const bias = sig.bias;
-    const color = bias === "bullish" ? "#26a69a" : bias === "bearish" ? "#ef5350" : "#ffc107";
-    const shape = bias === "bullish" ? "arrowUp" : bias === "bearish" ? "arrowDown" : "circle";
+    const { color, shape } = SIGNAL_BIAS_STYLE[bias ?? "neutral"];
 
     const tooltip = `${SIGNAL_ICON[stype] ?? "•"} AI 标注信号\n${sig.label ?? stype}`;
     if (stype === "macd_divergence") {
@@ -710,9 +752,7 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
   const anchor = prediction?.anchor;
   const signalsByTf = buildIntradaySignals(prediction?.signals);
   if (anchor && anchor.timeframe in signalsByTf) {
-    const dirLabel = direction === "long" ? "做多" : direction === "short" ? "做空" : "观望";
-    const shape = direction === "long" ? "arrowUp" : direction === "short" ? "arrowDown" : "circle";
-    const position = direction === "long" ? "belowBar" : direction === "short" ? "aboveBar" : "inBar";
+    const { label: dirLabel, shape, position } = ANCHOR_DIRECTION_STYLE[direction];
     signalsByTf[anchor.timeframe].markers.push({
       time: toTs(anchor.time),
       position,
@@ -758,15 +798,35 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
       lastIdxByKind.set(p.kind, idx);
       return true;
     });
-    const patternMarkers: SeriesMarker[] = dedupedPatterns.slice(-12).map((p) => ({
-      time: p.time,
-      position: p.bias === "neutral" ? "inBar" : p.bias === "bullish" ? "belowBar" : "aboveBar",
-      color: p.bias === "neutral" ? "#9e9e9e" : p.bias === "bullish" ? "#26a69a" : "#ef5350",
-      shape: p.bias === "neutral" ? "circle" : p.bias === "bullish" ? "arrowUp" : "arrowDown",
-      text: p.label,
-      tooltip: `🕯️ 自动·${p.label}（简化算法，仅供参考）\n${barTimeShort(p.time)} $${p.price}\n${p.implication}`,
-      group: "candle",
-    }));
+    const patternMarkers: SeriesMarker[] = dedupedPatterns
+      .filter((p) => (p.score ?? 0) >= SCORE_DOT_MARKER)
+      .slice(-12)
+      .map((p) => {
+        const full = (p.score ?? 0) >= SCORE_FULL_MARKER;
+        const dead = p.status === "invalidated" || p.status === "expired";
+        const statusText = p.status ? PATTERN_STATUS_TEXT[p.status] : "无方向";
+        const lines = [
+          `🕯️ 自动·${p.label}（简化算法，仅供参考）`,
+          `${barTimeShort(p.time)} $${p.price}`,
+          `状态：${statusText} ｜ 含金量 ${p.score ?? 0}/100`,
+        ];
+        if (p.confirm_price != null && p.invalidate_price != null) {
+          lines.push(`确认价 $${pyRound(p.confirm_price, 3)} ｜ 失效价 $${pyRound(p.invalidate_price, 3)}`);
+        }
+        lines.push(p.implication);
+        lines.push(p.stats ? `历史：近 ${p.stats.sample} 次确认后 ${p.stats.wins} 次走对` : "历史：样本不足");
+        const style = BIAS_MARKER_STYLE[p.bias];
+        const suffix = p.status ? (PATTERN_LABEL_SUFFIX[p.status] ?? "") : "";
+        return {
+          time: p.time,
+          position: style.position,
+          color: dead ? "#6e7681" : style.color,
+          shape: dead || !full ? "circle" : style.shape,
+          text: dead || !full ? "" : `${p.label}${suffix}`,
+          tooltip: lines.join("\n"),
+          group: "candle",
+        } satisfies SeriesMarker;
+      });
     timeframes[k] = {
       candles: tf.candles,
       volumes: tf.volumes,

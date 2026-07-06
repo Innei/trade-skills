@@ -26,6 +26,23 @@ export function JournalSection({
     : null;
   const { data, error, loading } = useQuery<{ name: string; markdown: string }>(url);
 
+  const renderEntry = () => {
+    if (error) return <ErrorBox>{error}</ErrorBox>;
+    if (loading) return <Spinner />;
+    if (!data?.markdown) return null;
+    return (
+      <>
+        <button className="link-button" onClick={() => setReading(true)}>
+          <Maximize2 className="icon" size={13} /> 全屏阅读
+        </button>
+        <Markdown>{data.markdown}</Markdown>
+        {reading && selected && (
+          <MarkdownModal title={selected} markdown={data.markdown} onClose={() => setReading(false)} />
+        )}
+      </>
+    );
+  };
+
   return (
     <div className="journal-section">
       {entries.length === 0 ? (
@@ -44,20 +61,7 @@ export function JournalSection({
           ))}
         </div>
       )}
-      {selected &&
-        (error ? (
-          <ErrorBox>{error}</ErrorBox>
-        ) : loading ? (
-          <Spinner />
-        ) : data?.markdown ? (
-          <>
-            <button className="link-button" onClick={() => setReading(true)}>
-              <Maximize2 className="icon" size={13} /> 全屏阅读
-            </button>
-            <Markdown>{data.markdown}</Markdown>
-            {reading && <MarkdownModal title={selected} markdown={data.markdown} onClose={() => setReading(false)} />}
-          </>
-        ) : null)}
+      {selected && renderEntry()}
     </div>
   );
 }

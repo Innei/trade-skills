@@ -48,9 +48,11 @@ function pctText(pct: number): string {
   return `${pct >= 0 ? "+" : ""}${pct.toFixed(2)}%`;
 }
 
+const DIRECTION_NAMES: Record<string, string> = { long: "做多", short: "做空", neutral: "观望" };
+
 function directionLine(report: RecapSymbolReport): string {
   if (!report.direction) return "- 当日没有落盘的预测";
-  const name = report.direction === "long" ? "做多" : report.direction === "short" ? "做空" : "观望";
+  const name = DIRECTION_NAMES[report.direction] ?? report.direction;
   if (report.entry == null || report.stop == null) return `- 预测方向：${name}`;
   const target = report.target1 != null ? ` / 目标 ${report.target1}` : "";
   return `- 预测方向：${name}（入场 ${report.entry} / 止损 ${report.stop}${target}）`;

@@ -160,7 +160,7 @@ async function executeDeepDiveRun(symbol: string, deps: DeepDiveDeps): Promise<v
         : "note updated.",
     );
   } catch (err) {
-    const message = err instanceof DeepDiveTimeoutError ? err.message : err instanceof Error ? err.message : String(err);
+    const message = err instanceof Error ? err.message : String(err);
     console.error(`[deep-dive] ${symbol} failed: ${message}`);
     state = {
       running: false,

@@ -97,6 +97,26 @@ describe("detectCandlePatterns", () => {
     );
   });
 
+  it("attaches confirm/invalidate prices to directional patterns and nulls for neutral ones", () => {
+    const hammer = { open: 100, high: 100.15, low: 99.65, close: 100.1 };
+    const bullish = detect([smallRed(104), smallRed(103), smallRed(102), smallRed(101), hammer]).find(
+      (p) => p.kind === "hammer",
+    );
+    expect(bullish?.confirm_price).toBeCloseTo(100.1);
+    expect(bullish?.invalidate_price).toBeCloseTo(99.65);
+    expect(bullish?.span).toBe(1);
+
+    const doji = { open: 100, high: 100.6, low: 99.4, close: 100.005 };
+    const neutral = detect([smallGreen(99), smallGreen(99.7), smallGreen(100.4), smallGreen(101.1), doji]).find((p) =>
+      p.kind.includes("doji"),
+    );
+    expect(neutral).toBeDefined();
+    if (neutral?.bias === "neutral") {
+      expect(neutral.confirm_price).toBeNull();
+      expect(neutral.invalidate_price).toBeNull();
+    }
+  });
+
   it("detects a neutral lower pin bar in a range when it pokes a fresh local low", () => {
     const rangeBars = [
       smallGreen(100),

@@ -4,6 +4,7 @@ import type { OverviewBoard, OverviewRow } from "../../../../shared/types";
 import { api, errorMessage } from "../../api";
 import { fmt, signed } from "../../format";
 import { Badge, Button, Card, Dot, Empty, ErrorBox, MarketTime, Num } from "../../ui";
+import { directionTone } from "../../charts/intraday/directionLabels";
 
 const DIRECTION_LABEL: Record<string, string> = { long: "做多", short: "做空", neutral: "观望" };
 
@@ -32,19 +33,24 @@ function ReassessButton({ symbol }: { symbol: string }) {
     window.setTimeout(() => setState("idle"), 4000);
   };
 
-  const label =
-    state === "running" ? (
-      "分析中…"
-    ) : state === "done" ? (
+  const labels: Record<typeof state, React.ReactNode> = {
+    idle: "重新分析",
+    running: "分析中…",
+    done: (
       <>
         已触发 <Check className="icon" size={13} />
       </>
-    ) : state === "failed" ? (
-      "未启动"
-    ) : (
-      "重新分析"
-    );
-  const btnState = state === "running" ? "busy" : state === "idle" ? undefined : state;
+    ),
+    failed: "未启动",
+  };
+  const label = labels[state];
+  const btnStates: Record<typeof state, "busy" | "done" | "failed" | undefined> = {
+    idle: undefined,
+    running: "busy",
+    done: "done",
+    failed: "failed",
+  };
+  const btnState = btnStates[state];
   return (
     <Button className="reassess-action" state={btnState} onClick={run} disabled={state === "running"}>
       {label}
@@ -59,7 +65,7 @@ function SymbolCard({ row }: { row: OverviewRow }) {
       <div className="symbol-card-head">
         <span className="sym">{row.symbol}</span>
         {row.direction && (
-          <Badge tone={row.direction === "long" ? "up" : row.direction === "short" ? "down" : undefined}>
+          <Badge tone={directionTone(row.direction)}>
             {DIRECTION_LABEL[row.direction]}
           </Badge>
         )}
@@ -108,7 +114,7 @@ export function WatchBoard({
           <Card link className="watch-strip-cell" key={row.symbol} href={`/symbol/${encodeURIComponent(row.symbol)}`}>
             <span className="sym">{row.symbol.replace(/\.US$/, "")}</span>
             {row.direction && (
-              <Badge tone={row.direction === "long" ? "up" : row.direction === "short" ? "down" : undefined}>
+              <Badge tone={directionTone(row.direction)}>
                 {DIRECTION_LABEL[row.direction]}
               </Badge>
             )}

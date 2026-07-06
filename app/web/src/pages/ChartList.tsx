@@ -19,6 +19,11 @@ function dateLabel(date: string): string {
   return Number.isNaN(d.getTime()) ? date : `${date} 周${WEEKDAY[d.getUTCDay()]}`;
 }
 
+function groupLabel(view: "date" | "symbol", key: string): string {
+  if (view === "date") return dateLabel(key);
+  return key ? key.replace(/\.US$/, "") : "无标的";
+}
+
 function groupBy(charts: MetaWithUrl[], key: (m: MetaWithUrl) => string): [string, MetaWithUrl[]][] {
   const groups = new Map<string, MetaWithUrl[]>();
   for (const m of charts) {
@@ -112,7 +117,7 @@ export function ChartList() {
       {groups.map(([key, metas]) => (
         <div key={key} className="chart-group">
           <div className="chart-group-head">
-            <span className="label">{view === "date" ? dateLabel(key) : key ? key.replace(/\.US$/, "") : "无标的"}</span>
+            <span className="label">{groupLabel(view, key)}</span>
             <span className="count">{metas.length} 张</span>
           </div>
           <div className="chart-grid">

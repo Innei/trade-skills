@@ -24,7 +24,9 @@ export function FlowChart({ rows }: { rows: FlowRow[] }) {
   const values = data.map((d) => d.v);
   const max = Math.max(...values);
   const min = Math.min(...values);
-  const zeroOffset = max <= 0 ? 0 : min >= 0 ? 1 : max / (max - min);
+  let zeroOffset = max / (max - min);
+  if (max <= 0) zeroOffset = 0;
+  else if (min >= 0) zeroOffset = 1;
 
   return (
     <ResponsiveContainer width="100%" height="100%">

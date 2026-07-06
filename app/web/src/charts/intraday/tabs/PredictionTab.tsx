@@ -12,6 +12,11 @@ import { MarketTime, SectionTitle } from "../../../ui";
 const SIGNAL_ICON: Record<string, string> = { pin_bar: "📌", macd_divergence: "⚡", macd_beichi: "🌀" };
 const TF_ORDER: TimeframeKey[] = ["m5", "m15", "h1"];
 
+function rrTone(ep: { rr_great: boolean; rr_ok: boolean }): string {
+  if (ep.rr_great) return "up";
+  return ep.rr_ok ? "" : "down";
+}
+
 interface PredictionTabProps {
   built: IntradayBuilt;
   activeTf: TimeframeKey;
@@ -118,7 +123,7 @@ export function PredictionTab({ built, activeTf, predictionUpdatedAt, prediction
             <div className="k">目标2 ({signed(ep.target2_pct, 1)}%)</div>
             <div className="v up">${fmt(ep.target2)}</div>
             <div className="k">R/R</div>
-            <div className={`v ${ep.rr_great ? "up" : ep.rr_ok ? "" : "down"}`}>
+            <div className={`v ${rrTone(ep)}`}>
               {fmt(ep.rr)} : 1
               {!ep.rr_ok && (
                 <span className="warn-red">

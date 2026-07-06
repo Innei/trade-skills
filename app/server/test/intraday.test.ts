@@ -187,25 +187,32 @@ describe("intraday parity vs python golden fixture", () => {
     expect(groupsSeen).toEqual(new Set(["ai", "divergence", "beichi", "pattern123", "candle"]));
   });
 
-  it("renders neutral candle patterns as gray inBar circles and labels every pattern regardless of strength", () => {
+  it("scores candle patterns, hides low-score ones, and annotates status/confirm prices", () => {
     const { built } = buildIntraday(input);
-    const candleMarkers = built.timeframes.m5.markers.filter((m) => m.group === "candle");
+
+    for (const key of ["m5", "m15", "h1"] as TimeframeKey[]) {
+      const tf = coerceIntradayTimeframe(input.timeframes[key] as RawBar[], key);
+      for (const p of tf.candlePatterns) {
+        expect(p.score).toBeGreaterThanOrEqual(0);
+        expect(p.score).toBeLessThanOrEqual(100);
+        if (p.bias !== "neutral") {
+          expect(p.confirm_price).not.toBeNull();
+          expect(p.invalidate_price).not.toBeNull();
+          expect(["pending", "confirmed", "invalidated", "expired"]).toContain(p.status);
+        } else {
+          expect(p.status).toBeNull();
+        }
+      }
+    }
+
+    const candleMarkers = Object.values(built.timeframes).flatMap((tf) =>
+      tf.markers.filter((m) => m.group === "candle"),
+    );
     expect(candleMarkers.length).toBeGreaterThan(0);
-
-    const neutral = candleMarkers.find((m) => m.text === "十字星");
-    expect(neutral).toBeDefined();
-    expect(neutral?.position).toBe("inBar");
-    expect(neutral?.color).toBe("#9e9e9e");
-    expect(neutral?.shape).toBe("circle");
-
-    const weakBullish = candleMarkers.find((m) => m.text === "看涨孕线");
-    expect(weakBullish).toBeDefined();
-    expect(weakBullish?.text).not.toBe("");
-    expect(weakBullish?.position).toBe("belowBar");
-    expect(weakBullish?.shape).toBe("arrowUp");
-
     for (const m of candleMarkers) {
-      expect(m.text).not.toBe("");
+      expect(m.tooltip).toContain("含金量");
+      expect(m.tooltip).toContain("状态：");
+      if (m.text !== "") expect(m.shape).not.toBe("square");
     }
   });
 
