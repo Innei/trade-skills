@@ -401,6 +401,7 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 .sidebar-tab-bar {
   display: flex; flex-wrap: nowrap; gap: 4px; margin-bottom: 12px; border-bottom: 1px solid var(--border);
   overflow-x: auto; scrollbar-width: none;
+  position: sticky; top: -16px; padding-top:8px; z-index: 5; background: var(--bg-surface);
 }
 .sidebar-tab-bar::-webkit-scrollbar { display: none; }
 .sidebar-tab-bar button {
