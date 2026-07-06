@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button, Empty, ErrorBox, MarketTime, Spinner } from "../../ui";
+import { JournalSection, type JournalEntryMeta } from "./JournalSection";
 import { bareSymbol, useDeepDive } from "./useDeepDive";
 import { useNote } from "./useNote";
 
@@ -21,7 +22,17 @@ function elapsedLabel(startedAt: string | null): string {
   return m > 0 ? `${m}分${s}秒` : `${s}秒`;
 }
 
-export function NoteTab({ symbol }: { symbol: string }) {
+export function NoteTab({
+  symbol,
+  journal = [],
+  selectedJournal = null,
+  onSelectJournal,
+}: {
+  symbol: string;
+  journal?: JournalEntryMeta[];
+  selectedJournal?: string | null;
+  onSelectJournal?: (name: string | null) => void;
+}) {
   const { note, error, reload } = useNote(symbol);
   const onNoteReady = useCallback(() => reload(), [reload]);
   const deepDive = useDeepDive(symbol, onNoteReady);
@@ -86,6 +97,13 @@ export function NoteTab({ symbol }: { symbol: string }) {
           {deepDive.successNote && <span className="ai-hint">{deepDive.successNote}</span>}
         </>
       )}
+      <JournalSection
+        symbol={symbol}
+        entries={journal}
+        selected={selectedJournal}
+        onSelect={(name) => onSelectJournal?.(name)}
+        markdownComponents={MARKDOWN_COMPONENTS}
+      />
     </div>
   );
 }

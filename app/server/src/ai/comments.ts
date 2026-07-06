@@ -1,4 +1,4 @@
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import type { CockpitComment, CommentLevel, CommentSource } from "../../../shared/types.js";
 import { getDb, type Db } from "../db/index.js";
 import { comments } from "../db/schema.js";
@@ -56,6 +56,16 @@ export async function listComments(symbol: string, date: string, db: Db = getDb(
     .where(and(eq(comments.symbol, symbol), eq(comments.easternDate, date)))
     .orderBy(asc(comments.id));
   return rows.map(toComment);
+}
+
+export async function listCommentDates(symbol: string, db: Db = getDb(), limit = 30): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ date: comments.easternDate })
+    .from(comments)
+    .where(eq(comments.symbol, symbol))
+    .orderBy(desc(comments.easternDate))
+    .limit(limit);
+  return rows.map((r) => r.date);
 }
 
 export async function appendComment(comment: CockpitComment, db: Db = getDb()): Promise<void> {

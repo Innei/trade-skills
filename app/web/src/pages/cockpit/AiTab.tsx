@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CockpitComment } from "../../../../shared/types";
+import { marketDate } from "../../../../shared/time";
+import { useQuery } from "../../apiHooks";
 import { Badge, Button, MarketTime, Spinner } from "../../ui";
 import { buildFeed } from "./aiFeed";
 import { useReassessSymbol } from "./useReassessSymbol";
@@ -57,17 +59,43 @@ export function AiTab({
   comments,
   error,
   readOnly = false,
+  loaded = true,
 }: {
   symbol: string;
   comments: CockpitComment[];
   error: string | null;
   readOnly?: boolean;
+  loaded?: boolean;
 }) {
   const [running, setRunning] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const startedAtRef = useRef(0);
   const { pending, reassess } = useReassessSymbol(symbol);
+
+  const today = marketDate();
+  const { data: dates } = useQuery<string[]>(
+    readOnly ? null : `/api/symbols/${encodeURIComponent(symbol)}/comment-dates`,
+  );
+  const pastDates = useMemo(() => (dates ?? []).filter((d) => d < today), [dates, today]);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const autoFellBack = useRef(false);
+  useEffect(() => {
+    setSelectedDate(null);
+    autoFellBack.current = false;
+  }, [symbol]);
+  useEffect(() => {
+    if (readOnly || autoFellBack.current || selectedDate !== null) return;
+    if (loaded && comments.length === 0 && pastDates.length > 0) {
+      autoFellBack.current = true;
+      setSelectedDate(pastDates[0]);
+    }
+  }, [readOnly, loaded, comments.length, pastDates, selectedDate]);
+  const { data: pastComments, error: pastError } = useQuery<CockpitComment[]>(
+    selectedDate ? `/api/symbols/${encodeURIComponent(symbol)}/comments?date=${selectedDate}` : null,
+  );
+  const shownComments = selectedDate ? (pastComments ?? []) : comments;
+  const shownError = selectedDate ? pastError : error;
 
   useEffect(() => {
     if (!running) return;
@@ -99,7 +127,7 @@ export function AiTab({
     }
   };
 
-  const rows = useMemo(() => buildFeed(comments).reverse(), [comments]);
+  const rows = useMemo(() => buildFeed(shownComments).reverse(), [shownComments]);
 
   const toggleFold = (id: string) => {
     setExpanded((prev) => {
@@ -119,13 +147,31 @@ export function AiTab({
             {running ? "重估进行中…" : "重新分析"}
           </Button>
           {hint && <span className="ai-hint">{hint}</span>}
+          {pastDates.length > 0 && (
+            <select
+              className="ai-date-select"
+              value={selectedDate ?? "today"}
+              onChange={(e) => setSelectedDate(e.target.value === "today" ? null : e.target.value)}
+            >
+              <option value="today">今天</option>
+              {pastDates.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
       )}
 
-      {error ? (
-        <div className="note-block">点评获取失败：{error}</div>
+      {selectedDate && <div className="note-block">显示 {selectedDate} 的点评（今天暂无新点评）</div>}
+
+      {shownError ? (
+        <div className="note-block">点评获取失败：{shownError}</div>
       ) : rows.length === 0 ? (
-        <div className="note-block">今天还没有 AI 点评</div>
+        <div className="note-block">
+          {selectedDate ? `${selectedDate} 没有点评` : "还没有 AI 点评——点评由盘中自动监控（触发信号 / 定时心跳）产生；也可以点上面「重新分析」手动跑一次重估"}
+        </div>
       ) : (
         <div className="ai-feed">
           {rows.map((row) =>

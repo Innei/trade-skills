@@ -54,8 +54,24 @@ export function SymbolCockpit({ sym }: { sym: string }) {
   );
 
   const { data: analyses } = useQuery<SymbolAnalysisRow[]>(`/api/symbols/${encodeURIComponent(sym)}/analyses`);
+  const { data: journal } = useQuery<{ name: string; date: string }[]>(
+    `/api/symbols/${encodeURIComponent(sym)}/journal`,
+  );
 
   const [activeTab, setActiveTab] = useState("prediction");
+  const [selectedJournal, setSelectedJournal] = useState<string | null>(null);
+  useEffect(() => {
+    setSelectedJournal(null);
+  }, [sym]);
+  const journalEntries = journal ?? [];
+  const journalByDate = useMemo(
+    () => new Map(journalEntries.map((e) => [e.date, e.name] as [string, string])),
+    [journalEntries],
+  );
+  const openJournal = useCallback((name: string) => {
+    setSelectedJournal(name);
+    setActiveTab("note");
+  }, []);
   const { comments, error: commentsError, loaded: commentsLoaded } = useCockpitComments(sym);
 
   const warnAlertCount = comments.reduce((n, c) => (c.level === "warn" || c.level === "alert" ? n + 1 : n), 0);
@@ -159,12 +175,21 @@ export function SymbolCockpit({ sym }: { sym: string }) {
       key: "history",
       label: "历史",
       hidden: analysesRows.length === 0,
-      content: <HistoryTab rows={analysesRows} currentId={latestId} />,
+      content: (
+        <HistoryTab rows={analysesRows} currentId={latestId} journalByDate={journalByDate} onOpenJournal={openJournal} />
+      ),
     },
     {
       key: "note",
       label: "研究笔记",
-      content: <NoteTab symbol={sym} />,
+      content: (
+        <NoteTab
+          symbol={sym}
+          journal={journalEntries}
+          selectedJournal={selectedJournal}
+          onSelectJournal={setSelectedJournal}
+        />
+      ),
     },
     {
       key: "ai",
@@ -173,7 +198,7 @@ export function SymbolCockpit({ sym }: { sym: string }) {
           AI 点评{unread > 0 && <Badge tone="down" className="unread-badge">{unread}</Badge>}
         </>
       ),
-      content: <AiTab symbol={sym} comments={comments} error={commentsError} />,
+      content: <AiTab symbol={sym} comments={comments} error={commentsError} loaded={commentsLoaded} />,
     },
   ];
 

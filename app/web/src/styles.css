@@ -468,6 +468,17 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 
 .ai-reassess { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .ai-hint { font-size: var(--fs-sm); color: var(--text-secondary); }
+.ai-date-select { margin-left: auto; background: var(--bg-surface); color: var(--text-primary); border: 1px solid var(--border); border-radius: 4px; font-size: var(--fs-sm); padding: 3px 6px; }
+
+.journal-section { margin-top: 18px; }
+.journal-list { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.journal-entry { display: flex; gap: 10px; align-items: baseline; text-align: left; background: none; border: none; border-left: 2px solid var(--border); color: var(--text-primary); font-size: var(--fs-sm); padding: 5px 8px; cursor: pointer; }
+.journal-entry:hover { background: var(--bg-surface); }
+.journal-entry.active { border-left-color: var(--accent); background: var(--bg-surface); }
+.journal-entry-name { color: var(--text-secondary); font-size: var(--fs-xs); }
+
+.link-button { background: none; border: none; padding: 0; color: var(--accent); font-size: inherit; cursor: pointer; }
+.link-button:hover { text-decoration: underline; }
 
 .ai-tab, .ai-feed { min-width: 0; max-width: 100%; }
 .ai-feed { display: flex; flex-direction: column; overflow-x: hidden; }

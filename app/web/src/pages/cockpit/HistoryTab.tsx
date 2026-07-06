@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
-import { Check, CircleX, Clock } from "lucide-react";
+import { Check, CircleX, Clock, NotebookText } from "lucide-react";
 import type { OutcomeStatus, SymbolAnalysisRow } from "../../../../shared/types";
+import { marketDate } from "../../../../shared/time";
 import { fmt, signed } from "../../format";
 import { DIRECTION_COLOR, DIRECTION_LABEL } from "../../charts/intraday/directionLabels";
 import { theme } from "../../theme";
@@ -24,9 +25,13 @@ function OutcomeText({ status }: { status: OutcomeStatus }) {
 interface HistoryTabProps {
   rows: SymbolAnalysisRow[];
   currentId: string | null;
+  journalByDate?: Map<string, string>;
+  onOpenJournal?: (name: string) => void;
 }
 
-export function HistoryTab({ rows, currentId }: HistoryTabProps) {
+export function HistoryTab({ rows, currentId, journalByDate, onOpenJournal }: HistoryTabProps) {
+  const journalFor = (row: SymbolAnalysisRow): string | undefined =>
+    journalByDate?.get(marketDate(row.created_at));
   return (
     <>
       <SectionTitle>历史分析</SectionTitle>
@@ -49,6 +54,21 @@ export function HistoryTab({ rows, currentId }: HistoryTabProps) {
             {" · "}
             {row.outcome ? <OutcomeText status={row.outcome.status} /> : "—"}
             {row.outcome && ` · ${signed(row.outcome.pct_since_anchor)}%`}
+            {journalFor(row) && onOpenJournal && (
+              <>
+                {" · "}
+                <button
+                  className="link-button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onOpenJournal(journalFor(row)!);
+                  }}
+                >
+                  <NotebookText className="icon" size={13} /> 日志
+                </button>
+              </>
+            )}
           </div>
         </a>
       ))}
