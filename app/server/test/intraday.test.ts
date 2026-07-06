@@ -6,6 +6,7 @@ import {
   coerceIntradayTimeframe,
   computeIntradayEntryPlan,
   mergeAiAutoMarkers,
+  resolveEntryPlanStatus,
   type IntradayInput,
 } from "../src/services/intraday.js";
 import { approxDiff, loadFixture } from "./helpers.js";
@@ -214,6 +215,38 @@ describe("intraday parity vs python golden fixture", () => {
       expect(m.tooltip).toContain("状态：");
       if (m.text !== "") expect(m.shape).not.toBe("square");
     }
+  });
+
+  it("walks the entry plan lifecycle from the anchor bar", () => {
+    const plan = { entry: 1014, stop: 990.5 };
+    const bar = (i: number, high: number, low: number, close: number) => ({ time: 1000 + i * 300, high, low, close });
+
+    // never touches entry, closes below the entry-stop midpoint (1002.25) → invalidated
+    const falling = [bar(0, 1010, 1005, 1006), bar(1, 1006, 998, 999.5)];
+    expect(resolveEntryPlanStatus(plan, "long", 1000, falling)?.status).toBe("invalidated");
+
+    // touches entry then holds → triggered
+    const held = [bar(0, 1015, 1010, 1012), bar(1, 1013, 1008, 1010)];
+    expect(resolveEntryPlanStatus(plan, "long", 1000, held)?.status).toBe("triggered");
+
+    // touches entry then hits the stop → stopped
+    const stoppedOut = [bar(0, 1015, 1010, 1012), bar(1, 1012, 990, 991)];
+    expect(resolveEntryPlanStatus(plan, "long", 1000, stoppedOut)?.status).toBe("stopped");
+
+    // hovers between midpoint and entry → waiting
+    const hovering = [bar(0, 1012, 1006, 1010)];
+    expect(resolveEntryPlanStatus(plan, "long", 1000, hovering)?.status).toBe("waiting");
+
+    // bars before the anchor are ignored
+    expect(resolveEntryPlanStatus(plan, "long", 2000, falling)?.status).toBe("waiting");
+
+    // short mirror: entry 990, stop 1000, price rallies past midpoint 995 without touching entry
+    const shortPlan = { entry: 990, stop: 1000 };
+    const rally = [bar(0, 993, 991, 992), bar(1, 998, 992, 997)];
+    expect(resolveEntryPlanStatus(shortPlan, "short", 1000, rally)?.status).toBe("invalidated");
+
+    expect(resolveEntryPlanStatus(plan, "neutral", 1000, falling)).toBeNull();
+    expect(resolveEntryPlanStatus(plan, "long", null, falling)).toBeNull();
   });
 
   it("caps visible markers per bar in built output", () => {

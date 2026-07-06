@@ -113,6 +113,11 @@ export function PredictionTab({ built, activeTf, predictionUpdatedAt, prediction
       {p && ep && (
         <>
           <SectionTitle>入场计划</SectionTitle>
+          {ep.entry_status_note && (
+            <div className={`note-block${ep.entry_status === "invalidated" || ep.entry_status === "stopped" ? " down" : ""}`}>
+              {ep.entry_status_note}
+            </div>
+          )}
           <div className="grid2">
             <div className="k">入场</div>
             <div className="v">${fmt(ep.entry)}</div>

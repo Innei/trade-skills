@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { CandlePattern } from "../../shared/types.js";
-import { enrichCandlePatterns, SCORE_DOT_MARKER, type PatternScoringContext } from "../src/services/patternScoring.js";
+import {
+  enrichCandlePatterns,
+  offSessionSignalKeeper,
+  SCORE_DOT_MARKER,
+  type PatternScoringContext,
+} from "../src/services/patternScoring.js";
 
 // 2026-06-01T14:30:00Z = 10:30 ET Monday (regular session)
 const REGULAR_BASE = Date.parse("2026-06-01T14:30:00.000Z") / 1000;
@@ -125,6 +130,20 @@ describe("enrichCandlePatterns", () => {
     const out = enrichCandlePatterns(patterns, ctx);
     expect(out[0].stats).toEqual({ sample: 8, wins: 4 });
     expect(out.every((p) => p.stats?.sample === 8)).toBe(true);
+  });
+
+  it("keeps overnight structural signals only on a volume impulse", () => {
+    const overnight = makeCtx(40, OVERNIGHT_BASE);
+    const keepThin = offSessionSignalKeeper(overnight.timesTs, overnight.vols);
+    expect(keepThin(overnight.timesTs[30])).toBe(false);
+
+    overnight.vols[30] = 2000; // 2× the 20-bar average
+    const keepImpulse = offSessionSignalKeeper(overnight.timesTs, overnight.vols);
+    expect(keepImpulse(overnight.timesTs[30])).toBe(true);
+
+    const regular = makeCtx(40);
+    const keepRegular = offSessionSignalKeeper(regular.timesTs, regular.vols);
+    expect(keepRegular(regular.timesTs[30])).toBe(true);
   });
 
   it("returns null stats below the minimum sample", () => {

@@ -367,7 +367,11 @@ export interface IntradayEntryPlan {
   entry_zone: IntradayPriceZone | null;
   target_contexts: IntradayTargetContext[];
   price_zones: IntradayPriceZone[];
+  entry_status?: EntryPlanStatus | null;
+  entry_status_note?: string | null;
 }
+
+export type EntryPlanStatus = "waiting" | "triggered" | "invalidated" | "stopped";
 
 export type IntradayPriceZoneKind =
   | "entry"

@@ -77,8 +77,11 @@ describe("detect123Patterns", () => {
 
   it("flows through coerceIntradayTimeframe into summary and tf data", () => {
     const closes = [...ramp(170, 100, -1), 102, 104, 106, 104, 103, 102, 104, 107, ...flat(4, 107)];
+    // base picked so the tail of the series (where the 123 confirms) lands in the
+    // regular ET session — overnight-confirmed signals are now filtered out
+    const base = Date.parse("2026-06-01T08:00:00.000Z") / 1000;
     const raw: RawBar[] = closes.map((c, i) => ({
-      time: new Date((1_700_000_000 + i * 300) * 1000).toISOString(),
+      time: new Date((base + i * 300) * 1000).toISOString(),
       open: c,
       high: c + 0.5,
       low: c - 0.5,

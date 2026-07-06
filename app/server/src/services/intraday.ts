@@ -7,6 +7,7 @@ import {
   type DivergencePair,
   type DivergencePoint,
   type EmaLine,
+  type EntryPlanStatus,
   type IntradayBuilt,
   type IntradayContext,
   type IntradayEntryPlan,
@@ -33,7 +34,7 @@ import { detectFvgZones } from "./fvg.js";
 import { ema, findSwings, lineData, macd, pyRound, sma, toTs } from "./indicators.js";
 import { classifyMacdStructure, MACD_STRUCTURE_META, ZERO_TANGLE_NOTE, type MacdStructure } from "./macdStructure.js";
 import { detect123Patterns } from "./pattern123.js";
-import { enrichCandlePatterns, SCORE_DOT_MARKER, SCORE_FULL_MARKER } from "./patternScoring.js";
+import { enrichCandlePatterns, offSessionSignalKeeper, SCORE_DOT_MARKER, SCORE_FULL_MARKER } from "./patternScoring.js";
 import { offSessionSegments } from "./session.js";
 
 export const TIMEFRAME_ORDER: TimeframeKey[] = ["m5", "m15", "h1"];
@@ -80,6 +81,39 @@ const PATTERN_STATUS_TEXT: Record<CandlePatternStatus, string> = {
   expired: "已过期（3根内未触发确认或失效）",
 };
 const PATTERN_LABEL_SUFFIX: Partial<Record<CandlePatternStatus, string>> = { pending: "?", confirmed: "✓" };
+const ENTRY_STATUS_NOTES: Record<Exclude<EntryPlanStatus, "waiting">, string> = {
+  triggered: "已触发入场，止损/目标价位生效",
+  invalidated: "未触发入场，价格已朝止损方向走破入场-止损中线——计划失效，需重估",
+  stopped: "入场后触及止损，计划已了结",
+};
+
+export function resolveEntryPlanStatus(
+  plan: Pick<IntradayEntryPlan, "entry" | "stop">,
+  direction: "long" | "short" | "neutral",
+  anchorTs: number | null,
+  candles: { time: number; high: number; low: number; close: number }[],
+): { status: EntryPlanStatus; note: string | null } | null {
+  if (direction === "neutral" || anchorTs === null) return null;
+  const midpoint = (plan.entry + plan.stop) / 2;
+  const towardStop = (c: { low: number; high: number; close: number }) =>
+    direction === "long" ? c.low <= plan.stop || c.close <= midpoint : c.high >= plan.stop || c.close >= midpoint;
+  const touchesEntry = (c: { low: number; high: number }) => c.low <= plan.entry && plan.entry <= c.high;
+  const hitsStop = (c: { low: number; high: number }) =>
+    direction === "long" ? c.low <= plan.stop : c.high >= plan.stop;
+
+  let triggered = false;
+  for (const c of candles) {
+    if (c.time < anchorTs) continue;
+    if (!triggered) {
+      if (touchesEntry(c)) triggered = true;
+      else if (towardStop(c)) return { status: "invalidated", note: ENTRY_STATUS_NOTES.invalidated };
+    } else if (hitsStop(c)) {
+      return { status: "stopped", note: ENTRY_STATUS_NOTES.stopped };
+    }
+  }
+  if (triggered) return { status: "triggered", note: ENTRY_STATUS_NOTES.triggered };
+  return { status: "waiting", note: null };
+}
 
 const barTimeShort = (t: number) => formatMarketMonthDayTime(t, true);
 
@@ -285,12 +319,20 @@ export function coerceIntradayTimeframe(bars: RawBar[], key: string, emaPeriods 
   const withMacd = (pts: { time: number; price: number }[]): DivergencePoint[] =>
     pts.filter((p) => histByTime.has(p.time)).map((p) => ({ ...p, macd_value: histByTime.get(p.time) as number }));
 
+  const keepSignal = offSessionSignalKeeper(timesTs, vols);
   const autoDivergence = [
     ...findPriceDivergence(withMacd(swingHighs), true),
     ...findPriceDivergence(withMacd(swingLows), false),
-  ].sort((a, b) => a.b.time - b.b.time);
-  const autoBeichi = findMacdBeichi(hist, highs, lows, timesTs).sort((a, b) => a.b.time - b.b.time);
-  const pattern123 = detect123Patterns(highs, lows, closes, timesTs).slice(-2);
+  ]
+    .filter((d) => keepSignal(d.b.time))
+    .sort((a, b) => a.b.time - b.b.time);
+  const autoBeichi = findMacdBeichi(hist, highs, lows, timesTs)
+    .filter((d) => keepSignal(d.b.time))
+    .sort((a, b) => a.b.time - b.b.time);
+  const pattern123 = detect123Patterns(highs, lows, closes, timesTs)
+    .filter((p) => keepSignal(p.confirm?.time ?? p.p3.time))
+    .slice(-2);
+  structure.signals = structure.signals.filter((s) => keepSignal(s.time));
 
   return {
     candles,
@@ -766,6 +808,11 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
 
   const epRaw = prediction?.entry_plan;
   const entryPlan = epRaw?.entry && epRaw.stop ? computeIntradayEntryPlan(epRaw, direction, prediction?.price_zones) : null;
+  if (entryPlan) {
+    const st = resolveEntryPlanStatus(entryPlan, direction, anchor ? toTs(anchor.time) : null, tfs.m5.candles);
+    entryPlan.entry_status = st?.status ?? null;
+    entryPlan.entry_status_note = st?.note ?? null;
+  }
 
   const timeframes = {} as Record<TimeframeKey, IntradayTfData>;
   for (const k of TIMEFRAME_ORDER) {

@@ -25,6 +25,13 @@ import { seriesPalette, theme } from "../../theme";
 
 export const EMA_COLORS = [theme.accent, theme.textPrimary, theme.textSecondary, theme.up, theme.down] as const;
 
+const ENTRY_STATUS_SUFFIX: Record<string, string> = {
+  waiting: "（待触发）",
+  triggered: "（已触发）",
+  invalidated: "（已失效）",
+  stopped: "（已打止损）",
+};
+
 interface Handle {
   main: IChartApi;
   macd: IChartApi;
@@ -212,10 +219,13 @@ export function useIntradayCharts(
     }
     const ep = built.entryPlan;
     if (ep && toggles.levels) {
-      h.planLines.push(addPriceLine(h.candle, { price: ep.entry, color: theme.accent, lineWidth: 2, lineStyle: 0, title: `入场 $${ep.entry.toFixed(2)}` }));
-      h.planLines.push(addPriceLine(h.candle, { price: ep.stop, color: theme.down, lineWidth: 2, lineStyle: 2, title: `止损 $${ep.stop.toFixed(2)}` }));
-      h.planLines.push(addPriceLine(h.candle, { price: ep.target1, color: theme.up, lineWidth: 1, lineStyle: 2, title: `T1 $${ep.target1.toFixed(2)}` }));
-      h.planLines.push(addPriceLine(h.candle, { price: ep.target2, color: seriesPalette[1], lineWidth: 1, lineStyle: 2, title: `T2 $${ep.target2.toFixed(2)}` }));
+      const planDead = ep.entry_status === "invalidated" || ep.entry_status === "stopped";
+      const deadColor = "#6e7681";
+      const suffix = ep.entry_status ? (ENTRY_STATUS_SUFFIX[ep.entry_status] ?? "") : "";
+      h.planLines.push(addPriceLine(h.candle, { price: ep.entry, color: planDead ? deadColor : theme.accent, lineWidth: 2, lineStyle: planDead ? 2 : 0, title: `入场 $${ep.entry.toFixed(2)}${suffix}` }));
+      h.planLines.push(addPriceLine(h.candle, { price: ep.stop, color: planDead ? deadColor : theme.down, lineWidth: 2, lineStyle: 2, title: `止损 $${ep.stop.toFixed(2)}` }));
+      h.planLines.push(addPriceLine(h.candle, { price: ep.target1, color: planDead ? deadColor : theme.up, lineWidth: 1, lineStyle: 2, title: `T1 $${ep.target1.toFixed(2)}` }));
+      h.planLines.push(addPriceLine(h.candle, { price: ep.target2, color: planDead ? deadColor : seriesPalette[1], lineWidth: 1, lineStyle: 2, title: `T2 $${ep.target2.toFixed(2)}` }));
       (ep.price_zones ?? [])
         .filter((z) => z.kind === "resistance")
         .forEach((z) => {
