@@ -1,7 +1,7 @@
 import type { ChartMeta, ChartType } from "./types.js";
 import { marketDate } from "./time.js";
 
-const SYMBOL_TYPES = new Set<ChartType>(["intraday", "sepa"]);
+export const SYMBOL_TYPES = new Set<ChartType>(["intraday", "sepa"]);
 
 export type ChartUrlDoc = Pick<ChartMeta, "id" | "type" | "symbol" | "created_at">;
 

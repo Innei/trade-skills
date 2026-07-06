@@ -1,6 +1,7 @@
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import { desc, eq, sql } from "drizzle-orm";
+import { SYMBOL_TYPES } from "../../../shared/chartUrl.js";
 import { CURRENT_SCHEMA_VERSION, type ChartDoc, type ChartMeta } from "../../../shared/types.js";
 import { getDb, type Db } from "../db/index.js";
 import { chartMeta, outcomes } from "../db/schema.js";
@@ -144,7 +145,7 @@ export async function createChart(result: BuildResult, db: Db = getDb()): Promis
     built: result.built,
   };
   await saveChart(doc, db);
-  if (doc.symbol) publishAnalysisCreated({ symbol: doc.symbol, chartId: doc.id });
+  if (doc.symbol && SYMBOL_TYPES.has(doc.type)) publishAnalysisCreated({ symbol: doc.symbol, chartId: doc.id, type: doc.type });
   return doc;
 }
 

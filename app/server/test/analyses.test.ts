@@ -5,8 +5,10 @@ describe("analyses pub/sub", () => {
   it("delivers a published analysis-created event to the matching symbol", () => {
     const received: unknown[] = [];
     const unsub = subscribeAnalyses("NVDA.US", (envelope) => received.push(JSON.parse(envelope)));
-    publishAnalysisCreated({ symbol: "NVDA.US", chartId: "2026-07-06-nvda-intraday" });
-    expect(received).toEqual([{ type: "analysis-created", symbol: "NVDA.US", chartId: "2026-07-06-nvda-intraday" }]);
+    publishAnalysisCreated({ symbol: "NVDA.US", chartId: "2026-07-06-nvda-intraday", type: "intraday" });
+    expect(received).toEqual([
+      { type: "analysis-created", symbol: "NVDA.US", chartId: "2026-07-06-nvda-intraday", chartType: "intraday" },
+    ]);
     unsub();
   });
 
@@ -14,7 +16,7 @@ describe("analyses pub/sub", () => {
     const received: unknown[] = [];
     const unsub = subscribeAnalyses("MRVL.US", (envelope) => received.push(JSON.parse(envelope)));
     unsub();
-    publishAnalysisCreated({ symbol: "MRVL.US", chartId: "c1" });
+    publishAnalysisCreated({ symbol: "MRVL.US", chartId: "c1", type: "intraday" });
     expect(received).toHaveLength(0);
   });
 
@@ -23,7 +25,7 @@ describe("analyses pub/sub", () => {
     const tsla: unknown[] = [];
     const unsubNvda = subscribeAnalyses("NVDA.US", (envelope) => nvda.push(JSON.parse(envelope)));
     const unsubTsla = subscribeAnalyses("TSLA.US", (envelope) => tsla.push(JSON.parse(envelope)));
-    publishAnalysisCreated({ symbol: "NVDA.US", chartId: "c-nvda" });
+    publishAnalysisCreated({ symbol: "NVDA.US", chartId: "c-nvda", type: "intraday" });
     expect(nvda).toHaveLength(1);
     expect(tsla).toHaveLength(0);
     unsubNvda();
@@ -31,7 +33,7 @@ describe("analyses pub/sub", () => {
   });
 
   it("no-ops when publishing to a symbol with no subscribers", () => {
-    expect(() => publishAnalysisCreated({ symbol: "NOSUB.US", chartId: "c1" })).not.toThrow();
+    expect(() => publishAnalysisCreated({ symbol: "NOSUB.US", chartId: "c1", type: "intraday" })).not.toThrow();
   });
 
   it("isolates a throwing subscriber from later subscribers", () => {
@@ -40,7 +42,7 @@ describe("analyses pub/sub", () => {
       throw new Error("boom");
     });
     const unsubGood = subscribeAnalyses("BUS.US", (envelope) => received.push(JSON.parse(envelope)));
-    expect(() => publishAnalysisCreated({ symbol: "BUS.US", chartId: "c1" })).not.toThrow();
+    expect(() => publishAnalysisCreated({ symbol: "BUS.US", chartId: "c1", type: "intraday" })).not.toThrow();
     expect(received).toHaveLength(1);
     unsubBad();
     unsubGood();

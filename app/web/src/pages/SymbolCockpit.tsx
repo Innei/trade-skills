@@ -7,6 +7,7 @@ import { NewsTab } from "../charts/intraday/tabs/NewsTab";
 import { PredictionTab } from "../charts/intraday/tabs/PredictionTab";
 import { resolveIntradayTf, useIntradayDoc } from "../charts/intraday/useIntradayDoc";
 import type { SidebarTab } from "../charts/SidebarTabs";
+import { SepaDashboard } from "../charts/sepa/SepaDashboard";
 import { TopbarQuote } from "../QuoteBar";
 import { recordRecentSymbol } from "../recentCharts";
 import { Badge, Dot, Empty, ErrorBox, MarketTime } from "../ui";
@@ -116,10 +117,35 @@ export function SymbolCockpit({ sym }: { sym: string }) {
     );
   }
 
-  if (!doc || doc.built.kind !== "intraday")
+  if (!doc)
     return (
       <div className="page">
         <Empty>加载中…</Empty>
+      </div>
+    );
+
+  if (doc.built.kind === "sepa") {
+    return (
+      <div className="fullpage">
+        <div className="detail-topbar">
+          <a href="/">
+            <ArrowLeft className="icon" size={13} /> 列表
+          </a>
+          <span className="title">{doc.title}</span>
+          <span className="meta">{sym}</span>
+          <span className="topbar-actions">{doc.symbol && <TopbarQuote symbol={doc.symbol} />}</span>
+        </div>
+        <div className="detail-body">
+          <SepaDashboard built={doc.built} />
+        </div>
+      </div>
+    );
+  }
+
+  if (doc.built.kind !== "intraday")
+    return (
+      <div className="page">
+        <ErrorBox>该图表格式已不再支持，请重新生成（旧格式重建失败）</ErrorBox>
       </div>
     );
 

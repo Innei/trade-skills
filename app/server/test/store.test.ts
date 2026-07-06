@@ -144,7 +144,9 @@ describe("chart store", () => {
       expect(created.schema_version).toBe(2);
       expect(created.created_at).toBe(created.updated_at);
       expect(await loadChart(created.id)).toMatchObject({ id: created.id, symbol: "MU.US" });
-      expect(received).toEqual([{ type: "analysis-created", symbol: "MU.US", chartId: created.id }]);
+      expect(received).toEqual([
+        { type: "analysis-created", symbol: "MU.US", chartId: created.id, chartType: "intraday" },
+      ]);
     });
 
     it("does not publish for symbol-less charts", async () => {
@@ -153,6 +155,28 @@ describe("chart store", () => {
       await createChart(buildResult({ symbol: null, sessionDate: "2026-08-11", slug: "flow", type: "flow" }));
       unsub();
       expect(received).toEqual([]);
+    });
+
+    it("does not publish a flow chart even when it has a symbol", async () => {
+      const received: unknown[] = [];
+      const unsub = subscribeAnalyses("MU.US", (envelope) => received.push(JSON.parse(envelope)));
+      await createChart(
+        buildResult({ symbol: "MU.US", sessionDate: "2026-08-12", slug: "mu-flow", type: "flow" }),
+      );
+      unsub();
+      expect(received).toEqual([]);
+    });
+
+    it("publishes for a sepa chart with a symbol", async () => {
+      const received: unknown[] = [];
+      const unsub = subscribeAnalyses("MU.US", (envelope) => received.push(JSON.parse(envelope)));
+      const created = await createChart(
+        buildResult({ symbol: "MU.US", sessionDate: "2026-08-13", slug: "mu-sepa", type: "sepa" }),
+      );
+      unsub();
+      expect(received).toEqual([
+        { type: "analysis-created", symbol: "MU.US", chartId: created.id, chartType: "sepa" },
+      ]);
     });
   });
 });

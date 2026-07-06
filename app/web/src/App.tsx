@@ -5,7 +5,7 @@ import { useQuery } from "./apiHooks";
 import { Home } from "./pages/Home";
 import { SymbolCockpit } from "./pages/SymbolCockpit";
 import { navigate, useRoute } from "./router";
-import { ModalHost } from "./ui";
+import { ErrorBox, ModalHost } from "./ui";
 
 function Redirect({ to }: { to: string }) {
   useEffect(() => navigate(to, { replace: true }), [to]);
@@ -17,8 +17,16 @@ function ChartRedirect({ id }: { id: string }) {
 
   useEffect(() => {
     if (data) navigate(chartTargetPath(data), { replace: true });
-    else if (failure) navigate("/?notice=chart-not-found", { replace: true });
+    else if (failure && failure.status === 404) navigate("/?notice=chart-not-found", { replace: true });
   }, [data, failure]);
+
+  if (failure && failure.status !== 404) {
+    return (
+      <div className="page">
+        <ErrorBox>{failure.message}</ErrorBox>
+      </div>
+    );
+  }
 
   return null;
 }

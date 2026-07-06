@@ -2,6 +2,7 @@ export interface AnalysisCreatedMessage {
   type: "analysis-created";
   symbol: string;
   chartId: string;
+  chartType: string;
 }
 
 type Listener = (envelope: string) => void;
@@ -23,10 +24,23 @@ export function subscribeAnalyses(symbol: string, push: (envelope: string) => vo
   };
 }
 
-export function publishAnalysisCreated({ symbol, chartId }: { symbol: string; chartId: string }): void {
+export function publishAnalysisCreated({
+  symbol,
+  chartId,
+  type,
+}: {
+  symbol: string;
+  chartId: string;
+  type: string;
+}): void {
   const set = listeners.get(symbol);
   if (!set) return;
-  const envelope = JSON.stringify({ type: "analysis-created", symbol, chartId } satisfies AnalysisCreatedMessage);
+  const envelope = JSON.stringify({
+    type: "analysis-created",
+    symbol,
+    chartId,
+    chartType: type,
+  } satisfies AnalysisCreatedMessage);
   for (const push of [...set]) {
     try {
       push(envelope);

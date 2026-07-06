@@ -11,6 +11,7 @@ interface AnalysisCreatedPayload {
   type?: string;
   symbol?: string;
   chartId?: string;
+  chartType?: string;
 }
 
 export interface LatestAnalysisState {
@@ -28,7 +29,7 @@ export function useLatestAnalysis(sym: string): LatestAnalysisState {
   const pinnedId = useQueryParam("analysis");
   const mode: "latest" | "pinned" = pinnedId ? "pinned" : "latest";
 
-  const latestUrl = `/api/symbols/${encodeURIComponent(sym)}/latest`;
+  const latestUrl = pinnedId ? null : `/api/symbols/${encodeURIComponent(sym)}/latest`;
   const { data: latestDoc, failure: latestFailure, loading: latestLoading, reload: reloadLatest } =
     useQuery<LatestDoc>(latestUrl);
 
@@ -46,8 +47,8 @@ export function useLatestAnalysis(sym: string): LatestAnalysisState {
       { kind: "analyses", symbol: sym },
       (payload) => {
         const msg = payload as AnalysisCreatedPayload;
-        if (msg.type !== "analysis-created" || !msg.symbol || !msg.chartId) return;
-        const broadcast = { symbol: msg.symbol, chartId: msg.chartId };
+        if (msg.type !== "analysis-created" || !msg.symbol || !msg.chartId || !msg.chartType) return;
+        const broadcast = { symbol: msg.symbol, chartId: msg.chartId, chartType: msg.chartType };
         setFeed((prev) => applyAnalysisBroadcast(prev, sym, pinnedId, broadcast));
         reloadAnalyses();
         if (!pinnedId) reloadLatest();

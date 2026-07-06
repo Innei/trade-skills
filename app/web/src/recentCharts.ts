@@ -1,8 +1,15 @@
 const KEY = "trade.recent-symbols";
+const LEGACY_KEY = "trade.recent-charts";
 const MAX = 5;
 
 export interface RecentSymbol {
   symbol: string;
+}
+
+try {
+  localStorage.removeItem(LEGACY_KEY);
+} catch {
+  // ignore: localStorage may be unavailable (SSR/tests)
 }
 
 export function listRecentSymbols(): RecentSymbol[] {

@@ -6,6 +6,7 @@ import { navigate, useQueryParam } from "../../router";
 import { Card, Chip, Empty, ErrorBox, SectionTitle } from "../../ui";
 
 const CROSS_SECTION_TYPES = "flow,cohort";
+const MAX_VISIBLE_DATES = 10;
 
 function ChartCard({ id }: { id: string }) {
   const { data: doc, error } = useQuery<ChartDoc>(`/api/charts/${encodeURIComponent(id)}`);
@@ -26,8 +27,10 @@ export function CrossSectionCharts() {
   const dateParam = useQueryParam("date");
   const { data: metas, error } = useQuery<ChartMeta[]>(`/api/charts?type=${CROSS_SECTION_TYPES}`);
 
-  const dates = [...new Set((metas ?? []).map((m) => marketDate(m.created_at)))].sort().reverse();
+  const allDates = [...new Set((metas ?? []).map((m) => marketDate(m.created_at)))].sort().reverse();
   const selected = dateParam ?? marketDate();
+  const visibleDates = allDates.slice(0, MAX_VISIBLE_DATES);
+  const dates = visibleDates.includes(selected) ? visibleDates : [selected, ...visibleDates].slice(0, MAX_VISIBLE_DATES);
   const matches = (metas ?? []).filter((m) => marketDate(m.created_at) === selected);
 
   return (
