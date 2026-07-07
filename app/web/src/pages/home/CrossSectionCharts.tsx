@@ -2,11 +2,11 @@ import type { ChartDoc, ChartMeta } from "../../../../shared/types";
 import { marketDate } from "../../../../shared/time";
 import { useQuery } from "../../apiHooks";
 import { SimpleChartView } from "../../charts/simple/SimpleChartView";
-import { navigate, useQueryParam } from "../../router";
-import { Card, Chip, Empty, ErrorBox, SectionTitle } from "../../ui";
+import { useQueryParam } from "../../router";
+import { Card, Empty, ErrorBox, SectionTitle } from "../../ui";
 
-const CROSS_SECTION_TYPES = "flow,cohort";
-const MAX_VISIBLE_DATES = 10;
+export const CROSS_SECTION_TYPES = "flow,cohort";
+export const MAX_VISIBLE_DATES = 10;
 
 function ChartCard({ id }: { id: string }) {
   const { data: doc, error } = useQuery<ChartDoc>(`/api/charts/${encodeURIComponent(id)}`);
@@ -23,29 +23,17 @@ function ChartCard({ id }: { id: string }) {
   );
 }
 
-export function CrossSectionCharts() {
+export function CrossSectionCharts({ date }: { date?: string } = {}) {
   const dateParam = useQueryParam("date");
   const { data: metas, error } = useQuery<ChartMeta[]>(`/api/charts?type=${CROSS_SECTION_TYPES}`);
 
-  const allDates = [...new Set((metas ?? []).map((m) => marketDate(m.created_at)))].sort().reverse();
-  const selected = dateParam ?? marketDate();
-  const visibleDates = allDates.slice(0, MAX_VISIBLE_DATES);
-  const dates = visibleDates.includes(selected) ? visibleDates : [selected, ...visibleDates].slice(0, MAX_VISIBLE_DATES);
+  const selected = date ?? dateParam ?? marketDate();
   const matches = (metas ?? []).filter((m) => marketDate(m.created_at) === selected);
 
   return (
     <div className="cross-section-charts">
       <SectionTitle>资金流向图表</SectionTitle>
       {error && <ErrorBox>{error}</ErrorBox>}
-      {dates.length > 0 && (
-        <div className="cross-section-switcher">
-          {dates.map((d) => (
-            <Chip key={d} active={d === selected} onClick={() => navigate(`/?date=${d}`, { replace: true })}>
-              {d}
-            </Chip>
-          ))}
-        </div>
-      )}
       {!error && !metas && <div className="note-block">加载中…</div>}
       {!error && metas && matches.length === 0 && <Empty>{selected} 没有资金流向图表</Empty>}
       {matches.length > 0 && (

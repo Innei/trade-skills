@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import type { OverviewRecap, PredictionStats, StatsBucket } from "../../../../shared/types";
 import { signed } from "../../format";
 import { symbolAnalysisPath } from "../../../../shared/chartUrl";
+import { marketDate } from "../../../../shared/time";
 import { Badge, Card, ErrorBox, MarketTime, Num, SectionTitle } from "../../ui";
 import { useIntervalFetch } from "../cockpit/useIntervalFetch";
 
@@ -39,8 +40,8 @@ function StatsBlock({ stats }: { stats: PredictionStats | null }) {
   );
 }
 
-function SettlementTable({ recap }: { recap: OverviewRecap }) {
-  if (recap.settlements.length === 0) return <div className="note-block">今天没有跟踪中的标的。</div>;
+function SettlementTable({ recap, emptyLabel }: { recap: OverviewRecap; emptyLabel: string }) {
+  if (recap.settlements.length === 0) return <div className="note-block">{emptyLabel}</div>;
   return (
     <div className="recap-settlements">
       {recap.settlements.map((s) => (
@@ -59,20 +60,24 @@ function SettlementTable({ recap }: { recap: OverviewRecap }) {
   );
 }
 
-function AiActivity({ recap }: { recap: OverviewRecap }) {
+function AiActivity({ recap, costLabel, emptyLabel }: { recap: OverviewRecap; costLabel: string; emptyLabel: string }) {
   const usage = recap.usage;
   return (
     <div className="recap-ai">
-      {recap.alerts.length === 0 && <div className="note-block">今天没有 alert 级提醒。</div>}
-      {recap.alerts.map((a, i) => (
-        <div key={i} className="recap-alert">
-          <MarketTime className="ts" value={a.ts} format="clock" />
-          <span className="sym">{a.symbol.replace(/\.US$/, "")}</span>
-          <span className="text">{a.text}</span>
+      {recap.alerts.length === 0 && <div className="note-block">{emptyLabel}</div>}
+      {recap.alerts.length > 0 && (
+        <div className="recap-alerts">
+          {recap.alerts.map((a, i) => (
+            <div key={i} className="recap-alert">
+              <MarketTime className="ts" value={a.ts} format="clock" />
+              <span className="sym">{a.symbol.replace(/\.US$/, "")}</span>
+              <span className="text">{a.text}</span>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
       <div className="stats-line stats-line--spaced">
-        <span className="k">今日 AI 花费</span>
+        <span className="k">{costLabel}</span>
         <span className="v">
           {usage.runs === 0
             ? "还没有记录"
@@ -83,15 +88,24 @@ function AiActivity({ recap }: { recap: OverviewRecap }) {
   );
 }
 
-export function RecapBoard({ defaultExpanded }: { defaultExpanded: boolean }) {
+export function RecapBoard({ date, defaultExpanded }: { date: string; defaultExpanded: boolean }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const { data: recap, error } = useIntervalFetch<OverviewRecap>(expanded ? "/api/overview/recap" : null, 5 * 60_000);
+  const isToday = date === marketDate();
+  const { data: recap, error } = useIntervalFetch<OverviewRecap>(
+    expanded ? `/api/overview/recap?date=${date}` : null,
+    isToday ? 5 * 60_000 : null,
+  );
   const { data: stats } = useIntervalFetch<PredictionStats>(expanded ? "/api/overview/stats" : null, 5 * 60_000);
+
+  const title = isToday ? "今日复盘" : `${date.slice(5)} 复盘`;
+  const costLabel = isToday ? "今日 AI 花费" : "当日 AI 花费";
+  const emptySettlements = isToday ? "今天没有跟踪中的标的。" : "当天没有跟踪中的标的。";
+  const emptyAlerts = isToday ? "今天没有 alert 级提醒。" : "当天没有 alert 级提醒。";
 
   return (
     <div className="recap-board">
       <SectionTitle className="recap-toggle" onClick={() => setExpanded(!expanded)}>
-        今日复盘 {expanded ? <ChevronDown className="icon" size={13} /> : <ChevronRight className="icon" size={13} />}
+        {title} {expanded ? <ChevronDown className="icon" size={13} /> : <ChevronRight className="icon" size={13} />}
       </SectionTitle>
       {expanded && (
         <>
@@ -99,11 +113,11 @@ export function RecapBoard({ defaultExpanded }: { defaultExpanded: boolean }) {
           {!recap && !error && <div className="note-block">复盘加载中…</div>}
           {recap && (
             <>
-              <SettlementTable recap={recap} />
+              <SettlementTable recap={recap} emptyLabel={emptySettlements} />
               <SectionTitle className="recap-subhead">预测战绩（全部历史）</SectionTitle>
               <StatsBlock stats={stats} />
               <SectionTitle className="recap-subhead">AI 活动</SectionTitle>
-              <AiActivity recap={recap} />
+              <AiActivity recap={recap} costLabel={costLabel} emptyLabel={emptyAlerts} />
             </>
           )}
         </>

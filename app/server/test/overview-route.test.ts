@@ -17,10 +17,12 @@ const store = vi.hoisted(() => ({
 
 const comments = vi.hoisted(() => ({
   listComments: vi.fn(),
+  listAllCommentDates: vi.fn(),
 }));
 
 const usage = vi.hoisted(() => ({
   listUsage: vi.fn(),
+  listUsageDates: vi.fn(),
   summarizeUsage: vi.fn(),
 }));
 
@@ -85,7 +87,9 @@ beforeEach(() => {
   store.listCharts.mockReset();
   store.loadChart.mockReset();
   comments.listComments.mockReset();
+  comments.listAllCommentDates.mockReset().mockResolvedValue([]);
   usage.listUsage.mockReset().mockResolvedValue([]);
+  usage.listUsageDates.mockReset().mockResolvedValue([]);
   usage.summarizeUsage.mockReset().mockReturnValue(emptyUsage);
 });
 
@@ -166,5 +170,126 @@ describe("GET /recap", () => {
     await app.inject("/recap");
     await app.inject("/recap");
     expect(provider.getQuotes).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a malformed date querystring", async () => {
+    const app = await testApp();
+    const res = await app.inject("/recap?date=07-05-2026");
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("defaults to today when date is absent", async () => {
+    store.listCharts.mockResolvedValue([]);
+    const app = await testApp();
+    const res = await app.inject("/recap");
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data.date).toBe(easternDate());
+  });
+
+  it("computes historical day_pct from daily bars without calling getQuotes", async () => {
+    const histDate = "2026-07-01";
+    store.listCharts.mockResolvedValue([
+      makeMeta({ id: `${histDate}-mu-intraday`, created_at: new Date(`${histDate}T14:00:00.000Z`).toISOString() }),
+    ]);
+    store.loadChart.mockResolvedValue(makeDoc());
+    comments.listComments.mockResolvedValue([]);
+    provider.getKline.mockImplementation((_symbol: string, period: string) => {
+      if (period === "day") {
+        return Promise.resolve([
+          { time: "2026-06-29T20:00:00.000Z", open: 90, high: 95, low: 89, close: 90, volume: 100 },
+          { time: "2026-06-30T20:00:00.000Z", open: 90, high: 100, low: 89, close: 100, volume: 100 },
+          { time: "2026-07-01T20:00:00.000Z", open: 100, high: 112, low: 99, close: 110, volume: 100 },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+    const app = await testApp();
+    const res = await app.inject(`/recap?date=${histDate}`);
+    expect(res.statusCode).toBe(200);
+    const [row] = res.json().data.settlements;
+    expect(row.day_pct).toBeCloseTo(10);
+    expect(provider.getQuotes).not.toHaveBeenCalled();
+  });
+
+  it("returns null day_pct when the historical bar is missing", async () => {
+    const histDate = "2026-06-15";
+    store.listCharts.mockResolvedValue([
+      makeMeta({ id: `${histDate}-mu-intraday`, created_at: new Date(`${histDate}T14:00:00.000Z`).toISOString() }),
+    ]);
+    store.loadChart.mockResolvedValue(makeDoc());
+    comments.listComments.mockResolvedValue([]);
+    provider.getKline.mockImplementation((_symbol: string, period: string) => {
+      if (period === "day") {
+        return Promise.resolve([
+          { time: "2026-06-10T20:00:00.000Z", open: 90, high: 95, low: 89, close: 90, volume: 100 },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+    const app = await testApp();
+    const res = await app.inject(`/recap?date=${histDate}`);
+    expect(res.statusCode).toBe(200);
+    const [row] = res.json().data.settlements;
+    expect(row.day_pct).toBeNull();
+  });
+
+  it("returns null day_pct when the historical kline fetch fails, without breaking the recap", async () => {
+    const histDate = "2026-06-16";
+    store.listCharts.mockResolvedValue([
+      makeMeta({ id: `${histDate}-mu-intraday`, created_at: new Date(`${histDate}T14:00:00.000Z`).toISOString() }),
+    ]);
+    store.loadChart.mockResolvedValue(makeDoc());
+    comments.listComments.mockResolvedValue([]);
+    provider.getKline.mockImplementation((_symbol: string, period: string) => {
+      if (period === "day") return Promise.reject(new Error("provider down"));
+      return Promise.resolve([]);
+    });
+    const app = await testApp();
+    const res = await app.inject(`/recap?date=${histDate}`);
+    expect(res.statusCode).toBe(200);
+    const [row] = res.json().data.settlements;
+    expect(row.day_pct).toBeNull();
+  });
+
+  it("caches per date, so requesting date A does not serve date B's data", async () => {
+    const dateA = "2026-06-01";
+    const dateB = "2026-06-02";
+    store.listCharts.mockImplementation(async () => [
+      makeMeta({ id: `${dateA}-mu-intraday`, created_at: new Date(`${dateA}T14:00:00.000Z`).toISOString() }),
+      makeMeta({ id: `${dateB}-nvda-intraday`, symbol: "NVDA.US", created_at: new Date(`${dateB}T14:00:00.000Z`).toISOString() }),
+    ]);
+    store.loadChart.mockResolvedValue(makeDoc());
+    comments.listComments.mockResolvedValue([]);
+    provider.getKline.mockResolvedValue([]);
+    const app = await testApp();
+    const resA = await app.inject(`/recap?date=${dateA}`);
+    const resB = await app.inject(`/recap?date=${dateB}`);
+    expect(resA.json().data.date).toBe(dateA);
+    expect(resB.json().data.date).toBe(dateB);
+    expect(resA.json().data.settlements[0].symbol).toBe("MU.US");
+    expect(resB.json().data.settlements[0].symbol).toBe("NVDA.US");
+  });
+});
+
+describe("GET /recap-dates", () => {
+  it("unions usage, comment, and intraday-chart dates, deduped and sorted descending", async () => {
+    usage.listUsageDates.mockResolvedValue(["2026-07-05", "2026-07-03"]);
+    comments.listAllCommentDates.mockResolvedValue(["2026-07-06", "2026-07-03"]);
+    store.listCharts.mockResolvedValue([
+      makeMeta({ id: "2026-07-01-mu-intraday", created_at: new Date("2026-07-01T14:00:00.000Z").toISOString() }),
+      makeMeta({ id: "2026-07-06-nvda-intraday", symbol: "NVDA.US", created_at: new Date("2026-07-06T14:00:00.000Z").toISOString() }),
+    ]);
+    const app = await testApp();
+    const res = await app.inject("/recap-dates");
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data).toEqual(["2026-07-06", "2026-07-05", "2026-07-03", "2026-07-01"]);
+  });
+
+  it("returns an empty list when there is no data in any source", async () => {
+    store.listCharts.mockResolvedValue([]);
+    const app = await testApp();
+    const res = await app.inject("/recap-dates");
+    expect(res.statusCode).toBe(200);
+    expect(res.json().data).toEqual([]);
   });
 });

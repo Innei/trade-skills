@@ -68,6 +68,15 @@ export async function listCommentDates(symbol: string, db: Db = getDb(), limit =
   return rows.map((r) => r.date);
 }
 
+export async function listAllCommentDates(limit = 30, db: Db = getDb()): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ date: comments.easternDate })
+    .from(comments)
+    .orderBy(desc(comments.easternDate))
+    .limit(limit);
+  return rows.map((r) => r.date);
+}
+
 export async function appendComment(comment: CockpitComment, db: Db = getDb()): Promise<void> {
   await db.insert(comments).values({
     ts: comment.ts,
