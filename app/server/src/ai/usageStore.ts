@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import type { AiUsageSummary } from "../../../shared/types.js";
 import { getDb, type Db } from "../db/index.js";
 import { aiUsage } from "../db/schema.js";
@@ -39,6 +39,15 @@ function toRecord(row: typeof aiUsage.$inferSelect): AiUsageRecord {
 export async function listUsage(date: string, db: Db = getDb()): Promise<AiUsageRecord[]> {
   const rows = await db.select().from(aiUsage).where(eq(aiUsage.easternDate, date)).orderBy(asc(aiUsage.id));
   return rows.map(toRecord);
+}
+
+export async function listUsageDates(limit = 30, db: Db = getDb()): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ date: aiUsage.easternDate })
+    .from(aiUsage)
+    .orderBy(desc(aiUsage.easternDate))
+    .limit(limit);
+  return rows.map((r) => r.date);
 }
 
 export async function appendUsage(record: AiUsageRecord, db: Db = getDb()): Promise<void> {

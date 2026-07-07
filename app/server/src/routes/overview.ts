@@ -2,8 +2,8 @@ import type { FastifyPluginAsync } from "fastify";
 import type { IntradayPrediction, OverviewRecap, RawBar, RecapSettlementRow } from "../../../shared/types.js";
 import { chartUrl } from "../chartUrl.js";
 import { ClientError } from "../errors.js";
-import { listComments } from "../ai/comments.js";
-import { listUsage, summarizeUsage } from "../ai/usageStore.js";
+import { listAllCommentDates, listComments } from "../ai/comments.js";
+import { listUsage, listUsageDates, summarizeUsage } from "../ai/usageStore.js";
 import { buildOverviewBoard, latestPerSymbol } from "../services/cockpit/board.js";
 import { judgeOutcome } from "../services/cockpit/outcome.js";
 import { getResolvedOutcomes, saveResolvedOutcome } from "../services/cockpit/outcomeCache.js";
@@ -15,7 +15,11 @@ import { normalizeQuote } from "../realtime/quotes.js";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const OUTCOME_BARS = 300;
+const DAILY_BARS = 30;
 const RECAP_TTL_MS = 60_000;
+const RECAP_HISTORICAL_TTL_MS = 60 * 60_000;
+const RECAP_CACHE_MAX = 10;
+const RECAP_DATES_LIMIT = 30;
 
 export const overviewRoute: FastifyPluginAsync = async (app) => {
   app.get("/", async () => {
@@ -23,33 +27,56 @@ export const overviewRoute: FastifyPluginAsync = async (app) => {
     return { ok: true, data };
   });
 
-  async function buildRecap(today: string): Promise<OverviewRecap> {
+  async function computeHistoricalDayPct(symbol: string, date: string): Promise<number | null> {
+    const bars = await getProvider()
+      .getKline(symbol, "day", DAILY_BARS)
+      .catch(() => null);
+    if (!bars) return null;
+    const idx = bars.findIndex((bar) => easternDate(new Date(bar.time)) === date);
+    if (idx <= 0) return null;
+    const close = Number(bars[idx].close);
+    const prevClose = Number(bars[idx - 1].close);
+    if (!Number.isFinite(close) || !Number.isFinite(prevClose) || prevClose === 0) return null;
+    return ((close - prevClose) / prevClose) * 100;
+  }
+
+  async function buildRecap(date: string): Promise<OverviewRecap> {
+    const isToday = date === easternDate();
     const metas = (await listCharts({ type: "intraday" })).filter(
-      (m) => easternDate(new Date(m.created_at)) === today,
+      (m) => easternDate(new Date(m.created_at)) === date,
     );
     const bySymbol = latestPerSymbol(metas);
     const symbols = [...bySymbol.keys()];
-    const usage = summarizeUsage(today, await listUsage(today));
+    const usage = summarizeUsage(date, await listUsage(date));
     if (!symbols.length) {
-      return { date: today, settlements: [], alerts: [], usage };
+      return { date, settlements: [], alerts: [], usage };
     }
 
     const nowMs = Date.now();
     const latestMetas = [...bySymbol.values()];
-    const [quotesRes, docs, commentsList, cached] = await Promise.all([
-      getProvider()
-        .getQuotes(symbols)
-        .catch(() => []),
+    const [quoteBySymbol, dayPctBySymbol, docs, commentsList, cached] = await Promise.all([
+      isToday
+        ? getProvider()
+            .getQuotes(symbols)
+            .then((quotesRes) => {
+              const map = new Map<string, ReturnType<typeof normalizeQuote>>();
+              for (const q of quotesRes) {
+                const cell = normalizeQuote(q, nowMs);
+                map.set(cell.symbol, cell);
+              }
+              return map;
+            })
+            .catch(() => new Map<string, ReturnType<typeof normalizeQuote>>())
+        : Promise.resolve(new Map<string, ReturnType<typeof normalizeQuote>>()),
+      isToday
+        ? Promise.resolve(new Map<string, number | null>())
+        : Promise.all(symbols.map(async (s) => [s, await computeHistoricalDayPct(s, date)] as const)).then(
+            (entries) => new Map(entries),
+          ),
       Promise.all(latestMetas.map((m) => loadChart(m.id))),
-      Promise.all(symbols.map((s) => listComments(s, today))),
+      Promise.all(symbols.map((s) => listComments(s, date))),
       getResolvedOutcomes(latestMetas.map((m) => m.id)),
     ]);
-    const quoteBySymbol = new Map(
-      quotesRes.map((q) => {
-        const cell = normalizeQuote(q, nowMs);
-        return [cell.symbol, cell] as const;
-      }),
-    );
 
     const settlements: RecapSettlementRow[] = await Promise.all(
       latestMetas.map(async (meta, i) => {
@@ -71,12 +98,14 @@ export const overviewRoute: FastifyPluginAsync = async (app) => {
             void saveResolvedOutcome({ chartId: meta.id, symbol: meta.symbol!, direction }, outcome).catch(() => {});
           }
         }
-        const quote = quoteBySymbol.get(meta.symbol!) ?? null;
+        const day_pct = isToday
+          ? (quoteBySymbol.get(meta.symbol!)?.regularPct ?? quoteBySymbol.get(meta.symbol!)?.pct ?? null)
+          : (dayPctBySymbol.get(meta.symbol!) ?? null);
         return {
           symbol: meta.symbol!,
           chart_id: meta.id,
           direction,
-          day_pct: quote?.regularPct ?? quote?.pct ?? null,
+          day_pct,
           outcome,
         };
       }),
@@ -88,33 +117,50 @@ export const overviewRoute: FastifyPluginAsync = async (app) => {
       .sort((a, b) => (a.ts < b.ts ? -1 : 1))
       .map((c) => ({ ts: c.ts, symbol: c.symbol, level: c.level, text: c.text }));
 
-    return { date: today, settlements, alerts, usage };
+    return { date, settlements, alerts, usage };
   }
 
-  let recapCache: { at: number; data: OverviewRecap } | null = null;
-  let recapInflight: Promise<OverviewRecap> | null = null;
+  const recapCache = new Map<string, { at: number; data: OverviewRecap }>();
+  const recapInflight = new Map<string, Promise<OverviewRecap>>();
 
-  app.get("/recap", async () => {
-    const today = easternDate();
-    const usable = recapCache && recapCache.data.date === today ? recapCache : null;
-    if (usable && Date.now() - usable.at < RECAP_TTL_MS) {
-      return { ok: true, data: usable.data };
+  function cacheRecap(date: string, data: OverviewRecap): void {
+    recapCache.delete(date);
+    recapCache.set(date, { at: Date.now(), data });
+    while (recapCache.size > RECAP_CACHE_MAX) {
+      const oldestKey = recapCache.keys().next().value;
+      if (oldestKey === undefined) break;
+      recapCache.delete(oldestKey);
     }
-    if (!recapInflight) {
-      recapInflight = buildRecap(today)
+  }
+
+  app.get<{ Querystring: { date?: string } }>("/recap", async (req) => {
+    const date = req.query.date ?? easternDate();
+    if (!DATE_RE.test(date)) {
+      throw new ClientError(`invalid date: ${date}`, "expected YYYY-MM-DD");
+    }
+    const isToday = date === easternDate();
+    const ttl = isToday ? RECAP_TTL_MS : RECAP_HISTORICAL_TTL_MS;
+    const cached = recapCache.get(date) ?? null;
+    if (cached && Date.now() - cached.at < ttl) {
+      return { ok: true, data: cached.data };
+    }
+    let inflight = recapInflight.get(date);
+    if (!inflight) {
+      inflight = buildRecap(date)
         .then((data) => {
-          recapCache = { at: Date.now(), data };
+          cacheRecap(date, data);
           return data;
         })
         .finally(() => {
-          recapInflight = null;
+          recapInflight.delete(date);
         });
+      recapInflight.set(date, inflight);
     }
-    if (usable) {
-      void recapInflight.catch(() => {});
-      return { ok: true, data: usable.data };
+    if (cached) {
+      void inflight.catch(() => {});
+      return { ok: true, data: cached.data };
     }
-    return { ok: true, data: await recapInflight };
+    return { ok: true, data: await inflight };
   });
 
   app.get("/stats", async () => {
@@ -170,5 +216,19 @@ export const overviewRoute: FastifyPluginAsync = async (app) => {
       throw new ClientError(`invalid date: ${date}`, "expected YYYY-MM-DD");
     }
     return { ok: true, data: summarizeUsage(date, await listUsage(date)) };
+  });
+
+  app.get("/recap-dates", async () => {
+    const [usageDates, commentDates, intradayMetas] = await Promise.all([
+      listUsageDates(RECAP_DATES_LIMIT),
+      listAllCommentDates(RECAP_DATES_LIMIT),
+      listCharts({ type: "intraday" }),
+    ]);
+    const chartDates = intradayMetas.map((m) => easternDate(new Date(m.created_at)));
+    const dates = [...new Set([...usageDates, ...commentDates, ...chartDates])]
+      .sort()
+      .reverse()
+      .slice(0, RECAP_DATES_LIMIT);
+    return { ok: true, data: dates };
   });
 };
