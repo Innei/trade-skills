@@ -1,9 +1,13 @@
-import type { Api, Model } from "@earendil-works/pi-ai";
+import type { Api, Model, ThinkingLevel } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 
-export type ModelRef = { provider: string; id: string };
+export type ModelRef = { provider: string; id: string; thinkingLevel?: ThinkingLevel };
 
-export type AiModel = Model<Api>;
+// thinkingLevel rides on the resolved model so it reaches the Agent factories
+// without threading an extra field through every deps interface.
+export type AiModel = Model<Api> & { thinkingLevel?: ThinkingLevel };
+
+const THINKING_LEVELS: ReadonlySet<string> = new Set(["minimal", "low", "medium", "high", "xhigh"]);
 
 export type AiConfig = {
   commentModel: AiModel | null;
@@ -19,9 +23,18 @@ export function parseModelRef(raw: string): ModelRef | null {
   const slash = raw.indexOf("/");
   if (slash <= 0) return null;
   const provider = raw.slice(0, slash).trim();
-  const id = raw.slice(slash + 1).trim();
+  let id = raw.slice(slash + 1).trim();
   if (!provider || !id) return null;
-  return { provider, id };
+  let thinkingLevel: ThinkingLevel | undefined;
+  const colon = id.lastIndexOf(":");
+  if (colon > 0) {
+    const level = id.slice(colon + 1);
+    if (THINKING_LEVELS.has(level)) {
+      thinkingLevel = level as ThinkingLevel;
+      id = id.slice(0, colon);
+    }
+  }
+  return thinkingLevel ? { provider, id, thinkingLevel } : { provider, id };
 }
 
 export function resolveModel(
@@ -32,7 +45,9 @@ export function resolveModel(
   const ref = parseModelRef(envValue);
   if (!ref) return null;
   try {
-    return lookup(ref.provider, ref.id) ?? null;
+    const model = lookup(ref.provider, ref.id) ?? null;
+    if (!model) return null;
+    return ref.thinkingLevel ? { ...model, thinkingLevel: ref.thinkingLevel } : model;
   } catch (err) {
     console.error(`resolveModel: getModel failed for "${envValue}": ${String(err)}`);
     return null;

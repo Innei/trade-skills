@@ -148,7 +148,11 @@ timeframe data + Step 3's numbers, decide:
 3. **Range-bound playbook** — if one scenario is "震荡/oscillating", fill
    `range_bound_plan` with an explicit tactic for **both** directions (`long_tactic`
    and `short_tactic`) — never describe only one side of a two-sided range.
-4. **Entry plan** — `entry`, `stop`, `target1_pct`, `target2_pct`.
+4. **Entry plan** — `entry`, `stop`, `target1_pct`, `target2_pct` — **only for
+   `long` / `short` calls. A `neutral` call submits NO `entry_plan`**: 观望就是
+   现在没有可执行的入场/止损/目标，两侧的条件应对全部写进 `range_bound_plan`
+   （见上一条），不要一边喊观望一边给价位。Steps 5–6 below (position size,
+   trade management) likewise apply only to directional calls.
    - **Stop = structure, not a number.** The stop sits beyond a named structure
      (swing point 外沿、123 结构的 ①、区间边界), never a bare round number or
      arbitrary %. Name the structure in `stop_note`.

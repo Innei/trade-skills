@@ -18,6 +18,21 @@ describe("parseModelRef", () => {
     });
   });
 
+  it("parses a thinking-level suffix", () => {
+    expect(parseModelRef("openai-codex/gpt-5.5:high")).toEqual({
+      provider: "openai-codex",
+      id: "gpt-5.5",
+      thinkingLevel: "high",
+    });
+  });
+
+  it("keeps an unknown colon suffix inside the id", () => {
+    expect(parseModelRef("openai-codex/gpt-5.5:turbo")).toEqual({
+      provider: "openai-codex",
+      id: "gpt-5.5:turbo",
+    });
+  });
+
   it("rejects missing provider or id", () => {
     expect(parseModelRef("")).toBeNull();
     expect(parseModelRef("noslash")).toBeNull();
@@ -49,6 +64,13 @@ describe("resolveModel", () => {
       return fakeModel;
     };
     expect(resolveModel("anthropic/claude-haiku-4-5", lookup)).toBe(fakeModel);
+  });
+
+  it("attaches the thinking level to the resolved model", () => {
+    const model = resolveModel("anthropic/claude-haiku-4-5:high", () => fakeModel);
+    expect(model).not.toBe(fakeModel);
+    expect(model?.id).toBe("claude-haiku-4-5");
+    expect(model?.thinkingLevel).toBe("high");
   });
 
   it("returns null when the model is unknown", () => {

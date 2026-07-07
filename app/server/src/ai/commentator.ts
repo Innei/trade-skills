@@ -3,6 +3,7 @@ import { type Static, Type } from "typebox";
 import type { CockpitComment } from "../../../shared/types.js";
 import { easternDate } from "../services/session.js";
 import { appendComment as defaultAppendComment } from "./comments.js";
+import { getCodexApiKey } from "./codexAuth.js";
 import { buildCommentUpdate, type CommentPack } from "./datapack.js";
 import type { AiModel } from "./models.js";
 import type { Trigger } from "./triggers.js";
@@ -72,10 +73,12 @@ export function resetCommentatorSessions(): void {
 
 const defaultAgentFactory: AgentFactory = (config) => {
   const agent = new Agent({
+    getApiKey: getCodexApiKey,
     initialState: {
       systemPrompt: config.systemPrompt,
       model: config.model,
       tools: config.tools,
+      ...(config.model.thinkingLevel ? { thinkingLevel: config.model.thinkingLevel } : {}),
     },
   });
   return {

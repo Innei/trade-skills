@@ -6,6 +6,7 @@ import { chartUrl } from "../chartUrl.js";
 import { buildChart } from "../services/build.js";
 import { getProvider } from "../services/marketdata/registry.js";
 import { createChart } from "../services/store.js";
+import { getCodexApiKey } from "./codexAuth.js";
 import { appendComment as defaultAppendComment } from "./comments.js";
 import { buildReassessPack as defaultBuildReassessPack, type ReassessPack } from "./datapack.js";
 import type { AiModel } from "./models.js";
@@ -34,7 +35,8 @@ const SYSTEM_PROMPT = [
   "结论纪律（写进 submit_prediction）：",
   "- direction：明确 long / short / neutral。",
   "- anchor：给出判断锚点（哪个周期、时间、价格）。",
-  "- entry_plan：入场 entry、止损 stop、目标 target1 / target2。止损必须依托具体结构（摆动点外沿、123 结构的①、区间边界），在 rationale 里写明是哪个结构；做多止损在入场下方、目标在上方，做空相反。T1 口径盈亏比不足 1:1 的计划不要提交——换结构重做或转 neutral。",
+  "- entry_plan：只在 long / short 时给出，入场 entry、止损 stop、目标 target1 / target2。止损必须依托具体结构（摆动点外沿、123 结构的①、区间边界），在 rationale 里写明是哪个结构；做多止损在入场下方、目标在上方，做空相反。T1 口径盈亏比不足 1:1 的计划不要提交——换结构重做或转 neutral。",
+  "- neutral（观望）不要提交 entry_plan——观望就是现在没有可执行的入场/止损/目标；两侧的条件应对写进 range_plan。",
   "- scenarios：三个情景（如上破 / 震荡 / 下破），probability 用 0–100 的百分数，三者之和约为 100。",
   "- comment：一句话中文白话结论，会作为点评写入。若快照里持仓不为空，comment 必须包含对现有持仓的处置（加 / 减 / 持 / 清）并对照成本价说明理由。",
   "若快照里没有已归档预测，说明这是该标的的首次分析而非重估，照常完成全部流程并给出完整结论。",
@@ -74,7 +76,7 @@ const rangePlanSchema = Type.Object({
 const predictionSchema = Type.Object({
   direction: Type.Union([Type.Literal("long"), Type.Literal("short"), Type.Literal("neutral")]),
   anchor: Type.Optional(anchorSchema),
-  entry_plan: entryPlanSchema,
+  entry_plan: Type.Optional(entryPlanSchema),
   scenarios: Type.Array(scenarioSchema, { minItems: 3 }),
   range_plan: Type.Optional(rangePlanSchema),
   comment: Type.String({ description: "一句话中文白话结论，写入点评" }),
@@ -108,7 +110,18 @@ export function validatePrediction(params: PredictionParams): string[] {
     issues.push(`情景概率之和应约为 100（0–100 百分数），当前为 ${sum}`);
   }
 
+  if (direction === "neutral") {
+    if (plan) {
+      issues.push("neutral（观望）不应提交 entry_plan——去掉入场/止损/目标，两侧条件应对写进 range_plan");
+    }
+    return issues;
+  }
+
   if (direction === "long" || direction === "short") {
+    if (!plan) {
+      issues.push("long / short 必须给出 entry_plan（入场、止损、目标）");
+      return issues;
+    }
     const { entry, stop } = plan;
     const risk = direction === "long" ? entry - stop : stop - entry;
     if (risk <= 0) {
@@ -200,10 +213,12 @@ export function escalationOnCooldown(symbol: string, now: number): boolean {
 
 const defaultAgentFactory: AnalystAgentFactory = (config) =>
   new Agent({
+    getApiKey: getCodexApiKey,
     initialState: {
       systemPrompt: config.systemPrompt,
       model: config.model,
       tools: config.tools,
+      ...(config.model.thinkingLevel ? { thinkingLevel: config.model.thinkingLevel } : {}),
     },
   });
 
@@ -303,7 +318,7 @@ function buildTools(
     execute: async (_id, params: PredictionParams) => {
       if (state.done) return textResult("skipped", true);
       if (!Check(predictionSchema, params)) {
-        return textResult("prediction 结构不合法，请补齐 direction / entry_plan / scenarios 后重试。");
+        return textResult("prediction 结构不合法，请补齐 direction / scenarios（long / short 还需 entry_plan）后重试。");
       }
       const issues = validatePrediction(params);
       if (issues.length) {

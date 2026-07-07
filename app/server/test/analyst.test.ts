@@ -157,14 +157,24 @@ describe("validatePrediction", () => {
     expect(issues.join("")).toContain("不足 1:1");
   });
 
-  it("skips direction checks for neutral calls", () => {
-    expect(
-      validatePrediction({
-        ...validPrediction,
-        direction: "neutral",
-        entry_plan: { entry: 100, stop: 103, target1: 99 },
-      }),
-    ).toEqual([]);
+  it("passes a neutral call without an entry plan", () => {
+    const { entry_plan: _plan, ...rest } = validPrediction;
+    expect(validatePrediction({ ...rest, direction: "neutral" })).toEqual([]);
+  });
+
+  it("rejects a neutral call that carries an entry plan", () => {
+    const issues = validatePrediction({
+      ...validPrediction,
+      direction: "neutral",
+      entry_plan: { entry: 100, stop: 103, target1: 99 },
+    });
+    expect(issues.join("")).toContain("不应提交 entry_plan");
+  });
+
+  it("rejects a directional call without an entry plan", () => {
+    const { entry_plan: _plan, ...rest } = validPrediction;
+    const issues = validatePrediction({ ...rest, direction: "long" });
+    expect(issues.join("")).toContain("必须给出 entry_plan");
   });
 });
 

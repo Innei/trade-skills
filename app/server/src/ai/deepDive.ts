@@ -2,6 +2,7 @@ import { exec as nodeExec } from "node:child_process";
 import { promisify } from "node:util";
 import { Agent, type AgentTool } from "@earendil-works/pi-agent-core";
 import { PROJECT_ROOT } from "../env.js";
+import { getCodexApiKey } from "./codexAuth.js";
 import { buildSystemPrompt, buildTools, type ExecFn, type ExecResult } from "./deepDiveTools.js";
 import { resolveModel, type AiModel } from "./models.js";
 import { notifyUser } from "./notify.js";
@@ -85,10 +86,12 @@ function unexpectedDirty(before: string, after: string, symbol: string): boolean
 
 export const defaultAgentFactory: DeepDiveAgentFactory = (config) =>
   new Agent({
+    getApiKey: getCodexApiKey,
     initialState: {
       systemPrompt: config.systemPrompt,
       model: config.model,
       tools: config.tools,
+      ...(config.model.thinkingLevel ? { thinkingLevel: config.model.thinkingLevel } : {}),
     },
   });
 
