@@ -1,8 +1,8 @@
 {
-  "name": "trade",
+  "name": "kansoku",
   "version": "0.0.0",
   "private": true,
-  "description": "Personal trade journal with market-intel agent skills",
+  "description": "Personal US market observatory with trading records, agent skills, and realtime charts",
   "scripts": {
     "dev": "cd app && pnpm dev",
     "prepare": "skills experimental_install",

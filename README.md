@@ -1,4 +1,8 @@
-# trade-skills
+<p align="center">
+  <img src="./app/web/public/brand/kansoku-lockup.svg" alt="Kansoku" width="560">
+</p>
+
+# Kansoku
 
 > 个人美股交易研究工作台：交易日志、市场情报 Agent Skill，以及本地实时图表应用。
 
@@ -17,20 +21,20 @@
 
 **个股驾驶舱**：一屏看完一只票——左侧多周期 K 线叠加均线 / MACD / K 线形态标注，右侧页签在预测、资金流、消息、持仓&环境、AI 点评之间切换。
 
-![个股驾驶舱](https://github.com/Innei/trade-skills/releases/download/web-preview/cockpit.png)
+![个股驾驶舱](https://github.com/Innei/kansoku/releases/download/web-preview/cockpit.png)
 
 <table>
   <tr>
-    <td width="50%"><img src="https://github.com/Innei/trade-skills/releases/download/web-preview/chart-sepa.png" alt="SEPA 策略仪表盘"></td>
-    <td width="50%"><img src="https://github.com/Innei/trade-skills/releases/download/web-preview/chart-intraday.png" alt="短线多周期预测面板"></td>
+    <td width="50%"><img src="https://github.com/Innei/kansoku/releases/download/web-preview/chart-sepa.png" alt="SEPA 策略仪表盘"></td>
+    <td width="50%"><img src="https://github.com/Innei/kansoku/releases/download/web-preview/chart-intraday.png" alt="短线多周期预测面板"></td>
   </tr>
   <tr>
     <td><b>SEPA 策略仪表盘</b>——Minervini 趋势模板逐条打钩，长期均线值区、成交密集区、RS 相对强弱、量能比一屏呈现。</td>
     <td><b>短线多周期预测面板</b>——5m/15m/1h 切换，入场 / 止损 / 目标价位线，MACD 背离与 K 线形态自动标注，右栏给三档情景推演。</td>
   </tr>
   <tr>
-    <td width="50%"><img src="https://github.com/Innei/trade-skills/releases/download/web-preview/chart-flow.png" alt="主力资金流曲线"></td>
-    <td width="50%"><img src="https://github.com/Innei/trade-skills/releases/download/web-preview/chart-cohort.png" alt="跨标的资金净额对比"></td>
+    <td width="50%"><img src="https://github.com/Innei/kansoku/releases/download/web-preview/chart-flow.png" alt="主力资金流曲线"></td>
+    <td width="50%"><img src="https://github.com/Innei/kansoku/releases/download/web-preview/chart-cohort.png" alt="跨标的资金净额对比"></td>
   </tr>
   <tr>
     <td><b>主力资金流曲线</b>——日内累计主力净流入，正负分区着色。</td>
@@ -40,7 +44,7 @@
 
 **图表库**：所有出过的图按日期归档，可按类型（sepa / intraday / flow / cohort）筛选；数据存在 `journal/charts/data/`，渲染永远用最新前端代码。
 
-![图表库](https://github.com/Innei/trade-skills/releases/download/web-preview/chart-list.png)
+![图表库](https://github.com/Innei/kansoku/releases/download/web-preview/chart-list.png)
 
 ## 三层结构
 
@@ -149,8 +153,8 @@ cd app && pnpm test        # 金标测试（与原 Python 实现逐数对齐）
 ## 安装
 
 ```bash
-git clone https://github.com/Innei/trade-skills.git ~/git/trade
-cd ~/git/trade
+git clone https://github.com/Innei/kansoku.git ~/git/kansoku
+cd ~/git/kansoku
 pnpm install   # 会触发 prepare 钩子，自动还原第三方 skill
 ```
 

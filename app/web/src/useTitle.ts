@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 
-const BRAND = "盘面";
+const BRAND = "Kansoku";
 
 export function useTitle(pageName: string | null | undefined): void {
   useEffect(() => {

@@ -8,6 +8,7 @@ __pycache__/
 *.pyc
 
 node_modules/
+.superpowers/
 
 # Installed third-party skills — pinned in skills-lock.json.
 # Restore on a fresh clone with: npx skills experimental_install

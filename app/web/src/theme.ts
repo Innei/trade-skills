@@ -8,7 +8,7 @@ export const theme = {
   textPrimary: "#e8e8e8",
   textSecondary: "#9a9a9a",
   textMuted: "#5c5c5c",
-  accent: "#ffb000",
+  accent: "#facc15",
   up: "#26a69a",
   down: "#ef5350",
   fontMono: "ui-monospace, 'SF Mono', Menlo, monospace",
