@@ -127,7 +127,7 @@ The server fetches Longbridge data itself when `symbol` is given; pass `data`
   "position": { "shares": 1, "cost": 100.00 },       // optional
   "context": { /* see sepa context schema below */ } }
 
-// intraday — server pulls 5m/15m/1h × 150 bars automatically (--session all:
+// intraday — server pulls 5m/15m/1h × 1000 bars automatically (--session all:
 // pre/post-market bars included by default; pass "session": "intraday" to exclude)
 { "type": "intraday", "symbol": "MU.US", "name": "Micron Technology",
   "ema_periods": [9, 21, 55],                        // optional, fast/mid/slow EMA overlay (default 9/21/55, max 4)

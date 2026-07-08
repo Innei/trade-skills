@@ -267,7 +267,7 @@ export function coerceIntradayTimeframe(bars: RawBar[], key: string, emaPeriods 
     throw new ClientError(
       `intraday: timeframe '${key}' needs at least ${MACD_MIN_BARS} bars (got ${bars?.length ?? 0}); ` +
         "MACD(12,26,9) needs slow+signal warm-up plus history for swing detection.",
-      `Pull more history: \`longbridge kline <SYM> --period ${key} --count 150 --format json\`.`,
+      `Pull more history: \`longbridge kline <SYM> --period ${key} --count 1000 --format json\`.`,
     );
   }
   const timesTs = bars.map((b) => toTs(b.time));
@@ -802,7 +802,7 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
   if (missing.length) {
     throw new ClientError(
       `intraday: missing timeframes [${missing.join(", ")}]; need all of [${TIMEFRAME_ORDER.join(", ")}].`,
-      "Pull each with `longbridge kline <SYM> --period <5m|15m|1h> --count 150 --format json`.",
+      "Pull each with `longbridge kline <SYM> --period <5m|15m|1h> --count 1000 --format json`.",
     );
   }
 

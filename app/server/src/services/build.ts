@@ -92,7 +92,7 @@ async function prepareInput(type: ChartType, body: Body): Promise<Record<string,
     }
     case "intraday": {
       const symbol = requireSymbol(body, "intraday");
-      const count = Number(body.count ?? 150);
+      const count = Number(body.count ?? 1000);
       const session = typeof body.session === "string" ? body.session : "all";
       let timeframes = body.timeframes as Record<string, RawBar[]> | undefined;
       let dayKline = body.day_kline as RawBar[] | undefined;

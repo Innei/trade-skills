@@ -52,11 +52,16 @@ If ambiguous (e.g. a company name with multiple listings), ask back rather than 
 
 ### Step 2 — Tiered grounding context
 
-The chart server pulls the three timeframes of K-line itself (5m/15m/1h × 150
+The chart server pulls the three timeframes of K-line itself (5m/15m/1h × 1000
 bars) — no manual `longbridge kline` calls needed. Multi-source grounding is
 tiered so runs stay fast — pull the "always" tier every run, judge the rest by
 the day's tape:
 
+- **Always, before anything else: read `journal/lessons.md`** — the distilled
+  lesson list from past post-mortems. Every rule there was paid for with a real
+  loss; the read you're about to write must not repeat one. If a lesson applies
+  to today's setup, say so explicitly in the report（如"止损已避开 1000 关口
+  扎堆区，参照 lessons 2026-07-06"）.
 - **Always, check first**: `twitter-reader` — X is the fastest tape on breaking
   news and sentiment; on an intraday horizon its lead time over aggregated feeds
   is exactly the window that matters. Search the symbol, read the last few hours.
@@ -66,10 +71,12 @@ the day's tape:
   available in the current session, don't silently skip it: write "X 未查"
   into the report/`context.sources_used`, and treat the 催化日/平静日 call as
   provisional（longbridge-news 有延迟，"还没看到新闻"不等于"没有新闻"）.**
-- **Always: event risk（财报 + 宏观时刻表）**. Find the next earnings date
-  (longbridge news / X / IR; if unconfirmable, say so explicitly in the report)
-  and today's scheduled macro releases in ET (CPI/非农 8:30, 多数数据 10:00,
-  FOMC 决议 14:00 + 记者会 14:30; use `fred`/news to confirm on event days). Any
+- **Always: event risk（财报 + 宏观时刻表）**. Two calls, no manual hunting:
+  `longbridge finance-calendar report --symbol <SYM>.US --format json`（下一个
+  财报日；若返回为空再退回 news / X / IR 并注明未确认）and
+  `longbridge finance-calendar macrodata --market US --star 3 --start <today>
+  --end <horizon-end> --format json`（横跨持仓周期的重要宏观发布，带前值/预测；
+  时间为 ET——CPI/非农 8:30, 多数数据 10:00, FOMC 决议 14:00 + 记者会 14:30）. Any
   hard event inside the trade horizon must appear in the scenarios — a stop
   cannot protect you through a gap（跳空开盘直接越过止损价，实际亏损可远大于计划）.
 - **Always: market alignment（大盘/板块对齐）**. One call:
@@ -86,6 +93,12 @@ the day's tape:
   publish times, not event times. The chart server also auto-attaches raw
   headlines to the sidebar's `news` list, but that's unclassified — the AI must
   still read and tag them for `context`.
+- **Always: options levels（期权关键价位）**. One call:
+  `python3 .claude/skills/options-levels/scripts/levels.py <SYM>` — 现价附近
+  最近两个到期日的高持仓行权价（磁铁位/止损扎堆区）+ 全链 put/call 比。
+  上方高持仓 call 位 ≈ 上行磁铁与压力，下方高持仓 put 位 ≈ 支撑墙；这些
+  价位直接约束 Step 4 的止损与目标摆放（见 entry plan 规则）。CBOE 不覆盖
+  的标的（无期权）注明"期权 N/A"即可。
 - **On-demand** (judge by the day's tape, don't run every time): `trump-truth-monitor`
   (policy-sensitive days), `sec-edgar` (filing/insider leads), `gdelt` / `fred`
   (macro event days).
@@ -190,6 +203,13 @@ timeframe data + Step 3's numbers, decide:
    - **Stop = structure, not a number.** The stop sits beyond a named structure
      (swing point 外沿、123 结构的 ①、区间边界), never a bare round number or
      arbitrary %. Name the structure in `stop_note`.
+   - **Stop crowding check（止损显眼度）.** Before finalizing, check the stop
+     against three crowded zones: 整数关口（±0.5%）、当日/昨日高低点（±0.3%）、
+     Step 2 期权高持仓价位（±0.5%）. A stop inside any of them is where sweeps
+     happen（2026-07-06 三笔止损全灭于 1000 关口上方）— either push it beyond
+     the zone with extra cushion (smaller size for the wider stop), or switch
+     to a confirmation entry（等反抽失败再进）. State in `stop_note` which
+     zones were checked and cleared.
    - **R/R in both口径.** Compute direction-aware R/R twice: T1-based and
      T2-based (`long`: risk = entry−stop, reward = target−entry; `short`
      mirrored). Report both. **One unified rule（全仓库同一口径）: T1-based
@@ -305,6 +325,13 @@ streak or the stated probabilities feel systematically over-confident, say so
 in that day's entry — probabilities that never get compared against outcomes
 degrade into rhetoric.
 
+**Lesson distillation（教训沉淀）**: whenever a post-mortem (收盘复盘或单笔
+对账) produces an actionable lesson — a rule that would have changed an entry,
+a stop, or a probability — append it to `journal/lessons.md` as one dated line
+(合并同类条目并加注重复次数; lessons already absorbed into skill rules move
+to the file's 已固化 section, never deleted). A lesson that only lives in a
+dated journal file is a lesson the next run will not see.
+
 ## Anti-patterns
 
 - ❌ A directional call with no anchor price/time
@@ -315,6 +342,10 @@ degrade into rhetoric.
 - ❌ Reporting only the T2-based R/R（拿有条件的远目标化妆盈亏比）
 - ❌ An entry plan with no position size, or a size invented without pulling `longbridge portfolio`
 - ❌ A stop parked on a round number / bare % with no structure behind it
+- ❌ A stop inside a crowded zone（整数关口 / 当日昨日高低点 / 期权高持仓价位）without the crowding check named in `stop_note`
+- ❌ Skipping `journal/lessons.md`, or repeating a mistake already recorded there without addressing it
+- ❌ Finding the earnings date by manual news-hunting when `longbridge finance-calendar report --symbol` answers it in one call
+- ❌ Calling `longbridge option quote`（本账户无期权行情权限，必报 no quote access）— per-strike data comes from `options-levels`
 - ❌ Planning to hold through earnings or an FOMC/CPI-class event without naming the gap risk
 - ❌ A counter-tape call (against SPY/QQQ/sector direction) with no one-line justification
 - ❌ Calling a breakout real without citing relvol/volume
@@ -335,6 +366,7 @@ degrade into rhetoric.
 - `chart` — renders type `intraday`; this skill is chart's primary caller for that type
 - `longbridge-kline` — same data the chart server pulls; call directly only for in-chat analysis
 - `longbridge-capital-flow` — optional grounding context (distribution check)
+- `options-levels` — always-tier: per-strike open-interest levels（磁铁位/止损扎堆区）+ put/call ratios from the CBOE delayed chain
 - `twitter-reader` — always-tier, checked first (fastest tape on breaking news/sentiment)
 - `longbridge-news` — always-tier grounding context (lagging official headlines; confirmation + source anchor)
 - `trump-truth-monitor` — on-demand grounding context (policy-sensitive days)

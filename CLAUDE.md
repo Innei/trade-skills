@@ -37,8 +37,9 @@ Tickers (NVDA / MRVL / SMH …), CLI / API names (`longbridge`, `fred`), and fil
 | **`sec-edgar`** skill | UA header | raw 10-K/10-Q/8-K/S-1 text, Form 4 insider parsing |
 | **`gdelt`** skill | none (5s throttle) | global multilingual news tone stream |
 | **`trump-truth-monitor`** skill | RSS mirror | Trump Truth Social feed, classified + tier-graded for market impact |
+| **`options-levels`** skill | none (CBOE delayed) | per-strike option open interest（磁铁位/止损扎堆区）+ put/call ratios; per-contract quotes on Longbridge are NOT authorized for this account |
 
-Longbridge covers price/fundamentals; the four custom skills cover Longbridge's blind spots (macro, raw filings, world news, policy speech). See `docs/superpowers/specs/2026-05-28-market-intel-skills-design.md` for the design rationale and full per-script interface.
+Longbridge covers price/fundamentals; the five custom skills cover Longbridge's blind spots (macro, raw filings, world news, policy speech, per-strike options positioning). Earnings dates and macro release schedules come from `longbridge finance-calendar report/macrodata` — never hand-hunt them from news. See `docs/superpowers/specs/2026-05-28-market-intel-skills-design.md` for the design rationale and full per-script interface.
 
 ### Layer 2 — orchestration workflows (the value-add)
 
@@ -63,6 +64,7 @@ Every workflow ends by writing markdown. Do not skip this.
 - `journal/trump-feed/YYYY-MM-DD.md` — Trump post archive, appended idempotently by `archive.py`.
 - `stocks/{SYMBOL}.md` — per-name six-lens notes; **update incrementally** on new events, do not rewrite.
 - `stocks/_chain-ai-stack.md` — cross-stock map tying the tracked names along the AI-capex value chain.
+- `journal/lessons.md` — 复盘教训清单，一行一条带日期；短线预测（`intraday-signal`）每次运行前必读，复盘产生的可执行教训必须沉淀到这里。
 
 ## Running the data scripts
 
