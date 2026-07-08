@@ -191,11 +191,16 @@ climax top (volume ≥ 2.5×20MA + red close + local high), MA50/MA200 breakdown
 ### intraday two-call pattern
 
 1. **POST without `prediction`** → preview. Read `data.technicals` from the
-   response: per timeframe `last_dif / last_dea / last_hist`, `emas` (latest
+   response: per timeframe `last_dif / last_dea / last_hist`, `last_vwap`
+   (当日 session VWAP，m5/m15), `emas` (latest
    fast/mid/slow EMA values — price vs EMA stack tells the short-term trend
    posture), recent swing highs/lows, `last_cross` (金叉/死叉),
-   `divergence_candidates`, `beichi_candidates`. Read these numbers — don't
-   eyeball candles.
+   `divergence_candidates`, `beichi_candidates`. Also read `meta.day_context`:
+   `daily_trend` (up/down/range vs 日线 MA20/MA50), `daily_ma20`/`daily_ma50`,
+   `high_20d`/`low_20d`, `prev_day` (昨日高/低/收), `pre_market` 区间,
+   `opening_range` (开盘前 30 分钟), `vwap` — the server draws these as the
+   VWAP line and 日内参照位 price lines on the chart. Read these numbers —
+   don't eyeball candles.
 2. **PATCH `/api/charts/:id` with `{"prediction": {...}}`** → final dashboard.
    Add `"refresh": true` to any PATCH to refetch the latest bars (incl. pre/post
    market) and recompute everything before rebuilding — same id, same URL.

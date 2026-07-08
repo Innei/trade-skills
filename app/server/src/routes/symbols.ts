@@ -8,7 +8,7 @@ import { ClientError } from "../errors.js";
 import { toTs } from "../services/indicators.js";
 import { buildBenchmark } from "../services/cockpit/benchmark.js";
 import { buildCockpitFlow } from "../services/cockpit/flow.js";
-import { judgeOutcome, zoneFromPrediction } from "../services/cockpit/outcome.js";
+import { attachRMultiple, judgeOutcome, zoneFromPrediction } from "../services/cockpit/outcome.js";
 import { getResolvedOutcomes, saveResolvedOutcome } from "../services/cockpit/outcomeCache.js";
 import { buildCockpitPosition } from "../services/cockpit/position.js";
 import { entryPlanFromDoc, latestIntradayDoc } from "../services/cockpit/entryPlan.js";
@@ -109,9 +109,9 @@ export const symbolsRoute: FastifyPluginAsync = async (app) => {
       const anchor = prediction?.anchor ? { time: prediction.anchor.time, price: prediction.anchor.price } : null;
       const plan =
         doc && doc.built.kind === "intraday" && doc.built.entryPlan
-          ? { stop: doc.built.entryPlan.stop, target1: doc.built.entryPlan.target1 }
+          ? { entry: doc.built.entryPlan.entry, stop: doc.built.entryPlan.stop, target1: doc.built.entryPlan.target1 }
           : null;
-      let outcome = cached.get(meta.id) ?? null;
+      let outcome = attachRMultiple(cached.get(meta.id) ?? null, direction, plan);
       if (!outcome && direction && anchor && bars) {
         outcome = judgeOutcome(direction, anchor, plan, bars, zoneFromPrediction(prediction));
         if (outcome && outcome.status !== "open") {

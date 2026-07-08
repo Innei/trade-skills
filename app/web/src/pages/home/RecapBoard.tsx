@@ -34,6 +34,7 @@ function BucketLine({ label, bucket }: { label: string; bucket: StatsBucket }) {
           `（目标 ${bucket.hit_target} / 止损 ${bucket.hit_stop}${ranged > 0 ? ` / 守区间 ${bucket.held_range} / 破区间 ${bucket.broke_range}` : ""}）`}
         {bucket.open > 0 && ` · 未了结 ${bucket.open}`}
         {bucket.avg_pct != null && ` · 了结均值 ${signed(bucket.avg_pct)}%`}
+        {bucket.avg_r != null && ` · 平均盈亏 ${signed(bucket.avg_r)}R/笔`}
       </span>
     </div>
   );

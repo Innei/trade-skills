@@ -40,6 +40,7 @@ interface Handle {
   session: SessionBgPrimitive;
   macdSession: SessionBgPrimitive;
   emaSeries: ISeriesApi<"Line">[];
+  vwapSeries: ISeriesApi<"Line">;
   hist: ISeriesApi<"Histogram">;
   dif: ISeriesApi<"Line">;
   dea: ISeriesApi<"Line">;
@@ -52,6 +53,8 @@ interface Handle {
 }
 
 const NEAR_LEFT_BARS = 10;
+const VWAP_COLOR = "#c084fc";
+const DAY_LEVEL_COLOR = "#8b949e";
 
 const zoneTitle = (z: IntradayPriceZone, edge?: "上沿" | "下沿") =>
   `${z.label}${edge ? edge : ""} $${(edge === "上沿" ? z.high : z.low).toFixed(2)}`;
@@ -131,6 +134,14 @@ export function useIntradayCharts(
       }),
     );
 
+    const vwapSeries = main.addLineSeries({
+      color: VWAP_COLOR,
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: true,
+      crosshairMarkerVisible: false,
+    });
+
     const macd = baseChart(macdEl, true, true);
     const hist = macd.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false });
     const macdSession = new SessionBgPrimitive();
@@ -148,7 +159,7 @@ export function useIntradayCharts(
     };
     main.timeScale().subscribeVisibleLogicalRangeChange(onRangeChange);
 
-    handleRef.current = { main, macd, candle, vol, session, macdSession, emaSeries, hist, dif, dea, mainTip, macdTip, dynamic: [], planLines: [], fvg, anchorBg };
+    handleRef.current = { main, macd, candle, vol, session, macdSession, emaSeries, vwapSeries, hist, dif, dea, mainTip, macdTip, dynamic: [], planLines: [], fvg, anchorBg };
     lastTfRef.current = null;
     firstTimeRef.current = null;
     onHandleRef.current?.({ chart: main, series: candle, container: mainEl });
@@ -191,6 +202,7 @@ export function useIntradayCharts(
       const emaLine = d.emas[i];
       s.setData(toggles.ema && emaLine ? padLineData(emaLine.data, timeline) : []);
     });
+    h.vwapSeries.setData(toggles.vwap && d.vwap ? padLineData(d.vwap, timeline) : []);
     h.fvg.setData(toggles.fvg ? (d.fvgZones ?? []) : []);
     const anchor = built.sidebar.prediction?.anchor;
     const anchorHere = anchor && anchor.timeframe === activeTf ? anchor : null;
@@ -248,6 +260,25 @@ export function useIntradayCharts(
             h.planLines.push(addPriceLine(h.candle, { price: z.high, color, lineWidth: 1, lineStyle: 2, title: zoneTitle(z, "上沿") }));
           }
         });
+    }
+
+    const dc = built.sidebar.dayContext;
+    if (toggles.daylevel && dc) {
+      const dayLevels: { price: number | null | undefined; title: string }[] = [
+        { price: dc.prev_day?.high, title: "昨高" },
+        { price: dc.prev_day?.close, title: "昨收" },
+        { price: dc.prev_day?.low, title: "昨低" },
+        { price: dc.pre_market?.high, title: "盘前高" },
+        { price: dc.pre_market?.low, title: "盘前低" },
+        { price: dc.opening_range?.high, title: "开盘区高" },
+        { price: dc.opening_range?.low, title: "开盘区低" },
+      ];
+      for (const { price, title } of dayLevels) {
+        if (price == null) continue;
+        h.planLines.push(
+          addPriceLine(h.candle, { price, color: DAY_LEVEL_COLOR, lineWidth: 1, lineStyle: 1, title: `${title} $${price.toFixed(2)}` }),
+        );
+      }
     }
 
     if (lastTfRef.current !== activeTf) {

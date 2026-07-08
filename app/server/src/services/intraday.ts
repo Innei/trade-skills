@@ -31,7 +31,9 @@ import {
 import { formatMarketMonthDayTime } from "../../../shared/time.js";
 import { ClientError } from "../errors.js";
 import { detectCandlePatterns } from "./candlePatterns.js";
+import { buildDayContext } from "./dayLevels.js";
 import { detectFvgZones } from "./fvg.js";
+import { lastVwap, sessionVwap } from "./vwap.js";
 import { ema, findSwings, lineData, macd, pyRound, sma, toTs } from "./indicators.js";
 import { classifyMacdStructure, MACD_STRUCTURE_META, ZERO_TANGLE_NOTE, type MacdStructure } from "./macdStructure.js";
 import { detect123Patterns } from "./pattern123.js";
@@ -230,10 +232,13 @@ export function findMacdBeichi(
   return out;
 }
 
+const VWAP_TIMEFRAMES = new Set<string>(["m5", "m15"]);
+
 export interface CoercedTimeframe {
   candles: IntradayTfData["candles"];
   volumes: ColoredPoint[];
   emas: EmaLine[];
+  vwap: IntradayTfData["vwap"];
   macdDif: IntradayTfData["macdDif"];
   macdDea: IntradayTfData["macdDea"];
   macdHist: ColoredPoint[];
@@ -297,6 +302,7 @@ export function coerceIntradayTimeframe(bars: RawBar[], key: string, emaPeriods 
     return null;
   };
 
+  const vwap = VWAP_TIMEFRAMES.has(key) ? sessionVwap(bars) : undefined;
   const macdCrosses = findMacdCrosses(hist, timesTs);
   const structure = classifyMacdStructure(dif, hist, timesTs);
   const fvgZones = detectFvgZones(candles);
@@ -339,6 +345,7 @@ export function coerceIntradayTimeframe(bars: RawBar[], key: string, emaPeriods 
     candles,
     volumes,
     emas: emaArrs.map(({ period, arr }) => ({ period, data: lineData(timesTs, arr) })),
+    vwap,
     macdDif: lineData(timesTs, dif),
     macdDea: lineData(timesTs, dea),
     macdHist: histBars,
@@ -354,6 +361,7 @@ export function coerceIntradayTimeframe(bars: RawBar[], key: string, emaPeriods 
       last_dif: lastNonNull(dif),
       last_dea: lastNonNull(dea),
       last_hist: lastNonNull(hist),
+      last_vwap: vwap ? lastVwap(vwap) : null,
       emas: emaArrs.map(({ period, arr }) => ({ period, last: lastNonNull(arr) })),
       recent_swing_highs: swingHighs.slice(-6),
       recent_swing_lows: swingLows.slice(-6),
@@ -724,6 +732,7 @@ export interface IntradayInput {
   name?: string;
   as_of?: string;
   timeframes: Partial<Record<TimeframeKey, RawBar[]>>;
+  day_kline?: RawBar[];
   ema_periods?: number[];
   news?: NewsItem[];
   position?: { shares?: number; cost?: number };
@@ -901,6 +910,7 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
       candles: tf.candles,
       volumes: tf.volumes,
       emas: tf.emas,
+      vwap: tf.vwap,
       macdDif: tf.macdDif,
       macdDea: tf.macdDea,
       macdHist: tf.macdHist,
@@ -926,6 +936,14 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
     IntradayTfSummary
   >;
 
+  const lastM5 = tfs.m5.candles[tfs.m5.candles.length - 1];
+  const dayContext = buildDayContext(
+    input.day_kline ?? [],
+    tfRaw.m5 as RawBar[],
+    new Date(lastM5.time * 1000),
+    tfs.m5.summary.last_vwap ?? null,
+  );
+
   const shares = input.position?.shares;
   const cost = input.position?.cost;
   const position =
@@ -947,6 +965,7 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
       entryPlan,
       position,
       technicals,
+      dayContext,
       news: input.news ?? [],
       context,
     },
@@ -956,6 +975,7 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
     mode: prediction ? "prediction" : "preview",
     bars: Object.fromEntries(TIMEFRAME_ORDER.map((k) => [k, tfs[k].candles.length])) as Record<TimeframeKey, number>,
     technicals,
+    day_context: dayContext,
   };
 
   return { built, meta };

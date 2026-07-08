@@ -23,6 +23,7 @@ function makePack(overrides: Partial<ReassessPack> = {}): ReassessPack {
     flow: [],
     rel_volume: null,
     day_levels: null,
+    day_context: null,
     market: { spy: null, qqq: null },
     news: [],
     prediction: null,

@@ -4,6 +4,7 @@ import type {
   CockpitComment,
   CockpitPosition,
   FlowRow,
+  IntradayDayContext,
   IntradayPrediction,
   IntradayTfSummary,
   NewsItem,
@@ -15,7 +16,8 @@ import type {
 import { ClientError } from "../errors.js";
 import { normalizeQuote } from "../realtime/quotes.js";
 import { buildCockpitPosition } from "../services/cockpit/position.js";
-import { openingRange, preMarketRange, prevDayLevels, type DayLevels } from "../services/dayLevels.js";
+import { buildDayContext, openingRange, preMarketRange, prevDayLevels, type DayLevels } from "../services/dayLevels.js";
+import { lastVwap, sessionVwap } from "../services/vwap.js";
 import { macd } from "../services/indicators.js";
 import { coerceIntradayTimeframe } from "../services/intraday.js";
 import { computeRelativeVolume } from "../services/relvol.js";
@@ -26,6 +28,7 @@ import { listCharts, loadChart, type ListFilter } from "../services/store.js";
 import { listComments } from "./comments.js";
 
 const KLINE_COUNT = 150;
+const REASSESS_DAY_KLINE_COUNT = 60;
 const COMMENT_M5_FETCH = 240;
 const RELVOL_M15_BARS = 500;
 const DAY_KLINE_COUNT = 10;
@@ -101,6 +104,7 @@ export interface ReassessPack {
   flow: FlowRow[];
   rel_volume: RelativeVolume | null;
   day_levels: DayLevels | null;
+  day_context: IntradayDayContext | null;
   market: { spy: QuoteCell | null; qqq: QuoteCell | null };
   news: NewsItem[];
   prediction: IntradayPrediction | null;
@@ -230,7 +234,7 @@ export async function buildReassessPack(
     findTodayLatestIntradayDoc(symbol, deps),
     deps.fetchPositions().catch(() => [] as RawPosition[]),
     deps.fetchKline(symbol, "15m", RELVOL_M15_BARS).catch(() => [] as RawBar[]),
-    deps.fetchKline(symbol, "day", DAY_KLINE_COUNT).catch(() => [] as RawBar[]),
+    deps.fetchKline(symbol, "day", REASSESS_DAY_KLINE_COUNT).catch(() => [] as RawBar[]),
     deps.fetchNews(symbol).catch(() => [] as NewsItem[]),
     deps.fetchQuote("SPY.US").catch(() => null),
     deps.fetchQuote("QQQ.US").catch(() => null),
@@ -268,6 +272,7 @@ export async function buildReassessPack(
       pre_market: preMarketRange(m5Bars, now),
       opening_range: openingRange(m5Bars, now),
     },
+    day_context: buildDayContext(dayBars, m5Bars, now, lastVwap(sessionVwap(m5Bars))),
     market: { spy, qqq },
     news: news.slice(0, 6),
     prediction,

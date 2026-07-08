@@ -112,7 +112,9 @@ positions` shows a **real** holding in this symbol — never a placeholder; a
 fabricated position renders a bogus 持仓视角 card on the dashboard.
 
 The response's `data.technicals` gives, per timeframe: the latest DIF/DEA/HIST,
-the last ~6 swing highs/lows, the most recent 金叉/死叉 (`last_cross`), any
+the session VWAP（`last_vwap`，当日成交量加权均价——日内机构衡量贵贱的基准线，
+m5/m15 有值）, the last ~6 swing highs/lows, the most recent 金叉/死叉
+(`last_cross`), any
 auto-detected `divergence_candidates` / `beichi_candidates`, and `pattern_123` —
 auto-detected 123 reversal structures (①extreme → ②reaction pivot → ③higher-low /
 lower-high), each with `status` (`forming` = trigger not yet broken, `confirmed` =
@@ -120,7 +122,18 @@ close broke the ② trigger), `trigger`, and `invalidation` prices. A `forming`
 pattern_123 is a ready-made entry setup: entry at the ② trigger break, stop
 beyond ① (all confirmed pivots only — the chart itself also draws these
 automatically, in both preview and final render).
-Read these numbers — don't guess MACD direction from eyeballing candles. Note the
+The response also carries `meta.day_context`（日线背景与日内参照位，服务端自动算）:
+`daily_trend`（up/down/range，日线收盘对 MA20/MA50 的位置）、`daily_ma20`/`daily_ma50`、
+`high_20d`/`low_20d`（近 20 个交易日高低）、`prev_day`（昨日高/低/收）、
+`pre_market`（今日盘前高低）、`opening_range`（开盘前 30 分钟区间）、`vwap`。
+**先读这个再读三个周期**——1 小时的"趋势"可能只是日线大区间里的一段震荡；
+h1 方向与 `daily_trend` 相反时必须在报告里写明这是逆日线的判断。这些参照位
+也画在图上（"日内参照位"图层）。
+
+Read these numbers — don't guess MACD direction from eyeballing candles.
+**MACD 是滞后的确认指标，不是方向的来源**：方向来自结构（摆动点、123、
+关键参照位的攻守），MACD/背离只用来确认或否决，一根还没被结构支持的
+背离候选不构成入场理由. Note the
 auto-detector can't confirm a pivot on the last 1-2 bars (needs bars on both sides);
 for very recent action, read `last_dif`/`last_dea`/`last_hist` directly and reason
 about it yourself (e.g. a sharp reversal-and-close-on-the-low bar is a real signal
@@ -147,8 +160,13 @@ timeframe data + Step 3's numbers, decide:
 
 1. **Direction + anchor** — `long` / `short` / `neutral`, anchored to a specific
    timeframe + time + price (never a bare directional call with no anchor).
-   **Timeframe roles（周期分工）**: h1 定趋势方向, m15 定结构与入场, m5 只做触发
-   与微调。**The anchor lives on m15 by default** — `anchor.timeframe` also sets
+   **Timeframe roles（周期分工）**: 日线定背景（`day_context.daily_trend` +
+   关键参照位——顺日线的短线判断成功率天然更高，逆日线要单独说明理由）,
+   h1 定趋势方向, m15 定结构与入场, m5 只做触发与微调。
+   **位置参照（必做）**: 方向判断必须对照 VWAP 与日内参照位说话——价格在
+   VWAP 上方还是下方、离昨高/昨低/盘前高低/开盘区间哪条最近、是攻还是守。
+   "突破"类情景的 trigger 应指向具体参照位（如"放量站上昨高"），而不是
+   凭感觉画的价位。**The anchor lives on m15 by default** — `anchor.timeframe` also sets
    the dashboard's default tab. Anchor on m5 only for a pure scalp call, on h1
    only for a swing-level statement. Align `anchor.time` to a bar boundary of its
    timeframe (m15 → :00/:15/:30/:45).
@@ -277,7 +295,9 @@ the journal's narrative record.
 **Calibration loop（对账）**: **every run**, before writing the journal entry,
 pull `GET /api/overview/stats`（或该标的的 `GET /api/symbols/:sym/analyses`）
 and copy the mechanical scoreboard into the entry — one line: 总次数、命中率、
-目标/止损/守区间/破区间的分布（观望判断按守住/破位计入，说错不再是零成本）.
+目标/止损/守区间/破区间的分布（观望判断按守住/破位计入，说错不再是零成本）、
+**平均盈亏倍数 `avg_r`（每笔平均赚/亏多少个止损单位——命中率 40% 但赢 2 亏 1
+长期是赚的，命中率 70% 但赢小亏大照样亏，光看命中率会骗人）**.
 The scoreboard is machine-judged, so this step is a copy, not an audit — no
 counting discipline required. Scenario-probability calibration（标了 60% 的
 情景实际兑现了几成）stays qualitative: when the scoreboard shows a losing
@@ -300,6 +320,8 @@ degrade into rhetoric.
 - ❌ Calling a breakout real without citing relvol/volume
 - ❌ "看起来有背离" without citing the auto-detected marker (or the two specific bars, if the detector hasn't confirmed it yet)
 - ❌ Skipping the preview call and guessing MACD values instead of reading them
+- ❌ Ignoring `day_context` — a direction call that never says where price sits vs VWAP / 昨日高低 / 盘前区间, or an h1-counter-daily call without naming it
+- ❌ Using MACD divergence as the entry reason by itself, without a structure (swing / 123 / 参照位) backing the same read
 - ❌ Skipping the journal write
 - ❌ Contradicting a live `market-session-tracker` read for the same symbol without reconciling — this is a narrower, single-symbol lens, not an override
 - ❌ Writing a `context.news` item without a `source`

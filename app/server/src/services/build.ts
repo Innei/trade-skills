@@ -10,6 +10,21 @@ export const ALL_TYPES: ChartType[] = ["flow", "cohort", "sepa", "intraday"];
 
 const TF_PERIODS: Record<string, string> = { m5: "5m", m15: "15m", h1: "1h" };
 
+// Daily bars barely move intraday; without this every 60s live rebuild would
+// re-hit the provider for the same 60 bars.
+const DAY_KLINE_TTL_MS = 10 * 60_000;
+const dayKlineCache = new Map<string, { at: number; bars: RawBar[] }>();
+
+async function getDayKlineCached(symbol: string): Promise<RawBar[]> {
+  const hit = dayKlineCache.get(symbol);
+  if (hit && Date.now() - hit.at < DAY_KLINE_TTL_MS) return hit.bars;
+  const bars = await getProvider()
+    .getKline(symbol, "day", 60)
+    .catch(() => [] as RawBar[]);
+  if (bars.length) dayKlineCache.set(symbol, { at: Date.now(), bars });
+  return bars;
+}
+
 export function slugify(s: string, fallback: string): string {
   const cleaned = s
     .replace(/[^\p{L}\p{N}_\s-]/gu, "")
@@ -80,6 +95,7 @@ async function prepareInput(type: ChartType, body: Body): Promise<Record<string,
       const count = Number(body.count ?? 150);
       const session = typeof body.session === "string" ? body.session : "all";
       let timeframes = body.timeframes as Record<string, RawBar[]> | undefined;
+      let dayKline = body.day_kline as RawBar[] | undefined;
       const provider = getProvider();
       const newsPromise = provider.getNews(symbol);
       if (!timeframes) {
@@ -88,6 +104,9 @@ async function prepareInput(type: ChartType, body: Body): Promise<Record<string,
         );
         timeframes = { m5, m15, h1 };
       }
+      if (!dayKline) {
+        dayKline = await getDayKlineCached(symbol);
+      }
       const lastM5 = timeframes.m5?.[timeframes.m5.length - 1];
       return {
         symbol,
@@ -95,6 +114,7 @@ async function prepareInput(type: ChartType, body: Body): Promise<Record<string,
         as_of: body.as_of ?? lastM5?.time,
         session,
         timeframes,
+        day_kline: dayKline,
         ema_periods: body.ema_periods,
         news: await newsPromise,
         position: body.position,

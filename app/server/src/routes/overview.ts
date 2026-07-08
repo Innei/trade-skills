@@ -5,7 +5,7 @@ import { ClientError } from "../errors.js";
 import { listAllCommentDates, listComments } from "../ai/comments.js";
 import { listUsage, listUsageDates, summarizeUsage } from "../ai/usageStore.js";
 import { buildOverviewBoard, latestPerSymbol } from "../services/cockpit/board.js";
-import { judgeOutcome, zoneFromPrediction } from "../services/cockpit/outcome.js";
+import { attachRMultiple, judgeOutcome, zoneFromPrediction } from "../services/cockpit/outcome.js";
 import { getResolvedOutcomes, saveResolvedOutcome } from "../services/cockpit/outcomeCache.js";
 import { aggregateStats, type StatsRow } from "../services/cockpit/stats.js";
 import { getProvider } from "../services/marketdata/registry.js";
@@ -86,9 +86,9 @@ export const overviewRoute: FastifyPluginAsync = async (app) => {
         const anchor = prediction?.anchor ? { time: prediction.anchor.time, price: prediction.anchor.price } : null;
         const plan =
           doc && doc.built.kind === "intraday" && doc.built.entryPlan
-            ? { stop: doc.built.entryPlan.stop, target1: doc.built.entryPlan.target1 }
+            ? { entry: doc.built.entryPlan.entry, stop: doc.built.entryPlan.stop, target1: doc.built.entryPlan.target1 }
             : null;
-        let outcome = cached.get(meta.id) ?? null;
+        let outcome = attachRMultiple(cached.get(meta.id) ?? null, direction, plan);
         if (!outcome && direction && anchor) {
           const bars = await getProvider()
             .getKline(meta.symbol!, "15m", OUTCOME_BARS)
@@ -187,9 +187,9 @@ export const overviewRoute: FastifyPluginAsync = async (app) => {
       const anchor = prediction.anchor ? { time: prediction.anchor.time, price: prediction.anchor.price } : null;
       const plan =
         doc && doc.built.kind === "intraday" && doc.built.entryPlan
-          ? { stop: doc.built.entryPlan.stop, target1: doc.built.entryPlan.target1 }
+          ? { entry: doc.built.entryPlan.entry, stop: doc.built.entryPlan.stop, target1: doc.built.entryPlan.target1 }
           : null;
-      let outcome = cached.get(meta.id) ?? null;
+      let outcome = attachRMultiple(cached.get(meta.id) ?? null, prediction.direction, plan);
       if (!outcome) {
         const bars = barsBySymbol.get(meta.symbol!) ?? null;
         outcome = anchor && bars ? judgeOutcome(prediction.direction, anchor, plan, bars, zoneFromPrediction(prediction)) : null;

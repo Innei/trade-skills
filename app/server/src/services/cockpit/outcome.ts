@@ -1,4 +1,10 @@
-import type { AnalysisOutcome, IntradayPrediction, RawBar } from "../../../../shared/types.js";
+import type { AnalysisOutcome, IntradayPrediction, OutcomeStatus, RawBar } from "../../../../shared/types.js";
+
+export interface OutcomePlan {
+  entry?: number;
+  stop?: number;
+  target1?: number;
+}
 
 // A neutral (range-bound) call resolves to held_range after one full regular
 // session (6.5h) of post-anchor bars without a close outside the zone.
@@ -17,6 +23,34 @@ export function zoneFromPrediction(
   return Number.isFinite(low) && Number.isFinite(high) && low < high ? { low, high } : null;
 }
 
+export function rMultipleFor(
+  status: OutcomeStatus,
+  direction: "long" | "short" | "neutral",
+  plan: OutcomePlan | null | undefined,
+): number | null {
+  if (direction === "neutral" || !plan) return null;
+  const { entry, stop, target1 } = plan;
+  if (entry === undefined || stop === undefined || target1 === undefined) return null;
+  const risk = direction === "long" ? entry - stop : stop - entry;
+  if (!(risk > 0)) return null;
+  if (status === "hit_stop") return -1;
+  if (status === "hit_target") {
+    const reward = direction === "long" ? target1 - entry : entry - target1;
+    return reward / risk;
+  }
+  return null;
+}
+
+export function attachRMultiple(
+  outcome: AnalysisOutcome | null,
+  direction: "long" | "short" | "neutral" | null,
+  plan: OutcomePlan | null | undefined,
+): AnalysisOutcome | null {
+  if (!outcome || !direction) return outcome;
+  if (outcome.r_multiple != null) return outcome;
+  return { ...outcome, r_multiple: rMultipleFor(outcome.status, direction, plan) };
+}
+
 function anchorCovered(anchorSec: number, bars: RawBar[]): boolean {
   if (bars.length === 0) return true;
   const firstSec = toSec(bars[0].time);
@@ -28,7 +62,7 @@ function anchorCovered(anchorSec: number, bars: RawBar[]): boolean {
 export function judgeOutcome(
   direction: "long" | "short" | "neutral",
   anchor: { time: string; price: number },
-  plan: { stop?: number; target1?: number } | null,
+  plan: OutcomePlan | null,
   bars: RawBar[],
   zone?: { low: number; high: number } | null,
 ): AnalysisOutcome | null {
@@ -80,6 +114,7 @@ export function judgeOutcome(
         status: "hit_stop",
         pct_since_anchor: (Number(following[following.length - 1].close) / anchor.price - 1) * 100,
         resolved_at: toSec(bar.time),
+        r_multiple: rMultipleFor("hit_stop", direction, plan),
       };
     }
     if (hitTarget) {
@@ -87,6 +122,7 @@ export function judgeOutcome(
         status: "hit_target",
         pct_since_anchor: (Number(following[following.length - 1].close) / anchor.price - 1) * 100,
         resolved_at: toSec(bar.time),
+        r_multiple: rMultipleFor("hit_target", direction, plan),
       };
     }
   }

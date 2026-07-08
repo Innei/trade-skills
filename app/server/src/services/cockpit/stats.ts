@@ -11,6 +11,8 @@ export interface StatsRow {
 interface MutableBucket extends StatsBucket {
   resolved_pct_sum: number;
   resolved_count: number;
+  r_sum: number;
+  r_count: number;
 }
 
 function emptyBucket(): MutableBucket {
@@ -24,8 +26,11 @@ function emptyBucket(): MutableBucket {
     unjudged: 0,
     win_rate: null,
     avg_pct: null,
+    avg_r: null,
     resolved_pct_sum: 0,
     resolved_count: 0,
+    r_sum: 0,
+    r_count: 0,
   };
 }
 
@@ -44,6 +49,10 @@ function addRow(bucket: MutableBucket, outcome: AnalysisOutcome | null): void {
     bucket.resolved_pct_sum += outcome.pct_since_anchor;
     bucket.resolved_count += 1;
   }
+  if (outcome.r_multiple != null) {
+    bucket.r_sum += outcome.r_multiple;
+    bucket.r_count += 1;
+  }
 }
 
 function finalize(bucket: MutableBucket): StatsBucket {
@@ -58,6 +67,7 @@ function finalize(bucket: MutableBucket): StatsBucket {
     unjudged: bucket.unjudged,
     win_rate: resolved > 0 ? (bucket.hit_target + bucket.held_range) / resolved : null,
     avg_pct: bucket.resolved_count > 0 ? bucket.resolved_pct_sum / bucket.resolved_count : null,
+    avg_r: bucket.r_count > 0 ? bucket.r_sum / bucket.r_count : null,
   };
 }
 

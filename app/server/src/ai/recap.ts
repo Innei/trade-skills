@@ -9,7 +9,7 @@ import type {
   RawBar,
 } from "../../../shared/types.js";
 import { JOURNAL_DIR } from "../env.js";
-import { judgeOutcome, zoneFromPrediction } from "../services/cockpit/outcome.js";
+import { attachRMultiple, judgeOutcome, zoneFromPrediction } from "../services/cockpit/outcome.js";
 import { getResolvedOutcomes, saveResolvedOutcome, type OutcomeKey } from "../services/cockpit/outcomeCache.js";
 import { getProvider } from "../services/marketdata/registry.js";
 import { easternDate } from "../services/session.js";
@@ -165,17 +165,16 @@ async function buildSymbolReport(
   const prediction = (doc?.input.prediction as IntradayPrediction | null | undefined) ?? null;
   const plan = doc && doc.built.kind === "intraday" ? doc.built.entryPlan : null;
   const anchor = prediction?.anchor ? { time: prediction.anchor.time, price: prediction.anchor.price } : null;
-  let outcome = await deps.getOutcome(latest.id).catch(() => null);
+  const outcomePlan = plan ? { entry: plan.entry, stop: plan.stop, target1: plan.target1 } : null;
+  let outcome = attachRMultiple(
+    await deps.getOutcome(latest.id).catch(() => null),
+    prediction?.direction ?? null,
+    outcomePlan,
+  );
   if (!outcome && prediction?.direction && anchor) {
     const bars = await deps.fetchKline(symbol, "15m", OUTCOME_BARS).catch(() => null);
     outcome = bars
-      ? judgeOutcome(
-          prediction.direction,
-          anchor,
-          plan ? { stop: plan.stop, target1: plan.target1 } : null,
-          bars,
-          zoneFromPrediction(prediction),
-        )
+      ? judgeOutcome(prediction.direction, anchor, outcomePlan, bars, zoneFromPrediction(prediction))
       : null;
     if (outcome && outcome.status !== "open") {
       await deps

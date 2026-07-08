@@ -211,6 +211,7 @@ export interface IntradayTfData {
   candles: Candle[];
   volumes: ColoredPoint[];
   emas: EmaLine[];
+  vwap?: LinePoint[];
   macdDif: LinePoint[];
   macdDea: LinePoint[];
   macdHist: ColoredPoint[];
@@ -339,6 +340,7 @@ export interface IntradayTfSummary {
   last_dif: number | null;
   last_dea: number | null;
   last_hist: number | null;
+  last_vwap?: number | null;
   emas: { period: number; last: number | null }[];
   recent_swing_highs: SwingPoint[];
   recent_swing_lows: SwingPoint[];
@@ -484,6 +486,24 @@ export interface IntradayContext {
   sources_used: string[];
 }
 
+export interface DayLevelRange {
+  high: number;
+  low: number;
+}
+
+export interface IntradayDayContext {
+  daily_trend: "up" | "down" | "range" | null;
+  daily_close: number | null;
+  daily_ma20: number | null;
+  daily_ma50: number | null;
+  high_20d: number | null;
+  low_20d: number | null;
+  prev_day: { high: number; low: number; close: number } | null;
+  pre_market: DayLevelRange | null;
+  opening_range: DayLevelRange | null;
+  vwap: number | null;
+}
+
 export interface IntradaySidebar {
   symbol: string;
   name: string;
@@ -493,6 +513,7 @@ export interface IntradaySidebar {
   entryPlan: IntradayEntryPlan | null;
   position: PositionView | null;
   technicals: Record<TimeframeKey, IntradayTfSummary>;
+  dayContext?: IntradayDayContext | null;
   news: NewsItem[];
   context: IntradayContext | null;
 }
@@ -611,6 +632,7 @@ export interface AnalysisOutcome {
   status: OutcomeStatus;
   pct_since_anchor: number;
   resolved_at: number | null;
+  r_multiple?: number | null;
 }
 
 export interface SymbolAnalysisRow extends ChartMeta {
@@ -638,6 +660,7 @@ export interface StatsBucket {
   unjudged: number;
   win_rate: number | null;
   avg_pct: number | null;
+  avg_r: number | null;
 }
 
 export interface PredictionStats {
