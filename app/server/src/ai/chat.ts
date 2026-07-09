@@ -142,7 +142,7 @@ export function buildChatSystemPrompt(doc: ChartDoc, analysisDayComments: Cockpi
   const predictionText = prediction ? JSON.stringify(prediction) : "该分析未附带预测结论";
 
   const commentLines = analysisDayComments
-    .filter((c) => RELEVANT_COMMENT_SOURCES.has(c.source))
+    .filter((c) => RELEVANT_COMMENT_SOURCES.has(c.source) && c.level !== "error")
     .slice(-COMMENT_CAP)
     .map((c) => `${etClock(c.ts)} ${c.text}`);
 
@@ -165,6 +165,7 @@ export function buildChatSystemPrompt(doc: ChartDoc, analysisDayComments: Cockpi
 
 interface TranslatorCtx {
   emittedLen: number;
+  settled: boolean;
 }
 
 function translateEvent(
@@ -174,6 +175,7 @@ function translateEvent(
   state: TurnState,
   emit: (event: ChatEvent) => void,
 ): void {
+  if (ctx.settled) return;
   if (event.type === "message_start") {
     if (event.message.role === "assistant") {
       ctx.emittedLen = 0;
@@ -283,60 +285,75 @@ async function executeChatTurn(
   state: TurnState,
 ): Promise<void> {
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const listCommentsFn = deps.listComments ?? defaultListComments;
-  const buildPackFn = deps.buildPack ?? defaultBuildReassessPack;
-  const fetchKlineFn = deps.fetchKline ?? ((sym, period, count) => getProvider().getKline(sym, period, count));
-  const fetchNewsFn = deps.fetchNews ?? ((sym) => getProvider().getNews(sym));
-
-  let chatSession = await getSessionByChartId(chartId);
-  if (!chatSession) {
-    chatSession = await createSession({ chartId, symbol, title: titleFromText(text) });
-  }
-
-  const history = await listMessages(chatSession.id);
-  const historyPayloads = history.map((row) => row.payload);
-
-  const nowMs = deps.now ? deps.now() : Date.now();
-  const userMessage: AgentMessage = { role: "user", content: text, timestamp: nowMs };
-  await appendMessages(chatSession.id, [userMessage]);
-
-  const analysisDayComments = await listCommentsFn(symbol, easternDate(new Date(doc.created_at)));
-  const systemPrompt = buildChatSystemPrompt(doc, analysisDayComments);
-
-  const tools = buildTools(symbol, { buildPack: buildPackFn, fetchKline: fetchKlineFn, fetchNews: fetchNewsFn });
-  const toolLabels = new Map(tools.map((tool) => [tool.name, tool.label]));
-
-  const translatorCtx: TranslatorCtx = { emittedLen: 0 };
-
-  const agentSession = createAgentSession({
-    layer: "chat",
-    symbol,
-    model,
-    systemPrompt,
-    tools,
-    messages: historyPayloads,
-    agentFactory: deps.agentFactory,
-    onEvent: (event) => translateEvent(event, translatorCtx, toolLabels, state, (e) => broadcast(chartId, e)),
-  });
-
   try {
-    await agentSession.runTurn(text, timeoutMs);
-    const increment = await persistIncrement(chatSession.id, agentSession.agent, history.length);
-    const errorMessage = agentSession.agent.state?.errorMessage;
-    if (errorMessage || !hasAssistantText(increment)) {
-      broadcast(chartId, { event: "error", message: errorMessage ?? "模型未产出回答" });
-    } else {
-      broadcast(chartId, { event: "done" });
+    const listCommentsFn = deps.listComments ?? defaultListComments;
+    const buildPackFn = deps.buildPack ?? defaultBuildReassessPack;
+    const fetchKlineFn = deps.fetchKline ?? ((sym, period, count) => getProvider().getKline(sym, period, count));
+    const fetchNewsFn = deps.fetchNews ?? ((sym) => getProvider().getNews(sym));
+
+    let chatSession = await getSessionByChartId(chartId);
+    if (!chatSession) {
+      chatSession = await createSession({ chartId, symbol, title: titleFromText(text) });
+    }
+
+    const history = await listMessages(chatSession.id);
+    const historyPayloads = history.map((row) => row.payload);
+
+    const nowMs = deps.now ? deps.now() : Date.now();
+    const userMessage: AgentMessage = { role: "user", content: text, timestamp: nowMs };
+    await appendMessages(chatSession.id, [userMessage]);
+
+    const analysisDayComments = await listCommentsFn(symbol, easternDate(new Date(doc.created_at)));
+    const systemPrompt = buildChatSystemPrompt(doc, analysisDayComments);
+
+    const tools = buildTools(symbol, { buildPack: buildPackFn, fetchKline: fetchKlineFn, fetchNews: fetchNewsFn });
+    const toolLabels = new Map(tools.map((tool) => [tool.name, tool.label]));
+
+    const translatorCtx: TranslatorCtx = { emittedLen: 0, settled: false };
+
+    const agentSession = createAgentSession({
+      layer: "chat",
+      symbol,
+      model,
+      systemPrompt,
+      tools,
+      messages: historyPayloads,
+      agentFactory: deps.agentFactory,
+      onEvent: (event) => translateEvent(event, translatorCtx, toolLabels, state, (e) => broadcast(chartId, e)),
+    });
+
+    try {
+      await agentSession.runTurn(text, timeoutMs);
+      translatorCtx.settled = true;
+      const increment = await persistIncrement(chatSession.id, agentSession.agent, history.length);
+      const errorMessage = agentSession.agent.state?.errorMessage;
+      if (errorMessage || !hasAssistantText(increment)) {
+        broadcast(chartId, { event: "error", message: errorMessage ?? "模型未产出回答" });
+      } else {
+        broadcast(chartId, { event: "done" });
+      }
+    } catch (err) {
+      translatorCtx.settled = true;
+      const failureNowMs = deps.now ? deps.now() : Date.now();
+      await persistFailureIncrement(
+        chatSession.id,
+        agentSession.agent,
+        history.length,
+        state.partial,
+        model,
+        failureNowMs,
+      );
+      const message =
+        err instanceof AgentTimeoutError
+          ? `回答超时（${timeoutMs}ms）`
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      broadcast(chartId, { event: "error", message });
     }
   } catch (err) {
-    const nowMs = deps.now ? deps.now() : Date.now();
-    await persistFailureIncrement(chatSession.id, agentSession.agent, history.length, state.partial, model, nowMs);
-    const message =
-      err instanceof AgentTimeoutError
-        ? `回答超时（${timeoutMs}ms）`
-        : err instanceof Error
-          ? err.message
-          : String(err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error("chat: executeChatTurn failed before the agent turn started", err);
     broadcast(chartId, { event: "error", message });
   }
 }
@@ -344,8 +361,14 @@ async function executeChatTurn(
 export async function runChatTurn(chartId: string, text: string, deps: ChatDeps): Promise<ChatStartResult> {
   if (!chatRunLock.tryAcquire(chartId)) return { started: false, reason: "busy" };
 
-  const loadChartFn = deps.loadChart ?? defaultLoadChart;
-  const doc = await loadChartFn(chartId);
+  let doc: ChartDoc | null;
+  try {
+    const loadChartFn = deps.loadChart ?? defaultLoadChart;
+    doc = await loadChartFn(chartId);
+  } catch (err) {
+    chatRunLock.release(chartId);
+    throw err;
+  }
   if (!doc) {
     chatRunLock.release(chartId);
     return { started: false, reason: "chart_not_found" };

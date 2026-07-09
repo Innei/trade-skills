@@ -75,7 +75,7 @@ export function ChatPanel({ session, docCreatedAt, rows, busy, streamText, liveT
         ))}
         {liveTools.map((tool) => (
           <div key={tool.id} className="chat-tool-row">
-            正在{tool.label}…
+            {tool.status === "end" ? `已调用 ${tool.label}` : `正在${tool.label}…`}
           </div>
         ))}
         {streamText && (

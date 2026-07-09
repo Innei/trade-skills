@@ -18,6 +18,10 @@ export function ChatDock({ chartId, docCreatedAt }: ChatDockProps) {
     setText("");
   }, [chartId]);
 
+  useEffect(() => {
+    if (busy) setExpanded(true);
+  }, [busy]);
+
   const submit = async () => {
     const value = text.trim();
     if (!value || busy) return;

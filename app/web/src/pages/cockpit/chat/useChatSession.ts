@@ -24,6 +24,7 @@ export interface ChatRow {
 export interface ChatLiveTool {
   id: string;
   label: string;
+  status: "start" | "end";
 }
 
 interface ChatEnvelope {
@@ -94,6 +95,7 @@ export function useChatSession(chartId: string): ChatSessionState {
           setBusy(env.busy);
           setStreamText(env.busy ? env.partial : "");
           setLoaded(true);
+          setHint((prev) => (prev === "对话记录加载失败" ? null : prev));
         })
         .catch(() => {
           if (requestSeqRef.current !== seq || sendPendingRef.current) return;
@@ -122,6 +124,7 @@ export function useChatSession(chartId: string): ChatSessionState {
       { kind: "chat", id: chartId },
       (payload) => {
         const env = payload as ChatWsEnvelope;
+        if (env.type !== "init" && env.type !== "event") return;
         if (env.type === "init") {
           setBusy(env.busy);
           setStreamText(env.busy ? env.partial : "");
@@ -136,8 +139,14 @@ export function useChatSession(chartId: string): ChatSessionState {
         }
         if (evt.event === "tool") {
           if (evt.status === "start") {
-            setLiveTools((prev) => [...prev, { id: `tool-${toolSeqRef.current++}`, label: evt.label }]);
+            setLiveTools((prev) => [...prev, { id: `tool-${toolSeqRef.current++}`, label: evt.label, status: "start" }]);
+            return;
           }
+          setLiveTools((prev) => {
+            const idx = prev.map((t) => t.label === evt.label && t.status === "start").lastIndexOf(true);
+            if (idx === -1) return prev;
+            return prev.map((t, i) => (i === idx ? { ...t, status: "end" } : t));
+          });
           return;
         }
         if (evt.event === "done") {

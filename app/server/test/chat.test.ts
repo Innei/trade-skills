@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentMessage } from "@earendil-works/pi-agent-core";
+import type { AgentEvent, AgentMessage, AgentTool } from "@earendil-works/pi-agent-core";
 import { describe, expect, it, vi } from "vitest";
 import type { ChartDoc, CockpitComment } from "../../shared/types.js";
 import type { AiAgentFactory } from "../src/ai/agentSession.js";
@@ -185,6 +185,27 @@ describe("runChatTurn gating", () => {
     const again = await runChatTurn(chartId, "hi2", baseDeps({ agentFactory: noopFactory() }));
     expect(again.started).toBe(true);
     if (again.started) await again.done;
+  });
+});
+
+describe("runChatTurn tools", () => {
+  it("wires exactly read_data_pack/fetch_kline/fetch_news to the agent factory, no submit_prediction or append_comment", async () => {
+    const chartId = "tools-1";
+    let capturedTools: AgentTool[] | undefined;
+    const factory: AiAgentFactory = (config) => {
+      capturedTools = config.tools;
+      return {
+        prompt: async () => {},
+        abort: () => {},
+        state: { messages: [...(config.messages ?? [])] },
+      };
+    };
+
+    const result = await runChatTurn(chartId, "hi", baseDeps({ agentFactory: factory }));
+    expect(result.started).toBe(true);
+    if (result.started) await result.done;
+
+    expect(capturedTools?.map((tool) => tool.name)).toEqual(["read_data_pack", "fetch_kline", "fetch_news"]);
   });
 });
 
@@ -596,6 +617,25 @@ describe("buildChatSystemPrompt", () => {
     expect(prompt).toMatch(/\d{2}:\d{2} 开盘走强/);
     expect(prompt).not.toContain("闲聊");
     expect(prompt).toContain("已归档的预测是冻结记录");
+  });
+
+  it("excludes level: error comment rows (e.g. commentator timeout noise) even from a relevant source", () => {
+    const doc = fakeDoc();
+    const comments: CockpitComment[] = [
+      { ts: "2026-07-05T14:05:00.000Z", symbol: "MU.US", level: "info", text: "开盘走强", source: "system" },
+      {
+        ts: "2026-07-05T14:10:00.000Z",
+        symbol: "MU.US",
+        level: "error",
+        text: "点评员超时未产出结论（30000ms）。",
+        source: "system",
+      },
+    ];
+
+    const prompt = buildChatSystemPrompt(doc, comments);
+
+    expect(prompt).toContain("开盘走强");
+    expect(prompt).not.toContain("点评员超时未产出结论");
   });
 
   it("says the analysis carries no prediction when input.prediction is absent", () => {

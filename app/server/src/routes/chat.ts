@@ -45,7 +45,7 @@ export const chatRoute: FastifyPluginAsync<ChatRouteOptions> = async (app, opts)
 
     const result = await runChatTurn(id, text, buildDeps());
     if (result.started) {
-      result.done.catch(() => {});
+      result.done.catch((err) => console.error("chat: turn failed", err));
       return reply.status(202).send({ accepted: true });
     }
     if (result.reason === "busy") {
