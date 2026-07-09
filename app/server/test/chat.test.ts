@@ -293,23 +293,71 @@ describe("runChatTurn persistence", () => {
   });
 });
 
-describe("runChatTurn event translation", () => {
-  it("translates message_update deltas and tool_execution_start/end, tracking the partial buffer", async () => {
-    const chartId = "translate-1";
+describe("runChatTurn error surfacing", () => {
+  it("emits state.errorMessage as an error event when the agent resolves with an in-band failure, and still persists the increment", async () => {
+    const chartId = "inband-error-1";
     const events: ChatEvent[] = [];
     const unsub = onChatEvent(chartId, (e) => events.push(e));
-    let observedPartial = "";
+
+    const truncatedReply = assistantMessage("答案被截");
+    const factory: AiAgentFactory = (config) => ({
+      prompt: async () => {},
+      abort: () => {},
+      state: {
+        messages: [...(config.messages ?? []), { role: "user", content: "问题", timestamp: 0 }, truncatedReply],
+        errorMessage: "上游模型流式响应中断",
+      },
+    });
+
+    const result = await runChatTurn(chartId, "问题", baseDeps({ agentFactory: factory }));
+    expect(result.started).toBe(true);
+    if (result.started) await result.done;
+    unsub();
+
+    expect(events).toEqual([{ event: "error", message: "上游模型流式响应中断" }]);
+
+    const rows = await expectSessionRows(chartId);
+    expect(rows.map((r) => r.role)).toEqual(["user", "assistant"]);
+    expect(rows[1].payload).toEqual(truncatedReply);
+  });
+
+  it("emits 模型未产出回答 when the agent resolves with no new assistant text and no errorMessage", async () => {
+    const chartId = "empty-output-1";
+    const events: ChatEvent[] = [];
+    const unsub = onChatEvent(chartId, (e) => events.push(e));
+
+    const emptyReply = assistantMessage("");
+    const factory: AiAgentFactory = (config) => ({
+      prompt: async () => {},
+      abort: () => {},
+      state: {
+        messages: [...(config.messages ?? []), { role: "user", content: "问题", timestamp: 0 }, emptyReply],
+      },
+    });
+
+    const result = await runChatTurn(chartId, "问题", baseDeps({ agentFactory: factory }));
+    expect(result.started).toBe(true);
+    if (result.started) await result.done;
+    unsub();
+
+    expect(events).toEqual([{ event: "error", message: "模型未产出回答" }]);
+
+    const rows = await expectSessionRows(chartId);
+    expect(rows.map((r) => r.role)).toEqual(["user", "assistant"]);
+  });
+
+  it("on timeout, persists a synthesized assistant row built from the streamed partial buffer alongside the timeout error", async () => {
+    const chartId = "timeout-partial-1";
+    const events: ChatEvent[] = [];
+    const unsub = onChatEvent(chartId, (e) => events.push(e));
 
     const factory: AiAgentFactory = (config) => {
       let listener: ((event: AgentEvent) => void) | undefined;
       return {
-        prompt: async () => {
+        prompt: () => {
           listener?.(messageStartEvent());
-          listener?.(messageUpdateEvent("Hi"));
-          listener?.(messageUpdateEvent("Hi there"));
-          observedPartial = chatTurnState(chartId).partial;
-          listener?.({ type: "tool_execution_start", toolCallId: "c1", toolName: "fetch_news", args: {} });
-          listener?.({ type: "tool_execution_end", toolCallId: "c1", toolName: "fetch_news", result: {}, isError: false });
+          listener?.(messageUpdateEvent("部分回答"));
+          return new Promise<void>(() => {});
         },
         abort: () => {},
         subscribe: (l) => {
@@ -319,6 +367,56 @@ describe("runChatTurn event translation", () => {
           };
         },
         state: { messages: [...(config.messages ?? [])] },
+      };
+    };
+
+    const result = await runChatTurn(chartId, "问", baseDeps({ agentFactory: factory, timeoutMs: 10 }));
+    expect(result.started).toBe(true);
+    if (result.started) await result.done;
+    unsub();
+
+    expect(events).toEqual([
+      { event: "delta", text: "部分回答" },
+      { event: "error", message: "回答超时（10ms）" },
+    ]);
+
+    const rows = await expectSessionRows(chartId);
+    expect(rows.map((r) => r.role)).toEqual(["user", "assistant"]);
+    expect((rows[0].payload as { content: string }).content).toBe("问");
+    const synthesized = rows[1].payload as { role: "assistant"; content: { type: string; text?: string }[] };
+    expect(synthesized.role).toBe("assistant");
+    expect(synthesized.content).toEqual([{ type: "text", text: "部分回答" }]);
+  });
+});
+
+describe("runChatTurn event translation", () => {
+  it("translates message_update deltas and tool_execution_start/end, tracking the partial buffer", async () => {
+    const chartId = "translate-1";
+    const events: ChatEvent[] = [];
+    const unsub = onChatEvent(chartId, (e) => events.push(e));
+    let observedPartial = "";
+
+    const factory: AiAgentFactory = (config) => {
+      let listener: ((event: AgentEvent) => void) | undefined;
+      const messages: AgentMessage[] = [...(config.messages ?? [])];
+      return {
+        prompt: async () => {
+          listener?.(messageStartEvent());
+          listener?.(messageUpdateEvent("Hi"));
+          listener?.(messageUpdateEvent("Hi there"));
+          observedPartial = chatTurnState(chartId).partial;
+          listener?.({ type: "tool_execution_start", toolCallId: "c1", toolName: "fetch_news", args: {} });
+          listener?.({ type: "tool_execution_end", toolCallId: "c1", toolName: "fetch_news", result: {}, isError: false });
+          messages.push({ role: "user", content: "问", timestamp: 0 }, assistantMessage("Hi there"));
+        },
+        abort: () => {},
+        subscribe: (l) => {
+          listener = l;
+          return () => {
+            listener = undefined;
+          };
+        },
+        state: { messages },
       };
     };
 
@@ -335,6 +433,53 @@ describe("runChatTurn event translation", () => {
       { event: "done" },
     ]);
     expect(observedPartial).toBe("Hi there");
+  });
+
+  it("falls back to the raw tool name when tool_execution_start/end reference a tool not in the tools array", async () => {
+    const chartId = "translate-2";
+    const events: ChatEvent[] = [];
+    const unsub = onChatEvent(chartId, (e) => events.push(e));
+
+    const factory: AiAgentFactory = (config) => {
+      let listener: ((event: AgentEvent) => void) | undefined;
+      return {
+        prompt: async () => {
+          listener?.({ type: "tool_execution_start", toolCallId: "c1", toolName: "unmapped_tool", args: {} });
+          listener?.({
+            type: "tool_execution_end",
+            toolCallId: "c1",
+            toolName: "unmapped_tool",
+            result: {},
+            isError: false,
+          });
+        },
+        abort: () => {},
+        subscribe: (l) => {
+          listener = l;
+          return () => {
+            listener = undefined;
+          };
+        },
+        state: {
+          messages: [
+            ...(config.messages ?? []),
+            { role: "user", content: "问", timestamp: 0 },
+            assistantMessage("答案"),
+          ],
+        },
+      };
+    };
+
+    const result = await runChatTurn(chartId, "问", baseDeps({ agentFactory: factory }));
+    expect(result.started).toBe(true);
+    if (result.started) await result.done;
+    unsub();
+
+    expect(events).toEqual([
+      { event: "tool", label: "unmapped_tool", status: "start" },
+      { event: "tool", label: "unmapped_tool", status: "end" },
+      { event: "done" },
+    ]);
   });
 });
 

@@ -8,7 +8,7 @@ export interface AiAgentHandle {
   abort(): void;
   setTools?(tools: AgentTool[]): void;
   subscribe?(listener: (event: AgentEvent) => void): () => void;
-  state?: { messages: AgentMessage[] };
+  state?: { messages: AgentMessage[]; errorMessage?: string };
 }
 
 export type AiAgentFactory = (config: {

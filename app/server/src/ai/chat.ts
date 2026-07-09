@@ -3,7 +3,7 @@ import type { ChartDoc, CockpitComment, IntradayPrediction, NewsItem, RawBar } f
 import { getProvider } from "../services/marketdata/registry.js";
 import { easternDate } from "../services/session.js";
 import { loadChart as defaultLoadChart } from "../services/store.js";
-import { AgentTimeoutError, type AiAgentFactory, createAgentSession } from "./agentSession.js";
+import { AgentTimeoutError, type AiAgentFactory, type AiAgentHandle, createAgentSession } from "./agentSession.js";
 import {
   appendMessages,
   type ChatMessageRow,
@@ -218,12 +218,59 @@ function buildTools(
 
 async function persistIncrement(
   sessionId: string,
-  agent: ReturnType<typeof createAgentSession>["agent"],
+  agent: AiAgentHandle,
   historyLength: number,
-): Promise<void> {
+): Promise<AgentMessage[]> {
   const messages = agent.state?.messages ?? [];
   const increment = messages.slice(historyLength + 1);
   if (increment.length) await appendMessages(sessionId, increment);
+  return increment;
+}
+
+function hasAssistantText(messages: AgentMessage[]): boolean {
+  return messages.some((message) => concatAssistantText(message).length > 0);
+}
+
+const ZERO_USAGE = {
+  input: 0,
+  output: 0,
+  cacheRead: 0,
+  cacheWrite: 0,
+  totalTokens: 0,
+  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+};
+
+function synthesizePartialAssistantMessage(model: AiModel, text: string, timestamp: number): AgentMessage {
+  return {
+    role: "assistant",
+    content: [{ type: "text", text }],
+    api: model.api,
+    provider: model.provider,
+    model: model.id,
+    usage: ZERO_USAGE,
+    stopReason: "aborted",
+    timestamp,
+  };
+}
+
+async function persistFailureIncrement(
+  sessionId: string,
+  agent: AiAgentHandle,
+  historyLength: number,
+  partial: string,
+  model: AiModel,
+  timestamp: number,
+): Promise<AgentMessage[]> {
+  try {
+    const increment = await persistIncrement(sessionId, agent, historyLength);
+    if (hasAssistantText(increment) || !partial) return increment;
+    const synthesized = synthesizePartialAssistantMessage(model, partial, timestamp);
+    await appendMessages(sessionId, [synthesized]);
+    return [...increment, synthesized];
+  } catch (err) {
+    console.error("chat: failed to persist failure-path increment", err);
+    return [];
+  }
 }
 
 async function executeChatTurn(
@@ -274,10 +321,16 @@ async function executeChatTurn(
 
   try {
     await agentSession.runTurn(text, timeoutMs);
-    await persistIncrement(chatSession.id, agentSession.agent, history.length);
-    broadcast(chartId, { event: "done" });
+    const increment = await persistIncrement(chatSession.id, agentSession.agent, history.length);
+    const errorMessage = agentSession.agent.state?.errorMessage;
+    if (errorMessage || !hasAssistantText(increment)) {
+      broadcast(chartId, { event: "error", message: errorMessage ?? "模型未产出回答" });
+    } else {
+      broadcast(chartId, { event: "done" });
+    }
   } catch (err) {
-    await persistIncrement(chatSession.id, agentSession.agent, history.length);
+    const nowMs = deps.now ? deps.now() : Date.now();
+    await persistFailureIncrement(chatSession.id, agentSession.agent, history.length, state.partial, model, nowMs);
     const message =
       err instanceof AgentTimeoutError
         ? `回答超时（${timeoutMs}ms）`
