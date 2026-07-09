@@ -130,4 +130,30 @@ describe("createAgentSession", () => {
     expect(session.isDone()).toBe(true);
     expect(prompts).toEqual(["first", "second"]);
   });
+
+  it("rejects a concurrent runTurn while one is in flight, and the first turn still settles normally", async () => {
+    let resolvePrompt: (() => void) | undefined;
+    const agentFactory: AiAgentFactory = () => ({
+      prompt: () =>
+        new Promise<void>((resolve) => {
+          resolvePrompt = resolve;
+        }),
+      abort: () => {},
+    });
+    const session = createAgentSession({
+      layer: "chat",
+      symbol: "MU.US",
+      model: fakeModel,
+      systemPrompt: "system prompt",
+      tools: [],
+      agentFactory,
+    });
+
+    const firstTurn = session.runTurn("first", 1000);
+    await expect(session.runTurn("second", 1000)).rejects.toThrow(/already in flight/);
+
+    resolvePrompt?.();
+    await expect(firstTurn).resolves.toBeUndefined();
+    expect(session.isDone()).toBe(true);
+  });
 });
