@@ -26,3 +26,7 @@ export function getDb(): Db {
   if (!singleton) singleton = createDb(join(CHART_DATA_DIR, "app.db"));
   return singleton;
 }
+
+export function setDbForTests(db: Db | null): void {
+  singleton = db;
+}
