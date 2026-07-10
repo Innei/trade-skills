@@ -150,7 +150,7 @@ function openDialog(win: BrowserWindow | null, options: Electron.OpenDialogOptio
   return win ? dialog.showOpenDialog(win, options) : dialog.showOpenDialog(options);
 }
 
-async function runImportFromRepoFlow(win: BrowserWindow | null): Promise<void> {
+async function runImportFromRepoFlowUnsafe(win: BrowserWindow | null): Promise<void> {
   if (!app.isPackaged) {
     await messageBox(win, {
       type: "info",
@@ -198,11 +198,35 @@ async function runImportFromRepoFlow(win: BrowserWindow | null): Promise<void> {
   }
 
   const result = copyImportManifest(manifest, { overwrite });
+  const summaryLines = [`导入完成：复制 ${result.copied} 个文件，跳过 ${result.skipped} 个。`];
+  if (result.failed > 0) {
+    summaryLines.push(`有 ${result.failed} 个文件复制失败：`);
+    summaryLines.push(...result.failures.map((failure) => `- ${failure.relPath}: ${failure.error}`));
+  }
   await messageBox(win, {
-    type: "info",
+    type: result.failed > 0 ? "warning" : "info",
     title: "从 repo 导入数据",
-    message: `导入完成：复制 ${result.copied} 个文件，跳过 ${result.skipped} 个。`,
+    message: summaryLines.join("\n"),
   });
+}
+
+// buildImportManifest/validateImportSource can throw on unreadable dirs
+// (permissions, a source deleted mid-flow), and copyImportManifest already
+// reports its own per-file failures without throwing — this outer guard
+// only exists to catch the former and make sure the promise this hands to
+// the menu's click handler never rejects unhandled.
+async function runImportFromRepoFlow(win: BrowserWindow | null): Promise<void> {
+  try {
+    await runImportFromRepoFlowUnsafe(win);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error("[desktop] import-from-repo failed", error);
+    await messageBox(win, {
+      type: "error",
+      title: "从 repo 导入数据",
+      message: `导入失败：${message}`,
+    });
+  }
 }
 
 function buildAppMenu(): void {
@@ -213,7 +237,9 @@ function buildAppMenu(): void {
         {
           label: "从 repo 导入数据…",
           click: () => {
-            void runImportFromRepoFlow(BrowserWindow.getFocusedWindow());
+            runImportFromRepoFlow(BrowserWindow.getFocusedWindow()).catch((error: unknown) => {
+              console.error("[desktop] import-from-repo flow crashed", error);
+            });
           },
         },
         { type: "separator" },

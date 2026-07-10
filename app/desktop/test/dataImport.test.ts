@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -27,9 +27,9 @@ describe("dataImport", () => {
       expect(validateImportSource(source, dest)).toEqual({ ok: true });
     });
 
-    it("accepts a source with only the sqlite db present", () => {
+    it("rejects a source whose chart data dir only has the sqlite db (db is never imported)", () => {
       writeFileSync(join(source, "journal", "charts", "data", "app.db"), "");
-      expect(validateImportSource(source, dest)).toEqual({ ok: true });
+      expect(validateImportSource(source, dest)).toEqual({ ok: false, reason: "empty" });
     });
 
     it("rejects a source missing journal/charts/data entirely", () => {
@@ -49,24 +49,23 @@ describe("dataImport", () => {
   });
 
   describe("buildImportManifest", () => {
-    it("lists chart json files and the sqlite db as copy candidates", () => {
+    it("lists chart json files as copy candidates", () => {
       writeFileSync(join(source, "journal", "charts", "data", "NVDA-2026-01-01.json"), "{}");
       writeFileSync(join(source, "journal", "charts", "data", "MRVL-2026-01-02.json"), "{}");
-      writeFileSync(join(source, "journal", "charts", "data", "app.db"), "");
 
       const manifest = buildImportManifest(source, dest);
       expect(manifest.entries.map((entry) => entry.relPath).sort()).toEqual(
         [
           join("journal", "charts", "data", "MRVL-2026-01-02.json"),
           join("journal", "charts", "data", "NVDA-2026-01-01.json"),
-          join("journal", "charts", "data", "app.db"),
         ].sort(),
       );
       expect(manifest.collisionCount).toBe(0);
     });
 
-    it("ignores non chart-data files in the source dir", () => {
+    it("ignores non-json files in the source dir, including the sqlite db", () => {
       writeFileSync(join(source, "journal", "charts", "data", "notes.txt"), "hi");
+      writeFileSync(join(source, "journal", "charts", "data", "app.db"), "");
       const manifest = buildImportManifest(source, dest);
       expect(manifest.entries).toEqual([]);
     });
@@ -92,7 +91,7 @@ describe("dataImport", () => {
 
       const result = copyImportManifest(manifest, { overwrite: false });
 
-      expect(result).toEqual({ copied: 1, skipped: 0 });
+      expect(result).toEqual({ copied: 1, skipped: 0, failed: 0, failures: [] });
       expect(readFileSync(join(dest, "journal", "charts", "data", "NVDA-2026-01-01.json"), "utf8")).toBe("{source}");
     });
 
@@ -103,7 +102,7 @@ describe("dataImport", () => {
 
       const result = copyImportManifest(manifest, { overwrite: false });
 
-      expect(result).toEqual({ copied: 0, skipped: 1 });
+      expect(result).toEqual({ copied: 0, skipped: 1, failed: 0, failures: [] });
       expect(readFileSync(join(dest, "journal", "charts", "data", "NVDA-2026-01-01.json"), "utf8")).toBe("{dest}");
     });
 
@@ -114,7 +113,7 @@ describe("dataImport", () => {
 
       const result = copyImportManifest(manifest, { overwrite: true });
 
-      expect(result).toEqual({ copied: 1, skipped: 0 });
+      expect(result).toEqual({ copied: 1, skipped: 0, failed: 0, failures: [] });
       expect(readFileSync(join(dest, "journal", "charts", "data", "NVDA-2026-01-01.json"), "utf8")).toBe("{source}");
     });
 
@@ -126,6 +125,28 @@ describe("dataImport", () => {
       copyImportManifest(manifest, { overwrite: false });
 
       expect(existsSync(join(freshDest, "journal", "charts", "data", "NVDA-2026-01-01.json"))).toBe(true);
+    });
+
+    it("reports a per-file failure without aborting the rest of the batch", () => {
+      writeFileSync(join(source, "journal", "charts", "data", "NVDA-2026-01-01.json"), "{nvda}");
+      writeFileSync(join(source, "journal", "charts", "data", "MRVL-2026-01-02.json"), "{mrvl}");
+      const manifest = buildImportManifest(source, dest);
+
+      // Simulate a mid-copy failure (e.g. the source file vanished, a disk-full,
+      // or a permission error) by removing the source file after the manifest
+      // was built but before the copy loop reaches it.
+      unlinkSync(join(source, "journal", "charts", "data", "NVDA-2026-01-01.json"));
+
+      const result = copyImportManifest(manifest, { overwrite: false });
+
+      expect(result.copied).toBe(1);
+      expect(result.skipped).toBe(0);
+      expect(result.failed).toBe(1);
+      expect(result.failures).toHaveLength(1);
+      expect(result.failures[0].relPath).toBe(join("journal", "charts", "data", "NVDA-2026-01-01.json"));
+      expect(result.failures[0].error).toBeTruthy();
+      expect(readFileSync(join(dest, "journal", "charts", "data", "MRVL-2026-01-02.json"), "utf8")).toBe("{mrvl}");
+      expect(existsSync(join(dest, "journal", "charts", "data", "NVDA-2026-01-01.json"))).toBe(false);
     });
   });
 });
