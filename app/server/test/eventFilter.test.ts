@@ -1,10 +1,16 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { builtinModels } from "@earendil-works/pi-ai/providers/all";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MacroEventItem } from "../../shared/types.js";
 import type { AiAgentFactory, AiAgentHandle } from "../src/ai/agentSession.js";
 import { AgentTimeoutError } from "../src/ai/agentSession.js";
 import { filterMacroForSymbol } from "../src/ai/eventFilter.js";
+import { createSettingsStore, setActiveSettingsStore, type SettingsStore } from "../src/ai/settingsStore.js";
+import { createDb } from "../src/db/index.js";
 
-const prevAiCommentModel = process.env.AI_COMMENT_MODEL;
+const realModel = builtinModels().getModels("anthropic")[0];
 
 function makeItems(): MacroEventItem[] {
   return [
@@ -14,12 +20,33 @@ function makeItems(): MacroEventItem[] {
 }
 
 describe("filterMacroForSymbol", () => {
+  let dir: string;
+  let store: SettingsStore;
+
+  function setCommentCustom(): void {
+    store.setRole("comment", {
+      mode: "custom",
+      provider: realModel.provider,
+      modelId: realModel.id,
+      thinkingLevel: "medium",
+    });
+  }
+
+  beforeEach(() => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    dir = mkdtempSync(join(tmpdir(), "event-filter-"));
+    store = createSettingsStore(createDb(join(dir, "app.db")));
+    setActiveSettingsStore(store);
+  });
+
   afterEach(() => {
-    process.env.AI_COMMENT_MODEL = prevAiCommentModel;
+    setActiveSettingsStore(null);
+    vi.restoreAllMocks();
+    rmSync(dir, { recursive: true, force: true });
   });
 
   it("returns items unchanged without calling the agent when items is empty", async () => {
-    process.env.AI_COMMENT_MODEL = "anthropic/claude-haiku-4-5";
+    setCommentCustom();
     const agentFactory: AiAgentFactory = () => {
       throw new Error("agent should not be constructed");
     };
@@ -28,7 +55,7 @@ describe("filterMacroForSymbol", () => {
   });
 
   it("returns items unchanged without calling the agent when commentModel is unset", async () => {
-    delete process.env.AI_COMMENT_MODEL;
+    store.setRole("comment", { mode: "disabled", provider: null, modelId: null, thinkingLevel: null });
     const agentFactory: AiAgentFactory = () => {
       throw new Error("agent should not be constructed");
     };
@@ -38,7 +65,7 @@ describe("filterMacroForSymbol", () => {
   });
 
   it("filters down to the kept indices submitted via submit_filter", async () => {
-    process.env.AI_COMMENT_MODEL = "anthropic/claude-haiku-4-5";
+    setCommentCustom();
     const agentFactory: AiAgentFactory = ({ tools }) => {
       const agent: AiAgentHandle = {
         prompt: async () => {
@@ -56,7 +83,7 @@ describe("filterMacroForSymbol", () => {
   });
 
   it("propagates AgentTimeoutError when the agent never resolves within the injected timeout", async () => {
-    process.env.AI_COMMENT_MODEL = "anthropic/claude-haiku-4-5";
+    setCommentCustom();
     const agentFactory: AiAgentFactory = () => ({
       prompt: () => new Promise<void>(() => {}),
       abort: () => {},
