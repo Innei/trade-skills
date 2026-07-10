@@ -115,16 +115,64 @@ describe("runCommentator", () => {
   });
 
   it("writes a system error comment when the agent never calls the tool", async () => {
+    let promptCalls = 0;
     const { deps, comments } = harness(() => ({
-      prompt: async () => {},
+      prompt: async () => {
+        promptCalls += 1;
+      },
       abort: () => {},
     }));
     const result = await runCommentator({ symbol: "MU.US", pack: makePack("MU.US"), trigger, deps });
     expect(result).toEqual({ escalate: false });
+    expect(promptCalls).toBe(2);
     expect(comments).toHaveLength(1);
     expect(comments[0].level).toBe("error");
     expect(comments[0].source).toBe("system");
     expect(comments[0].trigger).toBe("macd_cross: hist 0.1 -> -0.1");
+  });
+
+  it("recovers when the agent submits only after the retry nudge", async () => {
+    const prompts: string[] = [];
+    const { deps, comments } = harness((_tools, record) => ({
+      prompt: async (text: string) => {
+        prompts.push(text);
+        if (prompts.length === 2) await record(false);
+      },
+      abort: () => {},
+    }));
+    const result = await runCommentator({ symbol: "MU.US", pack: makePack("MU.US"), trigger, deps });
+    expect(result).toEqual({ escalate: false });
+    expect(prompts).toHaveLength(2);
+    expect(prompts[1]).toContain("submit_comment");
+    expect(comments).toHaveLength(1);
+    expect(comments[0].source).toBe("commentator");
+  });
+
+  it("keeps the session alive after a retry-rescued run", async () => {
+    let factoryCalls = 0;
+    let silentOnce = true;
+    const agentFactory: AiAgentFactory = ({ tools }) => {
+      factoryCalls += 1;
+      let currentTools = tools;
+      let calls = 0;
+      return {
+        prompt: async () => {
+          calls += 1;
+          if (silentOnce && calls === 1) return;
+          silentOnce = false;
+          await currentTools.find((t) => t.name === "submit_comment")?.execute("c", { level: "info", text: "x", escalate: false });
+        },
+        abort: () => {},
+        setTools: (tools) => {
+          currentTools = tools;
+        },
+      };
+    };
+    const deps: CommentatorDeps = { model: fakeModel, agentFactory, appendComment: async () => {} };
+
+    await runCommentator({ symbol: "MU.US", pack: makePack("MU.US"), trigger, deps });
+    await runCommentator({ symbol: "MU.US", pack: makePack("MU.US"), trigger, deps });
+    expect(factoryCalls).toBe(1);
   });
 
   it("writes a system error comment when the agent throws", async () => {

@@ -17,6 +17,8 @@ const MAX_PROMPT_CHARS = 24_000;
 const SESSION_MAX_RUNS = 40;
 const SESSION_MAX_SENT_CHARS = 120_000;
 
+const RETRY_PROMPT = "你上一条回复没有调用 submit_comment。现在立即调用 submit_comment 恰好一次给出结论，不要再输出任何文字。";
+
 const SYSTEM_PROMPT = [
   "你是盘中点评员。会话开始时你会收到一份 JSON 快照，包含：实时报价、5 分钟 K 线与 MACD、资金流、已归档的日内预测摘要、最近几条点评，以及本次触发原因。",
   "之后同一交易日内每次触发，你只会收到一份增量更新（最新报价、新增 K 线、资金流尾部等），此前的快照和你写过的点评都在本对话上文里，直接沿用。",
@@ -183,16 +185,23 @@ export async function runCommentator({
 
     await session.agentSession.runTurn(promptText, timeoutMs);
 
+    let sentChars = promptText.length;
     if (escalate === null) {
-      // The agent ignored the tool contract; drop the session rather than
-      // carry the non-compliant exchange into the cached prefix.
+      await session.agentSession.runTurn(RETRY_PROMPT, timeoutMs);
+      sentChars += RETRY_PROMPT.length;
+    }
+
+    if (escalate === null) {
+      // The agent ignored the tool contract even after a nudge; drop the
+      // session rather than carry the non-compliant exchange into the
+      // cached prefix.
       sessions.delete(symbol);
-      await writeError("点评员未调用 submit_comment，本次无结论。");
+      await writeError("点评员重试一次后仍未调用 submit_comment，本次无结论。");
       return { escalate: false };
     }
 
     session.runCount += 1;
-    session.sentChars += promptText.length;
+    session.sentChars += sentChars;
     session.lastBarTime = lastBarTimeOf(pack) ?? session.lastBarTime;
     if (session.runCount >= SESSION_MAX_RUNS || session.sentChars >= SESSION_MAX_SENT_CHARS) {
       sessions.delete(symbol);
