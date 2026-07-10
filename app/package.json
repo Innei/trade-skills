@@ -5,6 +5,7 @@
     "dev": "concurrently -n web,server -c blue,green \"pnpm --filter @trade/web dev\" \"pnpm --filter @trade/server dev\"",
     "start": "pnpm --filter @trade/server start",
     "build": "pnpm --filter @trade/web build",
+    "package:desktop": "pnpm --filter @trade/desktop package",
     "test": "pnpm -r test",
     "typecheck": "pnpm -r typecheck"
   },

@@ -1,0 +1,25 @@
+appId: dev.innei.trade-charts
+productName: TradeCharts
+directories:
+  output: release
+files:
+  - dist-main/**
+  - dist-preload/**
+  - package.json
+  - "!**/*.ts"
+extraResources:
+  - from: ../web/dist
+    to: web-dist
+  - from: ../server/drizzle
+    to: drizzle
+extraFiles: []
+asarUnpack:
+  - "**/node_modules/better-sqlite3/**"
+  - "**/node_modules/longbridge*/**"
+mac:
+  target:
+    - target: dmg
+      arch: [arm64]
+    - target: zip
+      arch: [arm64]
+  identity: null
