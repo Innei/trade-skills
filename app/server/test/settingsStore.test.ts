@@ -247,6 +247,29 @@ describe("aiConfig integration with settingsStore", () => {
     expect(config2.analystModel?.id).toBe(realModel.id);
   });
 
+  it("persists thinkingLevel off and aiConfig attaches it to the resolved model", () => {
+    const tmp = tempDbPath();
+    dir = tmp.dir;
+    const store = createSettingsStore(createDb(tmp.path));
+    store.setRole("analyst", {
+      mode: "custom",
+      provider: realModel.provider,
+      modelId: realModel.id,
+      thinkingLevel: "off",
+    });
+    setActiveSettingsStore(store);
+
+    expect(aiConfig().analystModel?.thinkingLevel).toBe("off");
+
+    const reloaded = createSettingsStore(createDb(tmp.path));
+    expect(reloaded.getRole("analyst")).toEqual({
+      mode: "custom",
+      provider: realModel.provider,
+      modelId: realModel.id,
+      thinkingLevel: "off",
+    });
+  });
+
   it("returns null for custom mode pointing at a nonexistent model (stale)", () => {
     const tmp = tempDbPath();
     dir = tmp.dir;

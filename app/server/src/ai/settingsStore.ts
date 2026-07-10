@@ -1,4 +1,4 @@
-import type { ThinkingLevel } from "@earendil-works/pi-ai";
+import type { ModelThinkingLevel } from "@earendil-works/pi-ai";
 import type { Db } from "../db/index.js";
 import { aiRoleSettings } from "../db/schema.js";
 
@@ -9,7 +9,7 @@ export interface RoleSetting {
   mode: RoleMode;
   provider: string | null;
   modelId: string | null;
-  thinkingLevel: ThinkingLevel | null;
+  thinkingLevel: ModelThinkingLevel | null;
 }
 
 export interface SettingsStore {
@@ -53,7 +53,7 @@ export function createSettingsStore(db: Db): SettingsStore {
       mode: row.mode as RoleMode,
       provider: row.provider,
       modelId: row.modelId,
-      thinkingLevel: row.thinkingLevel as ThinkingLevel | null,
+      thinkingLevel: row.thinkingLevel as ModelThinkingLevel | null,
     });
   }
 

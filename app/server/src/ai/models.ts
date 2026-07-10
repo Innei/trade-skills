@@ -1,4 +1,4 @@
-import type { Api, Model, ThinkingLevel } from "@earendil-works/pi-ai";
+import type { Api, Model, ModelThinkingLevel, ThinkingLevel } from "@earendil-works/pi-ai";
 import { builtinModels } from "@earendil-works/pi-ai/providers/all";
 import { getActiveSettingsStore, type RoleSetting } from "./settingsStore.js";
 
@@ -6,7 +6,7 @@ export type ModelRef = { provider: string; id: string; thinkingLevel?: ThinkingL
 
 // thinkingLevel rides on the resolved model so it reaches the Agent factories
 // without threading an extra field through every deps interface.
-export type AiModel = Model<Api> & { thinkingLevel?: ThinkingLevel };
+export type AiModel = Model<Api> & { thinkingLevel?: ModelThinkingLevel };
 
 const THINKING_LEVELS: ReadonlySet<string> = new Set(["minimal", "low", "medium", "high", "xhigh"]);
 
