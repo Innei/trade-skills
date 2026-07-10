@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsdown",
     "rebuild-native": "electron-rebuild -v 43.1.0 --force -w better-sqlite3",
-    "build:native": "cd native/sparkle-bridge && npm run build",
+    "build:native": "cd native/sparkle-bridge && npm ci && npm run build",
     "predev": "pnpm rebuild-native && pnpm build:native",
     "dev": "tsdown --watch --onSuccess \"electron .\"",
     "prestart": "pnpm rebuild-native && pnpm build:native",

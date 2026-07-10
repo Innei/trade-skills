@@ -110,9 +110,13 @@ Napi::Value CheckForUpdates(const Napi::CallbackInfo &info) {
 
   void (^work)(void) = ^{
     if (g_controller == nil) return;
-    NSLog(@"[sparkle-bridge] checkForUpdates: canCheckForUpdates=%d sessionInProgress=%d",
-          g_controller.updater.canCheckForUpdates, g_controller.updater.sessionInProgress);
-    [g_controller checkForUpdates:nil];
+    @try {
+      NSLog(@"[sparkle-bridge] checkForUpdates: canCheckForUpdates=%d sessionInProgress=%d",
+            g_controller.updater.canCheckForUpdates, g_controller.updater.sessionInProgress);
+      [g_controller checkForUpdates:nil];
+    } @catch (NSException *exception) {
+      NSLog(@"[sparkle-bridge] checkForUpdates threw: %@", exception.reason);
+    }
   };
 
   if ([NSThread isMainThread]) {
@@ -136,7 +140,11 @@ Napi::Value SetAutomaticChecks(const Napi::CallbackInfo &info) {
 
   void (^work)(void) = ^{
     if (g_controller == nil) return;
-    g_controller.updater.automaticallyChecksForUpdates = enabled;
+    @try {
+      g_controller.updater.automaticallyChecksForUpdates = enabled;
+    } @catch (NSException *exception) {
+      NSLog(@"[sparkle-bridge] setAutomaticChecks threw: %@", exception.reason);
+    }
   };
 
   if ([NSThread isMainThread]) {

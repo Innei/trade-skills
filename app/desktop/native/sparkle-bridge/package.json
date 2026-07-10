@@ -4,8 +4,10 @@
   "private": true,
   "gypfile": true,
   "scripts": {
+    "install": "node -e \"\"",
     "fetch-sparkle": "bash scripts/fetch-sparkle.sh",
-    "build": "npm run fetch-sparkle && node-gyp rebuild --target=43.1.0 --arch=arm64 --dist-url=https://electronjs.org/headers"
+    "rebuild": "node-gyp rebuild --target=43.1.0 --arch=arm64 --dist-url=https://electronjs.org/headers",
+    "build": "npm run fetch-sparkle && npm run rebuild"
   },
   "dependencies": {
     "node-addon-api": "^8.5.0"
