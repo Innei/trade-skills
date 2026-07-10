@@ -1,5 +1,6 @@
 {
   "name": "@trade/desktop",
+  "version": "0.1.0",
   "private": true,
   "type": "module",
   "main": "dist-main/main.mjs",
@@ -11,17 +12,21 @@
     "prestart": "pnpm rebuild-native",
     "start": "electron .",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepackage": "pnpm --filter @trade/web build",
+    "package": "tsdown && electron-builder --mac dmg zip --arm64"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",
-    "longbridge": "^4.3.3"
+    "longbridge": "^4.3.3",
+    "longbridge-darwin-arm64": "4.3.3"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.2.0",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^26.0.1",
     "electron": "43.1.0",
+    "electron-builder": "^26.15.3",
     "tsdown": "^0.22.4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"

@@ -8,10 +8,14 @@ import { APP_ROOT, CHART_DATA_DIR } from "../env.js";
 import * as schema from "./schema.js";
 
 // APP_ROOT already honors TRADE_PROJECT_ROOT (see env.ts) for the same
-// bundling-relocation reason.
-const MIGRATIONS_DIR = process.env.TRADE_PROJECT_ROOT
-  ? join(APP_ROOT, "server", "drizzle")
-  : join(dirname(fileURLToPath(import.meta.url)), "..", "..", "drizzle");
+// bundling-relocation reason. A packaged desktop app points TRADE_PROJECT_ROOT
+// at userData (not a repo checkout, no server/drizzle folder there), so it
+// sets TRADE_MIGRATIONS_DIR explicitly at the extraResources copy instead.
+const MIGRATIONS_DIR =
+  process.env.TRADE_MIGRATIONS_DIR ??
+  (process.env.TRADE_PROJECT_ROOT
+    ? join(APP_ROOT, "server", "drizzle")
+    : join(dirname(fileURLToPath(import.meta.url)), "..", "..", "drizzle"));
 
 export type Db = ReturnType<typeof drizzle<typeof schema>>;
 

@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { app, BrowserWindow, dialog } from "electron";
 import { registerAppProtocolHandler, registerAppScheme } from "./protocolHost.js";
-import { resolveRepoRoot } from "./repoRoot.js";
+import { resolveDataRoot, resolveRepoRoot, scaffoldDataRoot } from "./repoRoot.js";
 import { initUpdater } from "./updater.js";
 
 // Scheme registration must run before app.ready — calling it at module top
@@ -11,12 +11,28 @@ import { initUpdater } from "./updater.js";
 // grows into.
 registerAppScheme();
 
-process.env.TRADE_PROJECT_ROOT = resolveRepoRoot();
-const repoRoot = process.env.TRADE_PROJECT_ROOT;
+// package.json's "name" is the scoped npm id ("@trade/desktop"), which
+// Electron would otherwise use verbatim for app.getPath("userData") — the
+// "/" turns into a nested folder. Pin it to productName before any path
+// resolution runs.
+app.setName("TradeCharts");
+
+const dataRoot = resolveDataRoot({
+  isPackaged: app.isPackaged,
+  envOverride: process.env.TRADE_PROJECT_ROOT,
+  userDataPath: app.getPath("userData"),
+});
+if (app.isPackaged) {
+  scaffoldDataRoot(dataRoot);
+  process.env.TRADE_MIGRATIONS_DIR = join(process.resourcesPath, "drizzle");
+}
+process.env.TRADE_PROJECT_ROOT = dataRoot;
 
 const DEV_WEB_URL = "http://localhost:5199";
 const PROD_APP_URL = "app://-/index.html";
-const WEB_DIST_ROOT = join(repoRoot, "app", "web", "dist");
+const WEB_DIST_ROOT = app.isPackaged
+  ? join(process.resourcesPath, "web-dist")
+  : join(resolveRepoRoot(), "app", "web", "dist");
 
 async function bootKernel() {
   const { initServerRuntime } = await import("../../server/src/runtimeInit.js");
