@@ -25,6 +25,9 @@ const { emitNotice } = await import("../src/ai/notices.js");
 const { subscribeBoard } = (await import("../src/realtime/board.js")) as unknown as {
   subscribeBoard: ReturnType<typeof vi.fn>;
 };
+const { subscribeQuotes } = (await import("../src/realtime/quotes.js")) as unknown as {
+  subscribeQuotes: ReturnType<typeof vi.fn>;
+};
 const { onChatEvent, chatTurnState } = (await import("../src/ai/chat.js")) as unknown as {
   onChatEvent: ReturnType<typeof vi.fn>;
   chatTurnState: ReturnType<typeof vi.fn>;
@@ -284,6 +287,64 @@ describe("comments channel notice forwarding", () => {
     });
     await new Promise((r) => setTimeout(r, 20));
     expect(socket.sent.some((raw) => raw.includes('"type":"notice"'))).toBe(false);
+  });
+});
+
+describe("MAX_CHANNELS_PER_SOCKET cap", () => {
+  afterEach(() => {
+    subscribeQuotes.mockReset();
+    subscribeQuotes.mockImplementation(() => () => {});
+  });
+
+  it("drops a sub beyond the cap without evicting existing subs", async () => {
+    const unsubFns: ReturnType<typeof vi.fn>[] = [];
+    subscribeQuotes.mockImplementation((push: (envelope: string) => void) => {
+      push(JSON.stringify({ type: "quote" }));
+      const unsub = vi.fn();
+      unsubFns.push(unsub);
+      return unsub;
+    });
+
+    const socket = makeSocket();
+    for (let i = 0; i < 16; i++) {
+      socket.emitMessage(JSON.stringify({ op: "sub", key: `k${i}`, kind: "quotes" }));
+    }
+    await waitFor(() => subscribeQuotes.mock.calls.length === 16);
+    expect(socket.sent.filter((raw) => raw.includes('"type":"quote"'))).toHaveLength(16);
+
+    socket.emitMessage(JSON.stringify({ op: "sub", key: "k16", kind: "quotes" }));
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(subscribeQuotes).toHaveBeenCalledTimes(16);
+    expect(socket.sent.some((raw) => raw.includes('"key":"k16"'))).toBe(false);
+
+    socket.emitMessage(JSON.stringify({ op: "unsub", key: "k0" }));
+    expect(unsubFns[0]).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("degraded status on attachChannel failure", () => {
+  afterEach(() => {
+    subscribeQuotes.mockReset();
+    subscribeQuotes.mockImplementation(() => () => {});
+  });
+
+  it("sends the exact degraded envelope and allows re-subscribing the same key", async () => {
+    subscribeQuotes.mockImplementationOnce(() => {
+      throw new Error("boom");
+    });
+    subscribeQuotes.mockImplementation(() => () => {});
+
+    const socket = makeSocket();
+    socket.emitMessage(JSON.stringify({ op: "sub", key: "q1", kind: "quotes" }));
+    await waitFor(() => socket.sent.some((raw) => raw.includes('"type":"status"')));
+
+    const envelope = JSON.parse(socket.sent.find((raw) => raw.includes('"type":"status"'))!);
+    expect(envelope).toEqual({ key: "q1", payload: { type: "status", degraded: true, error: "boom" } });
+
+    socket.emitMessage(JSON.stringify({ op: "sub", key: "q1", kind: "quotes" }));
+    await waitFor(() => subscribeQuotes.mock.calls.length === 2);
+    expect(subscribeQuotes).toHaveBeenCalledTimes(2);
   });
 });
 
