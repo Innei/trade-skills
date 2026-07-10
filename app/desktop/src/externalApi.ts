@@ -147,7 +147,11 @@ export class ExternalApiController {
 
   async enable(): Promise<ExternalApiSnapshot> {
     if (this.state.enabled) return this.getState();
-    await this.start(this.deps.generateToken());
+    // Only mint a fresh token the first time this ever gets enabled — a
+    // disable/enable cycle keeps using the same token so a CLI/skill
+    // consumer doesn't need to re-copy it after every toggle.
+    const token = this.state.token ?? this.deps.generateToken();
+    await this.start(token);
     await this.persist();
     return this.getState();
   }

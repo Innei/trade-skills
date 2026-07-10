@@ -255,6 +255,16 @@ describe("ExternalApiController", () => {
     expect(closed).toHaveLength(1);
   });
 
+  it("re-enabling after disable() reuses the same token instead of minting a new one", async () => {
+    const { deps } = makeDeps();
+    const controller = new ExternalApiController(deps);
+    await controller.enable();
+    await controller.disable();
+    const state = await controller.enable();
+    expect(state.token).toBe("token-1");
+    expect(deps.generateToken).toHaveBeenCalledTimes(1);
+  });
+
   it("resetToken() issues a new token and keeps the server running when it was enabled", async () => {
     const { deps } = makeDeps();
     const controller = new ExternalApiController(deps);
