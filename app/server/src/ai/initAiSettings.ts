@@ -7,11 +7,29 @@ import { eq } from "drizzle-orm";
 import type { Db } from "../db/index.js";
 import { aiRoleSettings, appMeta, providerCredentials } from "../db/schema.js";
 import { CHART_DATA_DIR } from "../env.js";
-import { createCredentialStore } from "./credentialStore.js";
+import { type AppCredentialStore, createCredentialStore } from "./credentialStore.js";
 import { initModelsRuntime, SINGLE_KEY_PROVIDERS } from "./modelsRuntime.js";
 import { parseModelRef } from "./models.js";
 import { createSecretBox, type SecretBox } from "./secretBox.js";
 import { type AiRole, createSettingsStore, setActiveSettingsStore } from "./settingsStore.js";
+
+export interface AiRuntime {
+  secretBox: SecretBox;
+  credentials: AppCredentialStore;
+}
+
+let runtime: AiRuntime | null = null;
+
+export function getAiRuntime(): AiRuntime {
+  if (!runtime) {
+    throw new Error("initAiSettings: ai runtime not initialized; call initAiSettings before use");
+  }
+  return runtime;
+}
+
+export function setAiRuntimeForTests(next: AiRuntime | null): void {
+  runtime = next;
+}
 
 const ROLE_ENV_VARS: Record<AiRole, string> = {
   comment: "AI_COMMENT_MODEL",
@@ -80,6 +98,8 @@ export function initAiSettings(
   const box = opts?.secretBox ?? createSecretBox(join(CHART_DATA_DIR, "ai-secret.key"));
   runEnvImport(db, box, opts?.env ?? process.env);
   setActiveSettingsStore(createSettingsStore(db));
-  const models = initModelsRuntime(createCredentialStore(db, box, { codexAuthPath: opts?.codexAuthPath }));
+  const credentials = createCredentialStore(db, box, { codexAuthPath: opts?.codexAuthPath });
+  const models = initModelsRuntime(credentials);
+  runtime = { secretBox: box, credentials };
   return { models };
 }

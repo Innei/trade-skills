@@ -8,6 +8,7 @@ import { chartsRoute } from "./routes/charts.js";
 import { chatRoute } from "./routes/chat.js";
 import { overviewRoute } from "./routes/overview.js";
 import { positionsRoute } from "./routes/positions.js";
+import { settingsRoute } from "./routes/settings.js";
 import { symbolsRoute } from "./routes/symbols.js";
 import { wsRoute } from "./routes/ws.js";
 
@@ -47,6 +48,7 @@ export async function createApp(): Promise<FastifyInstance> {
   await app.register(symbolsRoute, { prefix: "/api/symbols" });
   await app.register(overviewRoute, { prefix: "/api/overview" });
   await app.register(positionsRoute, { prefix: "/api/positions" });
+  await app.register(settingsRoute, { prefix: "/api/settings" });
 
   app.get("/api/legacy", async () => {
     let files: string[] = [];
