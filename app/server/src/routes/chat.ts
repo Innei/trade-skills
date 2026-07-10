@@ -52,7 +52,7 @@ export const chatRoute: FastifyPluginAsync<ChatRouteOptions> = async (app, opts)
       return reply.status(409).send({ error: "上一条还在回答中" });
     }
     if (result.reason === "no_model") {
-      return reply.status(503).send({ error: "未配置 AI_CHAT_MODEL / AI_ANALYST_MODEL" });
+      return reply.status(503).send({ error: "未配置追问模型，请在 /settings 配置" });
     }
     throw new ClientError(`chart not found: ${id}`, "GET /api/charts lists available ids", 404);
   });

@@ -208,7 +208,7 @@ export const symbolsRoute: FastifyPluginAsync = async (app) => {
     if (result.reason === "busy") {
       throw new ClientError(`deep dive already running`, "wait for the current run to finish", 409);
     }
-    throw new ClientError(`deep dive disabled`, "set AI_DEEPDIVE_MODEL to a valid provider/id", 503);
+    throw new ClientError(`deep dive disabled`, "未配置深度研究模型，请在 /settings 配置", 503);
   });
 
   app.get<{ Params: Params }>("/:sym/deep-dive/status", async () => deepDiveState());
