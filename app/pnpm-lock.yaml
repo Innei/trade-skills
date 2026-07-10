@@ -25,6 +25,15 @@ importers:
       '@fastify/websocket':
         specifier: ^11.2.0
         version: 11.2.0
+      '@hono/node-server':
+        specifier: 1.19.14
+        version: 1.19.14(hono@4.12.26)
+      '@tsuki-hono/common':
+        specifier: 0.0.4
+        version: 0.0.4(hono@4.12.26)
+      '@tsuki-hono/core':
+        specifier: 0.0.4
+        version: 0.0.4(hono@4.12.26)
       better-sqlite3:
         specifier: ^12.11.1
         version: 12.11.1
@@ -34,9 +43,18 @@ importers:
       fastify:
         specifier: ^5.9.0
         version: 5.9.0
+      hono:
+        specifier: 4.12.26
+        version: 4.12.26
       longbridge:
         specifier: ^4.3.3
         version: 4.3.3
+      reflect-metadata:
+        specifier: 0.2.2
+        version: 0.2.2
+      tsyringe:
+        specifier: 4.10.0
+        version: 4.10.0
       typebox:
         specifier: 1.1.38
         version: 1.1.38
@@ -407,6 +425,12 @@ packages:
       '@modelcontextprotocol/sdk':
         optional: true
 
+  '@hono/node-server@1.19.14':
+    resolution: {integrity: sha512-GwtvgtXxnWsucXvbQXkRgqksiH2Qed37H9xHZocE5sA3N8O8O8/8FA3uclQXxXVzc9XBZuEOMK7+r02FmSpHtw==}
+    engines: {node: '>=18.14.1'}
+    peerDependencies:
+      hono: ^4
+
   '@jridgewell/gen-mapping@0.3.13':
     resolution: {integrity: sha512-2kkt/7niJ6MgEPxF0bYdQ6etZaA+fQvDcLKckhy1yIQOzaoKjBBjSj63/aLVjYE3qhRt5dvM+uUyfCg6UKCBbA==}
 
@@ -650,6 +674,16 @@ packages:
 
   '@standard-schema/utils@0.3.0':
     resolution: {integrity: sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==}
+
+  '@tsuki-hono/common@0.0.4':
+    resolution: {integrity: sha512-qIsHvTAAbMKJrYPTeg7j7hKob20Mi32xNNnUIMrkBi1qCT4YM8yReH1WVroumnFNb3kXomPBUCYcI2e8N3iQCw==}
+    peerDependencies:
+      hono: '>=4.0.0'
+
+  '@tsuki-hono/core@0.0.4':
+    resolution: {integrity: sha512-r4E0KhbvodN1t60YNQcjgGvmPG9yObX5G1dJrAW2SNBHzY/N59AObmqocYeaJ0uk8ChqFLPmALYBzHlngGnWJg==}
+    peerDependencies:
+      hono: '>=4.0.0'
 
   '@tybys/wasm-util@0.10.3':
     resolution: {integrity: sha512-F3fo1MYrRJYL3zER0OUOmkutjr1Vp23m7OsSgp7nq4SP6OqX6C/56XFIPAl5bt3zaBRjmW7SGz3u/6LwFpYcOg==}
@@ -1234,6 +1268,10 @@ packages:
   hast-util-whitespace@3.0.0:
     resolution: {integrity: sha512-88JUN06ipLwsnv+dVn+OIYOvAuvBMy/Qoi6O7mQHxdPXpjy+Cd6xRkWwux7DKO+4sYILtLBRIKgsdpS2gQc7qw==}
 
+  hono@4.12.26:
+    resolution: {integrity: sha512-uyZtpnYxM9CmQ7QsQknM4zN8EftNqhON1qYeIKM0Se67CCEe2c44xyGURwB0axX2fBDu1dqHrHAc1hmNT8ITkw==}
+    engines: {node: '>=16.9.0'}
+
   html-url-attributes@3.0.1:
     resolution: {integrity: sha512-ol6UPyBWqsrO6EJySPz2O7ZSr856WDrEzM5zMqp+FJJLGMW35cLYmmZnl0vztAZxRUoNZJFTCohfjuIJ8I4QBQ==}
 
@@ -1794,6 +1832,9 @@ packages:
   redux@5.0.1:
     resolution: {integrity: sha512-M9/ELqF6fy8FwmkpnF0S3YKOqMyoWJ4+CS5Efg2ct3oY9daQvd/Pc71FpGZsVsbl3Cpb+IIcjBDUnnyBdQbq4w==}
 
+  reflect-metadata@0.2.2:
+    resolution: {integrity: sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q==}
+
   remark-gfm@4.0.1:
     resolution: {integrity: sha512-1quofZ2RQ9EWdeN34S79+KExV1764+wCUGop5CPL1WGdD0ocPpu91lzPGbwWMECpEpd42kJGQwzRfyov9j4yNg==}
 
@@ -1959,8 +2000,15 @@ packages:
   ts-algebra@2.0.0:
     resolution: {integrity: sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw==}
 
+  tslib@1.14.1:
+    resolution: {integrity: sha512-Xni35NKzjgMrwevysHTCArtLDpPvye8zV/0E4EyYn43P7/7qvQwPh9BGkHewbMulVntbigmcT7rdX3BNo9wRJg==}
+
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
+
+  tsyringe@4.10.0:
+    resolution: {integrity: sha512-axr3IdNuVIxnaK5XGEUFTu3YmAQ6lllgrvqfEoR16g/HGnYY/6We4oWENtAnzK6/LpJ2ur9PAb80RBt7/U4ugw==}
+    engines: {node: '>= 6.0.0'}
 
   tunnel-agent@0.6.0:
     resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
@@ -2625,6 +2673,10 @@ snapshots:
       - supports-color
       - utf-8-validate
 
+  '@hono/node-server@1.19.14(hono@4.12.26)':
+    dependencies:
+      hono: 4.12.26
+
   '@jridgewell/gen-mapping@0.3.13':
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
@@ -2816,6 +2868,22 @@ snapshots:
   '@standard-schema/spec@1.1.0': {}
 
   '@standard-schema/utils@0.3.0': {}
+
+  '@tsuki-hono/common@0.0.4(hono@4.12.26)':
+    dependencies:
+      hono: 4.12.26
+      picocolors: 1.1.1
+      reflect-metadata: 0.2.2
+      tsyringe: 4.10.0
+      zod: 4.4.3
+
+  '@tsuki-hono/core@0.0.4(hono@4.12.26)':
+    dependencies:
+      '@tsuki-hono/common': 0.0.4(hono@4.12.26)
+      hono: 4.12.26
+      picocolors: 1.1.1
+      reflect-metadata: 0.2.2
+      tsyringe: 4.10.0
 
   '@tybys/wasm-util@0.10.3':
     dependencies:
@@ -3310,6 +3378,8 @@ snapshots:
   hast-util-whitespace@3.0.0:
     dependencies:
       '@types/hast': 3.0.4
+
+  hono@4.12.26: {}
 
   html-url-attributes@3.0.1: {}
 
@@ -4064,6 +4134,8 @@ snapshots:
 
   redux@5.0.1: {}
 
+  reflect-metadata@0.2.2: {}
+
   remark-gfm@4.0.1:
     dependencies:
       '@types/mdast': 4.0.4
@@ -4238,7 +4310,13 @@ snapshots:
 
   ts-algebra@2.0.0: {}
 
+  tslib@1.14.1: {}
+
   tslib@2.8.1: {}
+
+  tsyringe@4.10.0:
+    dependencies:
+      tslib: 1.14.1
 
   tunnel-agent@0.6.0:
     dependencies:
