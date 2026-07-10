@@ -116,7 +116,7 @@ export function useDeepDive(symbol: string, onNoteReady: () => void) {
         setInlineMessage("已有分析进行中");
       } else if (error instanceof ApiError && error.status === 503) {
         setDisabled(true);
-        setInlineMessage("未配置 AI_DEEPDIVE_MODEL");
+        setInlineMessage("未配置深度研究模型，请在 /settings 配置");
       } else {
         setInlineMessage(errorMessage(error));
       }

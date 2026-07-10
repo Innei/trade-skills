@@ -287,6 +287,6 @@ describe("POST /:id/chat/messages", () => {
       payload: { text: "你好" },
     });
     expect(res.statusCode).toBe(503);
-    expect(res.json()).toEqual({ error: "未配置 AI_CHAT_MODEL / AI_ANALYST_MODEL" });
+    expect(res.json()).toEqual({ error: "未配置追问模型，请在 /settings 配置" });
   });
 });

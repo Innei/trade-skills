@@ -6,7 +6,9 @@ import { promisify } from "node:util";
 import { createAgentSession } from "../src/ai/agentSession.js";
 import { deepDiveState, startDeepDive } from "../src/ai/deepDive.js";
 import { buildSystemPrompt, buildTools } from "../src/ai/deepDiveTools.js";
-import { resolveModel } from "../src/ai/models.js";
+import { initAiSettings } from "../src/ai/initAiSettings.js";
+import { aiConfig } from "../src/ai/models.js";
+import { getDb } from "../src/db/index.js";
 import { loadDotenv } from "../src/dotenv.js";
 import { PROJECT_ROOT } from "../src/env.js";
 import { loadSkillIndex, readSkill } from "../src/services/skills.js";
@@ -41,9 +43,9 @@ async function runDefaultMode(symbol: string): Promise<void> {
   if (!skillText) fail("readSkill(stock-deep-dive) returned null despite being in the index");
   console.log(`\nstock-deep-dive SKILL.md (first 500 chars):\n${skillText.slice(0, 500)}`);
 
-  const model = resolveModel(process.env.AI_DEEPDIVE_MODEL);
-  console.log(`\nAI_DEEPDIVE_MODEL: ${process.env.AI_DEEPDIVE_MODEL ?? "(unset)"} -> ${model ? "resolved" : "null"}`);
-  if (!model) fail("AI_DEEPDIVE_MODEL missing or unresolved; set it in repo-root .env as provider/id");
+  const model = aiConfig().deepDiveModel;
+  console.log(`\ndeep dive model: ${model ? `${model.provider}/${model.id}` : "未配置"}`);
+  if (!model) fail("深度研究模型未配置；请在 /settings 配置");
 
   const tmpStocksDir = await mkdtemp(join(tmpdir(), "deep-dive-smoke-"));
   console.log(`\ntemp stocks dir (note writes land here, NOT the real stocks/): ${tmpStocksDir}`);
@@ -115,7 +117,7 @@ async function runFullMode(symbol: string): Promise<void> {
   if (!result.started) {
     fail(
       result.reason === "disabled"
-        ? "deep dive disabled: AI_DEEPDIVE_MODEL missing or unresolved; set it in repo-root .env as provider/id"
+        ? "deep dive disabled: 深度研究模型未配置；请在 /settings 配置"
         : `deep dive did not start: ${result.reason}`,
     );
   }
@@ -156,6 +158,7 @@ async function main(): Promise<void> {
   if (!symbol) usage();
 
   loadDotenv();
+  initAiSettings(getDb());
 
   if (full) {
     await runFullMode(symbol);
