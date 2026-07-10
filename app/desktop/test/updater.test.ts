@@ -4,8 +4,10 @@ import {
   isNewerVersion,
   parseLatestRelease,
   shouldCheck,
+  startUpdater,
   type UpdaterDeps,
 } from "../src/updater.js";
+import type { SparkleBridge } from "../src/sparkle.js";
 
 describe("isNewerVersion", () => {
   it.each([
@@ -86,6 +88,56 @@ describe("parseLatestRelease", () => {
   it("rejects malformed shapes", () => {
     expect(parseLatestRelease("not json")).toBeNull();
     expect(parseLatestRelease(42)).toBeNull();
+  });
+});
+
+describe("startUpdater", () => {
+  const sparkleOptions = { appcastUrl: "https://x/appcast.xml", publicEdKey: "placeholder" };
+
+  it("uses the sparkle bridge when init succeeds", () => {
+    const runWeakChecker = vi.fn();
+    const bridge: SparkleBridge = {
+      init: vi.fn().mockReturnValue(true),
+      checkForUpdates: vi.fn(),
+      setAutomaticChecks: vi.fn(),
+    };
+    const result = startUpdater({ sparkleBridge: bridge, sparkleOptions, runWeakChecker });
+    expect(result).toBe("sparkle");
+    expect(bridge.init).toHaveBeenCalledWith(sparkleOptions);
+    expect(runWeakChecker).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the weak checker when the bridge is missing (addon not found)", () => {
+    const runWeakChecker = vi.fn();
+    const result = startUpdater({ sparkleBridge: null, sparkleOptions, runWeakChecker });
+    expect(result).toBe("weak");
+    expect(runWeakChecker).toHaveBeenCalledOnce();
+  });
+
+  it("falls back to the weak checker when init returns false (framework missing)", () => {
+    const runWeakChecker = vi.fn();
+    const bridge: SparkleBridge = {
+      init: vi.fn().mockReturnValue(false),
+      checkForUpdates: vi.fn(),
+      setAutomaticChecks: vi.fn(),
+    };
+    const result = startUpdater({ sparkleBridge: bridge, sparkleOptions, runWeakChecker });
+    expect(result).toBe("weak");
+    expect(runWeakChecker).toHaveBeenCalledOnce();
+  });
+
+  it("falls back to the weak checker when init throws", () => {
+    const runWeakChecker = vi.fn();
+    const bridge: SparkleBridge = {
+      init: vi.fn().mockImplementation(() => {
+        throw new Error("dlopen failed");
+      }),
+      checkForUpdates: vi.fn(),
+      setAutomaticChecks: vi.fn(),
+    };
+    const result = startUpdater({ sparkleBridge: bridge, sparkleOptions, runWeakChecker });
+    expect(result).toBe("weak");
+    expect(runWeakChecker).toHaveBeenCalledOnce();
   });
 });
 

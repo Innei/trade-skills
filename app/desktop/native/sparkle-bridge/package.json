@@ -1,0 +1,16 @@
+{
+  "name": "@trade/sparkle-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "gypfile": true,
+  "scripts": {
+    "fetch-sparkle": "bash scripts/fetch-sparkle.sh",
+    "build": "npm run fetch-sparkle && node-gyp rebuild --target=43.1.0 --arch=arm64 --dist-url=https://electronjs.org/headers"
+  },
+  "dependencies": {
+    "node-addon-api": "^8.5.0"
+  },
+  "devDependencies": {
+    "node-gyp": "^13.0.1"
+  }
+}

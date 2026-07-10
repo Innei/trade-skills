@@ -5,6 +5,7 @@ directories:
 files:
   - dist-main/**
   - dist-preload/**
+  - native/sparkle-bridge/build/Release/sparkle_bridge.node
   - package.json
   - "!**/*.ts"
 extraResources:
@@ -12,10 +13,13 @@ extraResources:
     to: web-dist
   - from: ../server/drizzle
     to: drizzle
-extraFiles: []
+extraFiles:
+  - from: native/sparkle-bridge/vendor/Sparkle.framework
+    to: Frameworks/Sparkle.framework
 asarUnpack:
   - "**/node_modules/better-sqlite3/**"
   - "**/node_modules/longbridge*/**"
+  - "**/native/sparkle-bridge/build/**"
 mac:
   target:
     - target: dmg
@@ -23,3 +27,9 @@ mac:
     - target: zip
       arch: [arm64]
   identity: null
+  extendInfo:
+    SUFeedURL: https://github.com/Innei/trade-skills/releases/latest/download/appcast.xml
+    # CI injects the real EdDSA public key over this placeholder at build time — keep it
+    # greppable (SPARKLE_ED_PUBLIC_KEY_PLACEHOLDER) so that step has a stable anchor.
+    SUPublicEDKey: SPARKLE_ED_PUBLIC_KEY_PLACEHOLDER
+    SUEnableInstallerLauncherService: false
