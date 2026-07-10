@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { app, BrowserWindow } from "electron";
 import { resolveRepoRoot } from "./repoRoot.js";
+import { initUpdater } from "./updater.js";
 
 process.env.TRADE_PROJECT_ROOT = resolveRepoRoot();
 
@@ -52,6 +53,7 @@ function createWindow() {
 app.whenReady().then(async () => {
   await bootKernel();
   createWindow();
+  initUpdater();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
