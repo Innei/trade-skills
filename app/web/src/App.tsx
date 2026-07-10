@@ -1,8 +1,9 @@
 import { useEffect } from "react";
-import { Settings } from "lucide-react";
+import { ChartCandlestick, Settings } from "lucide-react";
 import type { ChartDoc } from "../../shared/types";
 import { chartTargetPath } from "../../shared/chartUrl";
 import { useQuery } from "./apiHooks";
+import { openNewChartDialog } from "./newChart/NewChartDialog";
 import { Home } from "./pages/Home";
 import { SettingsPage } from "./pages/settings/SettingsPage";
 import { SymbolCockpit } from "./pages/SymbolCockpit";
@@ -53,9 +54,15 @@ function GlobalTopbar() {
   const route = useRoute();
   if (route === "/settings") return null;
   return (
-    <a className="global-settings-link" href="/settings" aria-label="设置">
-      <Settings size={16} />
-    </a>
+    <div className="global-topbar">
+      <button className="global-new-chart" onClick={openNewChartDialog} aria-label="新建图表">
+        <ChartCandlestick size={16} />
+        新建图表
+      </button>
+      <a className="global-settings-link" href="/settings" aria-label="设置">
+        <Settings size={16} />
+      </a>
+    </div>
   );
 }
 

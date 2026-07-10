@@ -2,10 +2,12 @@ import type { ApiResult } from "../../shared/types";
 
 export class ApiError extends Error {
   status: number;
+  code?: string;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -44,7 +46,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new ApiError("Malformed API response", res.status);
   }
 
-  if (!json.ok) throw new ApiError(json.hint ? `${json.error} (${json.hint})` : json.error, res.status);
+  if (!json.ok) throw new ApiError(json.hint ? `${json.error} (${json.hint})` : json.error, res.status, json.code);
   if (!res.ok) throw new ApiError(`HTTP ${res.status}${res.statusText ? ` ${res.statusText}` : ""}`, res.status);
   return json.data;
 }

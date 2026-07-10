@@ -620,6 +620,7 @@ export interface ApiErr {
   ok: false;
   error: string;
   hint?: string;
+  code?: string;
 }
 
 export type ApiResult<T> = ApiOk<T> | ApiErr;
