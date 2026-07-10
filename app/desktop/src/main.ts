@@ -1,13 +1,21 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, dialog } from "electron";
+import { registerAppProtocolHandler, registerAppScheme } from "./protocolHost.js";
 import { resolveRepoRoot } from "./repoRoot.js";
 
+// Scheme registration must run before app.ready — calling it at module top
+// level (evaluated on import, ahead of the whenReady() handler below) makes
+// that ordering impossible to get wrong regardless of what else this file
+// grows into.
+registerAppScheme();
+
 process.env.TRADE_PROJECT_ROOT = resolveRepoRoot();
+const repoRoot = process.env.TRADE_PROJECT_ROOT;
 
 const DEV_WEB_URL = "http://localhost:5199";
-const PLACEHOLDER_HTML = `data:text/html,${encodeURIComponent(
-  "<title>trade</title><body style=\"font:14px system-ui;padding:2rem\">packaged host arrives in a later task</body>",
-)}`;
+const PROD_APP_URL = "app://-/index.html";
+const WEB_DIST_ROOT = join(repoRoot, "app", "web", "dist");
 
 async function bootKernel() {
   const { initServerRuntime } = await import("../../server/src/runtimeInit.js");
@@ -45,17 +53,44 @@ function createWindow() {
     );
   });
 
-  const url = process.env.ELECTRON_DEV === "1" ? DEV_WEB_URL : PLACEHOLDER_HTML;
+  const url = process.env.ELECTRON_DEV === "1" ? DEV_WEB_URL : PROD_APP_URL;
   win.loadURL(url);
 }
 
-app.whenReady().then(async () => {
-  await bootKernel();
-  createWindow();
+function showFatalErrorWindow(error: unknown) {
+  const message = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  console.error("[desktop] fatal startup error", error);
 
-  app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+  const win = new BrowserWindow({ width: 720, height: 480 });
+  win.loadURL(
+    `data:text/html,${encodeURIComponent(
+      `<title>trade — startup failed</title><body style="font:13px ui-monospace,monospace;padding:2rem;white-space:pre-wrap">${message
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")}</body>`,
+    )}`,
+  );
+  dialog.showErrorBox("trade failed to start", message);
+}
+
+app.whenReady().then(async () => {
+  try {
+    const kernel = await bootKernel();
+    const apiApp = kernel.app.getInstance();
+
+    registerAppProtocolHandler({
+      kernelFetch: async (request) => apiApp.fetch(request),
+      distRoot: WEB_DIST_ROOT,
+      distRootExists: () => existsSync(WEB_DIST_ROOT),
+    });
+
+    createWindow();
+
+    app.on("activate", () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  } catch (error) {
+    showFatalErrorWindow(error);
+  }
 });
 
 app.on("window-all-closed", () => {

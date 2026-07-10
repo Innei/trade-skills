@@ -13,8 +13,13 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "longbridge": "^4.3.3"
+  },
   "devDependencies": {
     "@electron/rebuild": "^4.2.0",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^26.0.1",
     "electron": "43.1.0",
     "tsdown": "^0.22.4",
