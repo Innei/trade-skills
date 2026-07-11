@@ -75,7 +75,7 @@ export function CredentialsSettingsCard() {
   });
 
   return (
-    <Card className="settings-credentials-card">
+    <Card className="settings-longbridge-card">
       <SectionTitle>长桥凭证</SectionTitle>
       <div className="settings-cred-row">
         <span className="settings-cred-name">配置状态</span>
