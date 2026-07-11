@@ -1016,6 +1016,8 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 }
 .settings-side { display: flex; min-width: 0; flex-direction: column; gap: 12px; }
 .settings-roles-card, .settings-credentials-card { overflow: hidden; padding: 0; }
+.settings-longbridge-card { padding: 11px; }
+.settings-longbridge-card .section-title { margin: 0 0 9px; }
 .settings-card-heading {
   display: flex; min-height: 34px; align-items: center; justify-content: space-between;
   gap: 12px; padding: 0 11px; border-bottom: 1px solid var(--border);
