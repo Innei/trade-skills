@@ -90,8 +90,9 @@ export function useTabsController(): TabsController {
       else if (command === "close-tab") closeActiveTab();
       else if (command === "next-tab") goToNextTab();
       else if (command === "prev-tab") goToPrevTab();
+      else if (command === "open-settings") focusOrOpenSettings();
     });
-  }, [openHomeTab, closeActiveTab, goToNextTab, goToPrevTab]);
+  }, [openHomeTab, closeActiveTab, goToNextTab, goToPrevTab, focusOrOpenSettings]);
 
   return {
     snapshot,
