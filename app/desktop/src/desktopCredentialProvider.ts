@@ -1,10 +1,12 @@
-import type { CredentialProvider, LongbridgeCredentials } from "../../server/src/services/credentials/types.js";
+import type { CredentialProvider, LongbridgeAuth, LongbridgeCredentials } from "../../server/src/services/credentials/types.js";
 import type { CredentialStore, SetCredentialsResult } from "./credentialStore.js";
 
 export interface DesktopCredentialProvider extends CredentialProvider {
   setCredentials(creds: LongbridgeCredentials): SetCredentialsResult;
+  setOAuth(clientId: string): SetCredentialsResult;
   clearCredentials(): void;
   isConfigured(): boolean;
+  configuredMethod(): LongbridgeAuth["kind"] | null;
   lastError(): string | null;
 }
 
@@ -15,8 +17,14 @@ export function createDesktopCredentialProvider(store: CredentialStore): Desktop
     for (const cb of listeners) cb();
   }
 
+  function persist(auth: LongbridgeAuth): SetCredentialsResult {
+    const result = store.set(auth);
+    if (result.ok) notify();
+    return result;
+  }
+
   return {
-    async getLongbridgeCredentials(): Promise<LongbridgeCredentials | null> {
+    async getLongbridgeAuth(): Promise<LongbridgeAuth | null> {
       return store.get();
     },
 
@@ -26,9 +34,11 @@ export function createDesktopCredentialProvider(store: CredentialStore): Desktop
     },
 
     setCredentials(creds: LongbridgeCredentials): SetCredentialsResult {
-      const result = store.set(creds);
-      if (result.ok) notify();
-      return result;
+      return persist({ kind: "apikey", ...creds });
+    },
+
+    setOAuth(clientId: string): SetCredentialsResult {
+      return persist({ kind: "oauth", clientId });
     },
 
     clearCredentials(): void {
@@ -38,6 +48,10 @@ export function createDesktopCredentialProvider(store: CredentialStore): Desktop
 
     isConfigured(): boolean {
       return store.get() !== null;
+    },
+
+    configuredMethod(): LongbridgeAuth["kind"] | null {
+      return store.get()?.kind ?? null;
     },
 
     lastError(): string | null {

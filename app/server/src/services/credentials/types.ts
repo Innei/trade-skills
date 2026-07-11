@@ -4,7 +4,11 @@ export interface LongbridgeCredentials {
   accessToken: string;
 }
 
+export type LongbridgeAuth =
+  | ({ kind: "apikey" } & LongbridgeCredentials)
+  | { kind: "oauth"; clientId: string };
+
 export interface CredentialProvider {
-  getLongbridgeCredentials(): Promise<LongbridgeCredentials | null>;
+  getLongbridgeAuth(): Promise<LongbridgeAuth | null>;
   onChange(cb: () => void): () => void;
 }

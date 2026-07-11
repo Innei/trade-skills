@@ -10,20 +10,34 @@ describe("envCredentialProvider", () => {
   });
 
   it("returns null when any of the three env vars is missing", async () => {
+    vi.stubEnv("LONGBRIDGE_OAUTH_CLIENT_ID", "");
     vi.stubEnv("LONGBRIDGE_APP_KEY", "");
     vi.stubEnv("LONGBRIDGE_APP_SECRET", "secret");
     vi.stubEnv("LONGBRIDGE_ACCESS_TOKEN", "token");
-    await expect(envCredentialProvider.getLongbridgeCredentials()).resolves.toBeNull();
+    await expect(envCredentialProvider.getLongbridgeAuth()).resolves.toBeNull();
   });
 
-  it("returns the credential triple when all three env vars are set", async () => {
+  it("returns apikey auth when all three env vars are set", async () => {
+    vi.stubEnv("LONGBRIDGE_OAUTH_CLIENT_ID", "");
     vi.stubEnv("LONGBRIDGE_APP_KEY", "key");
     vi.stubEnv("LONGBRIDGE_APP_SECRET", "secret");
     vi.stubEnv("LONGBRIDGE_ACCESS_TOKEN", "token");
-    await expect(envCredentialProvider.getLongbridgeCredentials()).resolves.toEqual({
+    await expect(envCredentialProvider.getLongbridgeAuth()).resolves.toEqual({
+      kind: "apikey",
       appKey: "key",
       appSecret: "secret",
       accessToken: "token",
+    });
+  });
+
+  it("prefers oauth auth over the apikey triple when LONGBRIDGE_OAUTH_CLIENT_ID is set", async () => {
+    vi.stubEnv("LONGBRIDGE_OAUTH_CLIENT_ID", "client-123");
+    vi.stubEnv("LONGBRIDGE_APP_KEY", "key");
+    vi.stubEnv("LONGBRIDGE_APP_SECRET", "secret");
+    vi.stubEnv("LONGBRIDGE_ACCESS_TOKEN", "token");
+    await expect(envCredentialProvider.getLongbridgeAuth()).resolves.toEqual({
+      kind: "oauth",
+      clientId: "client-123",
     });
   });
 
@@ -46,7 +60,7 @@ describe("credential provider registry", () => {
 
   it("initCredentialProvider swaps the active provider", () => {
     const fake: CredentialProvider = {
-      getLongbridgeCredentials: async () => null,
+      getLongbridgeAuth: async () => null,
       onChange: () => () => {},
     };
     initCredentialProvider(fake);
@@ -55,7 +69,7 @@ describe("credential provider registry", () => {
 
   it("initCredentialProvider with no argument resets to envCredentialProvider", () => {
     const fake: CredentialProvider = {
-      getLongbridgeCredentials: async () => null,
+      getLongbridgeAuth: async () => null,
       onChange: () => () => {},
     };
     initCredentialProvider(fake);
@@ -65,7 +79,7 @@ describe("credential provider registry", () => {
 
   it("setCredentialProviderForTests(null) resets to envCredentialProvider", () => {
     const fake: CredentialProvider = {
-      getLongbridgeCredentials: async () => null,
+      getLongbridgeAuth: async () => null,
       onChange: () => () => {},
     };
     setCredentialProviderForTests(fake);

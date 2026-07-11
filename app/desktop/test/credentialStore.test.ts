@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createCredentialStore, type SafeStorageLike } from "../src/credentialStore.js";
 
-const CREDS = { appKey: "key-abc", appSecret: "secret-abc", accessToken: "token-abc" };
+const CREDS = { kind: "apikey" as const, appKey: "key-abc", appSecret: "secret-abc", accessToken: "token-abc" };
 
 function fakeSafeStorage(overrides: Partial<SafeStorageLike> = {}): SafeStorageLike {
   return {
@@ -125,5 +125,50 @@ describe("credentialStore", () => {
     store.set(CREDS);
     expect(store.get()).toEqual(CREDS);
     expect(store.lastError()).toBeNull();
+  });
+});
+
+describe("credentialStore auth payloads", () => {
+  let dir: string;
+  let filePath: string;
+
+  beforeEach(() => {
+    dir = mkdtempSync(join(tmpdir(), "credential-store-"));
+    filePath = join(dir, "credentials.json");
+  });
+
+  afterEach(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("round-trips oauth auth through set/get", () => {
+    const store = createCredentialStore({ safeStorage: fakeSafeStorage(), filePath });
+    expect(store.set({ kind: "oauth", clientId: "client-123" })).toEqual({ ok: true });
+    expect(store.get()).toEqual({ kind: "oauth", clientId: "client-123" });
+  });
+
+  it("reads a legacy untagged apikey payload as apikey auth", () => {
+    const legacy = { appKey: "key-abc", appSecret: "secret-abc", accessToken: "token-abc" };
+    const ciphertext = Buffer.from(`enc:${JSON.stringify(legacy)}`, "utf8").toString("base64");
+    writeFileSync(filePath, JSON.stringify({ version: 1, ciphertext }), { mode: 0o600 });
+    const store = createCredentialStore({ safeStorage: fakeSafeStorage(), filePath });
+    expect(store.get()).toEqual({ kind: "apikey", ...legacy });
+    expect(store.lastError()).toBeNull();
+  });
+
+  it("rejects an oauth payload with a missing clientId", () => {
+    const ciphertext = Buffer.from(`enc:${JSON.stringify({ kind: "oauth" })}`, "utf8").toString("base64");
+    writeFileSync(filePath, JSON.stringify({ version: 1, ciphertext }), { mode: 0o600 });
+    const store = createCredentialStore({ safeStorage: fakeSafeStorage(), filePath });
+    expect(store.get()).toBeNull();
+    expect(store.lastError()).toBe("corrupt credentials payload");
+  });
+
+  it("rejects an unknown kind tag", () => {
+    const ciphertext = Buffer.from(`enc:${JSON.stringify({ kind: "magic", token: "x" })}`, "utf8").toString("base64");
+    writeFileSync(filePath, JSON.stringify({ version: 1, ciphertext }), { mode: 0o600 });
+    const store = createCredentialStore({ safeStorage: fakeSafeStorage(), filePath });
+    expect(store.get()).toBeNull();
+    expect(store.lastError()).toBe("corrupt credentials payload");
   });
 });

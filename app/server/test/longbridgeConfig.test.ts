@@ -31,11 +31,10 @@ describe("resolveLongbridgeConfig", () => {
     expect(sdk.fromApikey).not.toHaveBeenCalled();
   });
 
-  it("resolves credentials through the active provider and builds an apikey Config", async () => {
-    vi.stubEnv("LONGBRIDGE_OAUTH_CLIENT_ID", "");
+  it("builds an apikey Config when the provider returns apikey auth", async () => {
     const { setCredentialProviderForTests } = await import("../src/services/credentials/registry.js");
     setCredentialProviderForTests({
-      getLongbridgeCredentials: async () => ({ appKey: "k", appSecret: "s", accessToken: "t" }),
+      getLongbridgeAuth: async () => ({ kind: "apikey", appKey: "k", appSecret: "s", accessToken: "t" }),
       onChange: () => () => {},
     });
     const { resolveLongbridgeConfig } = await import("../src/services/marketdata/longbridgeConfig.js");
@@ -47,11 +46,11 @@ describe("resolveLongbridgeConfig", () => {
     setCredentialProviderForTests(null);
   });
 
-  it("throws NoCredentialsError when the provider returns null and no OAuth client id is set", async () => {
+  it("throws NoCredentialsError when the provider returns null", async () => {
     vi.stubEnv("LONGBRIDGE_OAUTH_CLIENT_ID", "");
     const { setCredentialProviderForTests } = await import("../src/services/credentials/registry.js");
     setCredentialProviderForTests({
-      getLongbridgeCredentials: async () => null,
+      getLongbridgeAuth: async () => null,
       onChange: () => () => {},
     });
     const { resolveLongbridgeConfig } = await import("../src/services/marketdata/longbridgeConfig.js");
@@ -61,14 +60,51 @@ describe("resolveLongbridgeConfig", () => {
     setCredentialProviderForTests(null);
   });
 
-  it("prefers OAuth over the credential provider when LONGBRIDGE_OAUTH_CLIENT_ID is set", async () => {
-    vi.stubEnv("LONGBRIDGE_OAUTH_CLIENT_ID", "client-123");
+  it("builds an OAuth Config when the provider returns oauth auth", async () => {
+    const { setCredentialProviderForTests } = await import("../src/services/credentials/registry.js");
+    setCredentialProviderForTests({
+      getLongbridgeAuth: async () => ({ kind: "oauth", clientId: "client-123" }),
+      onChange: () => () => {},
+    });
     const { resolveLongbridgeConfig } = await import("../src/services/marketdata/longbridgeConfig.js");
 
     const config = await resolveLongbridgeConfig();
 
     expect(sdk.oauthBuild).toHaveBeenCalledWith("client-123", expect.any(Function));
     expect(sdk.fromOAuth).toHaveBeenCalled();
+    expect(config).toMatchObject({ kind: "oauth" });
+    expect(sdk.fromApikey).not.toHaveBeenCalled();
+    setCredentialProviderForTests(null);
+  });
+
+  it("routes the OAuth authorization URL through the configured opener", async () => {
+    sdk.oauthBuild.mockImplementationOnce(async (clientId: string, onOpenUrl?: unknown) => {
+      (onOpenUrl as (err: Error | null, url: string) => void)(null, "https://auth.example/authorize");
+      return { clientId };
+    });
+    const { setCredentialProviderForTests } = await import("../src/services/credentials/registry.js");
+    setCredentialProviderForTests({
+      getLongbridgeAuth: async () => ({ kind: "oauth", clientId: "client-123" }),
+      onChange: () => () => {},
+    });
+    const { initAuthUrlOpener } = await import("../src/services/credentials/authUrlOpener.js");
+    const opened: string[] = [];
+    initAuthUrlOpener((url) => opened.push(url));
+    const { resolveLongbridgeConfig } = await import("../src/services/marketdata/longbridgeConfig.js");
+
+    await resolveLongbridgeConfig();
+
+    expect(opened).toEqual(["https://auth.example/authorize"]);
+    setCredentialProviderForTests(null);
+  });
+
+  it("keeps preferring OAuth from the default env provider when LONGBRIDGE_OAUTH_CLIENT_ID is set", async () => {
+    vi.stubEnv("LONGBRIDGE_OAUTH_CLIENT_ID", "client-env");
+    const { resolveLongbridgeConfig } = await import("../src/services/marketdata/longbridgeConfig.js");
+
+    const config = await resolveLongbridgeConfig();
+
+    expect(sdk.oauthBuild).toHaveBeenCalledWith("client-env", expect.any(Function));
     expect(config).toMatchObject({ kind: "oauth" });
     expect(sdk.fromApikey).not.toHaveBeenCalled();
   });

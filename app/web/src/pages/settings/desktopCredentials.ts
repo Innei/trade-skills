@@ -4,8 +4,11 @@ export interface LongbridgeCredentials {
   accessToken: string;
 }
 
+export type CredentialsMethod = "apikey" | "oauth";
+
 export interface CredentialsGetResult {
   configured: boolean;
+  method?: CredentialsMethod | null;
   lastError: string | null;
 }
 
@@ -19,6 +22,7 @@ export interface DesktopCredentialsBridge {
   set(creds: LongbridgeCredentials): Promise<SetCredentialsResult>;
   clear(): Promise<void>;
   test(creds: LongbridgeCredentials): Promise<TestCredentialsResult>;
+  loginOAuth?: () => Promise<TestCredentialsResult>;
 }
 
 interface DesktopGlobal {

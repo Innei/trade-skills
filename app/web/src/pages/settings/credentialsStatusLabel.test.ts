@@ -8,6 +8,12 @@ describe("deriveCredentialsStatusLabel", () => {
     ).toBe("已配置");
   });
 
+  it("shows the OAuth-login line when the store holds an oauth credential", () => {
+    expect(
+      deriveCredentialsStatusLabel({ serverConfigured: true, storeConfigured: true, storeMethod: "oauth", lastError: null }),
+    ).toBe("已登录长桥账号");
+  });
+
   it("shows the OAuth-env line when the server is configured but nothing is in the desktop store (OAuth-only machine)", () => {
     expect(
       deriveCredentialsStatusLabel({ serverConfigured: true, storeConfigured: false, lastError: null }),

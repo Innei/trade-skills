@@ -8,14 +8,18 @@ export type TestCredentialsFn = (creds: LongbridgeCredentials) => Promise<TestCr
 
 const TEST_MIN_GAP_MS = 2_000;
 
+export type OAuthLoginFn = () => Promise<TestCredentialsResult>;
+
 export interface CredentialsBridgeDeps {
   provider: DesktopCredentialProvider;
   testCredentials: TestCredentialsFn;
+  oauthLogin?: OAuthLoginFn;
   now?: () => number;
 }
 
 export interface CredentialsGetResult {
   configured: boolean;
+  method: "apikey" | "oauth" | null;
   lastError: string | null;
 }
 
@@ -24,6 +28,7 @@ export interface CredentialsBridgeHandlers {
   set(creds: LongbridgeCredentials): SetCredentialsResult;
   clear(): void;
   test(creds: LongbridgeCredentials): Promise<TestCredentialsResult>;
+  oauthLogin(): Promise<TestCredentialsResult>;
 }
 
 export function createCredentialsBridgeHandlers(deps: CredentialsBridgeDeps): CredentialsBridgeHandlers {
@@ -31,10 +36,15 @@ export function createCredentialsBridgeHandlers(deps: CredentialsBridgeDeps): Cr
   let inFlight: Promise<TestCredentialsResult> | null = null;
   let lastCompletedAt = 0;
   let hasCompletedOnce = false;
+  let loginInFlight: Promise<TestCredentialsResult> | null = null;
 
   return {
     get(): CredentialsGetResult {
-      return { configured: deps.provider.isConfigured(), lastError: deps.provider.lastError() };
+      return {
+        configured: deps.provider.isConfigured(),
+        method: deps.provider.configuredMethod(),
+        lastError: deps.provider.lastError(),
+      };
     },
 
     set(creds: LongbridgeCredentials): SetCredentialsResult {
@@ -64,6 +74,19 @@ export function createCredentialsBridgeHandlers(deps: CredentialsBridgeDeps): Cr
         inFlight = null;
       }
     },
+
+    async oauthLogin(): Promise<TestCredentialsResult> {
+      if (!deps.oauthLogin) return { ok: false, error: "OAuth login is not available" };
+      if (loginInFlight) return { ok: false, error: "an OAuth login is already running" };
+
+      const run = deps.oauthLogin();
+      loginInFlight = run;
+      try {
+        return await run;
+      } finally {
+        loginInFlight = null;
+      }
+    },
   };
 }
 
@@ -76,4 +99,5 @@ export function registerCredentialsIpc(ipcMain: IpcMainLike, handlers: Credentia
   ipcMain.handle(CREDENTIALS_CHANNELS.set, (_event, creds) => handlers.set(creds as LongbridgeCredentials));
   ipcMain.handle(CREDENTIALS_CHANNELS.clear, () => handlers.clear());
   ipcMain.handle(CREDENTIALS_CHANNELS.test, (_event, creds) => handlers.test(creds as LongbridgeCredentials));
+  ipcMain.handle(CREDENTIALS_CHANNELS.oauthLogin, () => handlers.oauthLogin());
 }

@@ -32,6 +32,7 @@ if (isAppOrigin) {
     set: (creds: unknown) => ipcRenderer.invoke(CREDENTIALS_CHANNELS.set, creds),
     clear: () => ipcRenderer.invoke(CREDENTIALS_CHANNELS.clear),
     test: (creds: unknown) => ipcRenderer.invoke(CREDENTIALS_CHANNELS.test, creds),
+    loginOAuth: () => ipcRenderer.invoke(CREDENTIALS_CHANNELS.oauthLogin),
   };
 
   desktopApi.externalApi = {

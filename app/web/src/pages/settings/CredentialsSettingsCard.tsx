@@ -4,6 +4,7 @@ import { useQuery } from "../../apiHooks";
 import { clearRestricted } from "../../restrictedMode";
 import { Badge, Button, Card, openModal, SectionTitle } from "../../ui";
 import { CredentialsForm } from "./CredentialsForm";
+import { OAuthLoginSection } from "./OAuthLoginSection";
 import { refreshAfterClear, refreshAfterSave } from "./credentialsRefreshActions";
 import { deriveCredentialsStatusLabel } from "./credentialsStatusLabel";
 import { CREDENTIALS_STATUS_URL, getDesktopCredentialsBridge, type CredentialsGetResult } from "./desktopCredentials";
@@ -13,6 +14,7 @@ export function CredentialsSettingsCard() {
   const [storeStatus, setStoreStatus] = useState<CredentialsGetResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
+  const [showManualForm, setShowManualForm] = useState(false);
   const { data: serverStatus, reload: reloadServerStatus } = useQuery<CredentialsGetResult>(
     bridge ? CREDENTIALS_STATUS_URL : null,
   );
@@ -66,6 +68,7 @@ export function CredentialsSettingsCard() {
   const statusLabel = deriveCredentialsStatusLabel({
     serverConfigured: configured,
     storeConfigured: storeStatus?.configured ?? false,
+    storeMethod: storeStatus?.method ?? null,
     lastError: storeStatus?.lastError ?? null,
   });
 
@@ -86,16 +89,23 @@ export function CredentialsSettingsCard() {
 
       {error && <div className="settings-test-result settings-test-result--fail">{error}</div>}
 
-      <CredentialsForm
-        bridge={bridge}
-        submitLabel="保存"
-        hint={
-          storeStatus?.configured
-            ? "出于安全考虑不回显已保存的凭证；如需更新，请重新填写全部三项后保存。"
-            : "填入三项凭证后先测试连接，确认无误后再保存。"
-        }
-        onSaved={handleSaved}
-      />
+      <OAuthLoginSection bridge={bridge} onDone={handleSaved} />
+
+      <button type="button" className="settings-manual-cred-toggle" onClick={() => setShowManualForm((v) => !v)}>
+        {showManualForm ? "收起手动配置" : "手动填写 API 凭证（高级）"}
+      </button>
+      {showManualForm && (
+        <CredentialsForm
+          bridge={bridge}
+          submitLabel="保存"
+          hint={
+            storeStatus?.configured
+              ? "出于安全考虑不回显已保存的凭证；如需更新，请重新填写全部三项后保存。"
+              : "填入三项凭证后先测试连接，确认无误后再保存。"
+          }
+          onSaved={handleSaved}
+        />
+      )}
     </Card>
   );
 }

@@ -9,6 +9,7 @@ import { createDesktopCredentialProvider, selectCredentialProvider } from "./des
 import { createDesktopSecretBox } from "./desktopSecretBox.js";
 import { createExternalApiController, type ExternalApiController } from "./externalApi.js";
 import { isAllowedNavigationUrl, isExternalHttpUrl } from "./navigationGuard.js";
+import { DEFAULT_LONGBRIDGE_OAUTH_CLIENT_ID, performOAuthLogin } from "./oauthLogin.js";
 import { registerAppProtocolHandler, registerAppScheme } from "./protocolHost.js";
 import { resolveDataRoot, resolveRepoRoot, scaffoldDataRoot } from "./repoRoot.js";
 import { initUpdater } from "./updater.js";
@@ -76,13 +77,32 @@ async function bootKernel() {
         legacyKeyPath: join(CHART_DATA_DIR, "ai-secret.key"),
       });
 
-  initServerRuntime({ credentialProvider, secretBox });
+  initServerRuntime({
+    credentialProvider,
+    secretBox,
+    openAuthUrl: (url) => {
+      shell.openExternal(url).catch(() => {});
+    },
+  });
   const kernel = await createKernel();
   const apiApp = kernel.app.getInstance();
   attachRealtimeBridge();
   registerCredentialsIpc(
     ipcMain,
-    createCredentialsBridgeHandlers({ provider: desktopProvider, testCredentials: testLongbridgeCredentials }),
+    createCredentialsBridgeHandlers({
+      provider: desktopProvider,
+      testCredentials: testLongbridgeCredentials,
+      oauthLogin: async () => {
+        const result = await performOAuthLogin(DEFAULT_LONGBRIDGE_OAUTH_CLIENT_ID, {
+          openUrl: (url) => {
+            shell.openExternal(url).catch(() => {});
+          },
+        });
+        if (!result.ok) return result;
+        const persisted = desktopProvider.setOAuth(DEFAULT_LONGBRIDGE_OAUTH_CLIENT_ID);
+        return persisted.ok ? result : persisted;
+      },
+    }),
   );
 
   const health = await apiApp.fetch(new Request("http://localhost/api/health"));

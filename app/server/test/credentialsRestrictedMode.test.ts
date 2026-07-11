@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { setCredentialProviderForTests } from "../src/services/credentials/registry.js";
 import { resetCredentialStatusForTests } from "../src/services/credentials/credentialStatus.js";
 import type { CredentialProvider } from "../src/services/credentials/types.js";
@@ -6,7 +6,7 @@ import type { CredentialProvider } from "../src/services/credentials/types.js";
 const { tsukiRequest } = await import("./helpers.js");
 
 const nullProvider: CredentialProvider = {
-  getLongbridgeCredentials: async () => null,
+  getLongbridgeAuth: async () => null,
   onChange: () => () => {},
 };
 
@@ -47,7 +47,7 @@ describe("restricted mode (no Longbridge credentials configured)", () => {
     const res = await tsukiRequest("/api/credentials/status");
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ ok: true, data: { configured: false, lastError: null } });
+    expect(body).toEqual({ ok: true, data: { configured: false, method: null, lastError: null } });
   });
 });
 
@@ -59,27 +59,28 @@ describe("GET /api/credentials/status with credentials configured", () => {
 
   it("reports configured:true", async () => {
     setCredentialProviderForTests({
-      getLongbridgeCredentials: async () => ({ appKey: "k", appSecret: "s", accessToken: "t" }),
+      getLongbridgeAuth: async () => ({ kind: "apikey", appKey: "k", appSecret: "s", accessToken: "t" }),
       onChange: () => () => {},
     });
     const res = await tsukiRequest("/api/credentials/status");
     const body = await res.json();
-    expect(body).toEqual({ ok: true, data: { configured: true, lastError: null } });
+    expect(body).toEqual({ ok: true, data: { configured: true, method: "apikey", lastError: null } });
   });
 });
 
-describe("GET /api/credentials/status with OAuth-only env (no appKey/appSecret/accessToken)", () => {
+describe("GET /api/credentials/status with an OAuth provider", () => {
   afterEach(() => {
     setCredentialProviderForTests(null);
     resetCredentialStatusForTests();
-    vi.unstubAllEnvs();
   });
 
-  it("reports configured:true, mirroring resolveLongbridgeConfig's OAuth precedence", async () => {
-    vi.stubEnv("LONGBRIDGE_OAUTH_CLIENT_ID", "client-id");
-    setCredentialProviderForTests(nullProvider);
+  it("reports configured:true with method oauth", async () => {
+    setCredentialProviderForTests({
+      getLongbridgeAuth: async () => ({ kind: "oauth", clientId: "client-id" }),
+      onChange: () => () => {},
+    });
     const res = await tsukiRequest("/api/credentials/status");
     const body = await res.json();
-    expect(body).toEqual({ ok: true, data: { configured: true, lastError: null } });
+    expect(body).toEqual({ ok: true, data: { configured: true, method: "oauth", lastError: null } });
   });
 });

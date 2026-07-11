@@ -1,5 +1,5 @@
 import { chmodSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import type { LongbridgeCredentials } from "../../server/src/services/credentials/types.js";
+import type { LongbridgeAuth, LongbridgeCredentials } from "../../server/src/services/credentials/types.js";
 
 export interface SafeStorageLike {
   isEncryptionAvailable(): boolean;
@@ -15,8 +15,8 @@ export interface CredentialStoreDeps {
 export type SetCredentialsResult = { ok: true } | { ok: false; error: string };
 
 export interface CredentialStore {
-  get(): LongbridgeCredentials | null;
-  set(creds: LongbridgeCredentials): SetCredentialsResult;
+  get(): LongbridgeAuth | null;
+  set(auth: LongbridgeAuth): SetCredentialsResult;
   clear(): void;
   lastError(): string | null;
 }
@@ -42,6 +42,20 @@ function isLongbridgeCredentials(value: unknown): value is LongbridgeCredentials
     typeof v?.appSecret === "string" &&
     typeof v?.accessToken === "string"
   );
+}
+
+// Pre-OAuth builds persisted the bare apikey trio with no `kind` tag; keep
+// reading those so an app update doesn't wipe saved credentials.
+function parseAuthPayload(value: unknown): LongbridgeAuth | null {
+  const kind = (value as { kind?: unknown } | null)?.kind;
+  if (kind === "oauth") {
+    const clientId = (value as { clientId?: unknown }).clientId;
+    return typeof clientId === "string" && clientId !== "" ? { kind: "oauth", clientId } : null;
+  }
+  if (kind === "apikey" || kind === undefined) {
+    return isLongbridgeCredentials(value) ? { kind: "apikey", appKey: value.appKey, appSecret: value.appSecret, accessToken: value.accessToken } : null;
+  }
+  return null;
 }
 
 export function createCredentialStore(deps: CredentialStoreDeps): CredentialStore {
@@ -74,7 +88,7 @@ export function createCredentialStore(deps: CredentialStoreDeps): CredentialStor
   }
 
   return {
-    get(): LongbridgeCredentials | null {
+    get(): LongbridgeAuth | null {
       const file = readStoredFile();
       if (!file) return null;
       let plaintext: string;
@@ -91,21 +105,22 @@ export function createCredentialStore(deps: CredentialStoreDeps): CredentialStor
         lastError = "corrupt credentials payload";
         return null;
       }
-      if (!isLongbridgeCredentials(parsed)) {
+      const auth = parseAuthPayload(parsed);
+      if (!auth) {
         lastError = "corrupt credentials payload";
         return null;
       }
       lastError = null;
-      return parsed;
+      return auth;
     },
 
-    set(creds: LongbridgeCredentials): SetCredentialsResult {
+    set(auth: LongbridgeAuth): SetCredentialsResult {
       if (!deps.safeStorage.isEncryptionAvailable()) {
         lastError = "OS secure storage unavailable";
         return { ok: false, error: lastError };
       }
       try {
-        const ciphertext = deps.safeStorage.encryptString(JSON.stringify(creds)).toString("base64");
+        const ciphertext = deps.safeStorage.encryptString(JSON.stringify(auth)).toString("base64");
         const payload: StoredFile = { version: 1, ciphertext };
         writeFileSync(deps.filePath, JSON.stringify(payload), { mode: 0o600 });
         chmodSync(deps.filePath, 0o600);

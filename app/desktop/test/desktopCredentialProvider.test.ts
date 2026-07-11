@@ -7,13 +7,14 @@ import type { CredentialStore } from "../src/credentialStore.js";
 import type { CredentialProvider } from "../../server/src/services/credentials/types.js";
 
 const CREDS = { appKey: "k", appSecret: "s", accessToken: "t" };
+const APIKEY_AUTH = { kind: "apikey" as const, ...CREDS };
 
 function fakeStore(overrides: Partial<CredentialStore> = {}): CredentialStore {
-  let value: typeof CREDS | null = null;
+  let value: typeof APIKEY_AUTH | { kind: "oauth"; clientId: string } | null = null;
   return {
     get: () => value,
-    set: (creds) => {
-      value = creds;
+    set: (auth) => {
+      value = auth;
       return { ok: true };
     },
     clear: () => {
@@ -25,11 +26,36 @@ function fakeStore(overrides: Partial<CredentialStore> = {}): CredentialStore {
 }
 
 describe("createDesktopCredentialProvider", () => {
-  it("getLongbridgeCredentials reads through to the store", async () => {
+  it("getLongbridgeAuth reads through to the store", async () => {
     const store = fakeStore();
-    store.set(CREDS);
+    store.set(APIKEY_AUTH);
     const provider = createDesktopCredentialProvider(store);
-    expect(await provider.getLongbridgeCredentials()).toEqual(CREDS);
+    expect(await provider.getLongbridgeAuth()).toEqual(APIKEY_AUTH);
+  });
+
+  it("setCredentials persists tagged apikey auth", async () => {
+    const store = fakeStore();
+    const provider = createDesktopCredentialProvider(store);
+    provider.setCredentials(CREDS);
+    expect(await provider.getLongbridgeAuth()).toEqual(APIKEY_AUTH);
+    expect(provider.configuredMethod()).toBe("apikey");
+  });
+
+  it("setOAuth persists oauth auth and fires onChange", async () => {
+    const store = fakeStore();
+    const provider = createDesktopCredentialProvider(store);
+    const cb = vi.fn();
+    provider.onChange(cb);
+    const result = provider.setOAuth("client-123");
+    expect(result).toEqual({ ok: true });
+    expect(cb).toHaveBeenCalledOnce();
+    expect(await provider.getLongbridgeAuth()).toEqual({ kind: "oauth", clientId: "client-123" });
+    expect(provider.configuredMethod()).toBe("oauth");
+  });
+
+  it("configuredMethod returns null when nothing is stored", () => {
+    const provider = createDesktopCredentialProvider(fakeStore());
+    expect(provider.configuredMethod()).toBeNull();
   });
 
   it("fires onChange when setCredentials succeeds", () => {
@@ -53,7 +79,7 @@ describe("createDesktopCredentialProvider", () => {
 
   it("fires onChange on clearCredentials", () => {
     const store = fakeStore();
-    store.set(CREDS);
+    store.set(APIKEY_AUTH);
     const provider = createDesktopCredentialProvider(store);
     const cb = vi.fn();
     provider.onChange(cb);

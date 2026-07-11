@@ -7,11 +7,13 @@ const CREDS = { appKey: "k", appSecret: "s", accessToken: "t" };
 
 function fakeProvider(overrides: Partial<DesktopCredentialProvider> = {}): DesktopCredentialProvider {
   return {
-    getLongbridgeCredentials: vi.fn().mockResolvedValue(null),
+    getLongbridgeAuth: vi.fn().mockResolvedValue(null),
     onChange: vi.fn(() => () => {}),
     setCredentials: vi.fn().mockReturnValue({ ok: true }),
+    setOAuth: vi.fn().mockReturnValue({ ok: true }),
     clearCredentials: vi.fn(),
     isConfigured: vi.fn().mockReturnValue(false),
+    configuredMethod: vi.fn().mockReturnValue(null),
     lastError: vi.fn().mockReturnValue(null),
     ...overrides,
   };
@@ -19,15 +21,15 @@ function fakeProvider(overrides: Partial<DesktopCredentialProvider> = {}): Deskt
 
 describe("createCredentialsBridgeHandlers", () => {
   it("get() never returns secrets, only a configured flag and lastError", () => {
-    const provider = fakeProvider({ isConfigured: () => true, lastError: () => null });
+    const provider = fakeProvider({ isConfigured: () => true, configuredMethod: () => "apikey", lastError: () => null });
     const handlers = createCredentialsBridgeHandlers({ provider, testCredentials: vi.fn() });
-    expect(handlers.get()).toEqual({ configured: true, lastError: null });
+    expect(handlers.get()).toEqual({ configured: true, method: "apikey", lastError: null });
   });
 
   it("get() surfaces the provider's lastError so the UI can tell 未配置 apart from a store failure", () => {
     const provider = fakeProvider({ isConfigured: () => false, lastError: () => "corrupt credentials file" });
     const handlers = createCredentialsBridgeHandlers({ provider, testCredentials: vi.fn() });
-    expect(handlers.get()).toEqual({ configured: false, lastError: "corrupt credentials file" });
+    expect(handlers.get()).toEqual({ configured: false, method: null, lastError: "corrupt credentials file" });
   });
 
   it("set() delegates to the provider and returns its result", () => {
@@ -110,6 +112,43 @@ describe("createCredentialsBridgeHandlers", () => {
   });
 });
 
+describe("oauthLogin handler", () => {
+  it("returns an error when no oauthLogin dep is wired", async () => {
+    const handlers = createCredentialsBridgeHandlers({ provider: fakeProvider(), testCredentials: vi.fn() });
+    expect(await handlers.oauthLogin()).toEqual({ ok: false, error: "OAuth login is not available" });
+  });
+
+  it("delegates to the injected login flow", async () => {
+    const oauthLogin = vi.fn().mockResolvedValue({ ok: true });
+    const handlers = createCredentialsBridgeHandlers({ provider: fakeProvider(), testCredentials: vi.fn(), oauthLogin });
+    expect(await handlers.oauthLogin()).toEqual({ ok: true });
+    expect(oauthLogin).toHaveBeenCalledOnce();
+  });
+
+  it("rejects a second login while one is in flight, then allows a retry", async () => {
+    let release!: (value: { ok: true }) => void;
+    const oauthLogin = vi
+      .fn()
+      .mockImplementationOnce(() => new Promise<{ ok: true }>((resolve) => { release = resolve; }))
+      .mockResolvedValue({ ok: true });
+    const handlers = createCredentialsBridgeHandlers({ provider: fakeProvider(), testCredentials: vi.fn(), oauthLogin });
+
+    const first = handlers.oauthLogin();
+    expect(await handlers.oauthLogin()).toEqual({ ok: false, error: "an OAuth login is already running" });
+    release({ ok: true });
+    expect(await first).toEqual({ ok: true });
+    expect(await handlers.oauthLogin()).toEqual({ ok: true });
+    expect(oauthLogin).toHaveBeenCalledTimes(2);
+  });
+
+  it("clears the in-flight guard when the login flow rejects", async () => {
+    const oauthLogin = vi.fn().mockRejectedValueOnce(new Error("boom")).mockResolvedValueOnce({ ok: true });
+    const handlers = createCredentialsBridgeHandlers({ provider: fakeProvider(), testCredentials: vi.fn(), oauthLogin });
+    await expect(handlers.oauthLogin()).rejects.toThrow("boom");
+    expect(await handlers.oauthLogin()).toEqual({ ok: true });
+  });
+});
+
 describe("registerCredentialsIpc", () => {
   it("wires all four channels to their handler methods", async () => {
     const handlers = {
@@ -117,6 +156,7 @@ describe("registerCredentialsIpc", () => {
       set: vi.fn().mockReturnValue({ ok: true }),
       clear: vi.fn(),
       test: vi.fn().mockResolvedValue({ ok: true }),
+      oauthLogin: vi.fn().mockResolvedValue({ ok: true }),
     };
     const registered = new Map<string, (event: unknown, ...args: unknown[]) => unknown>();
     const ipcMain = { handle: vi.fn((channel: string, fn: (event: unknown, ...args: unknown[]) => unknown) => registered.set(channel, fn)) };
@@ -130,5 +170,7 @@ describe("registerCredentialsIpc", () => {
     expect(handlers.clear).toHaveBeenCalledOnce();
     await registered.get(CREDENTIALS_CHANNELS.test)?.(null, CREDS);
     expect(handlers.test).toHaveBeenCalledWith(CREDS);
+    await registered.get(CREDENTIALS_CHANNELS.oauthLogin)?.(null);
+    expect(handlers.oauthLogin).toHaveBeenCalledOnce();
   });
 });

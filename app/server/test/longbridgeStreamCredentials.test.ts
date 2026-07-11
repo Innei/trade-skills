@@ -45,7 +45,7 @@ function makeProvider(initial: { appKey: string; appSecret: string; accessToken:
   let creds = initial;
   let listener: (() => void) | null = null;
   const provider: CredentialProvider = {
-    getLongbridgeCredentials: async () => creds,
+    getLongbridgeAuth: async () => (creds ? { kind: "apikey", ...creds } : null),
     onChange: (cb) => {
       listener = cb;
       return () => {
