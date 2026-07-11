@@ -8,7 +8,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 // desktop host pin the repo root explicitly instead of relying on it.
 const rootOverride = process.env.TRADE_PROJECT_ROOT;
 
-export const APP_ROOT = rootOverride ? join(rootOverride, "app") : join(here, "..", "..");
+export const APP_ROOT = rootOverride ? join(rootOverride, "app") : join(here, "..", "..", "..");
 export const PROJECT_ROOT = rootOverride ?? join(APP_ROOT, "..");
 export const JOURNAL_DIR = join(PROJECT_ROOT, "journal");
 export const STOCKS_DIR = join(PROJECT_ROOT, "stocks");
