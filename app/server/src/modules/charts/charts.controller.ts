@@ -1,7 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from "@tsuki-hono/common";
 import { chartsService } from "../../../../packages/core/src/modules/charts/charts.service.js";
 import { ClientError } from "../../../../packages/core/src/errors.js";
-import { clampViewCount } from "../../../../packages/core/src/services/history.js";
 
 type QueryParams = Record<string, string | undefined>;
 
@@ -34,9 +33,7 @@ export class ChartsController {
 
   @Get("/:id/built")
   async built(@Param("id") id: string, @Query() query: QueryParams) {
-    const count = clampViewCount(query.count);
-    if (count === null) throw new ClientError("`count` must be a positive integer", "e.g. ?count=300", 400);
-    const data = await chartsService.built({ id, count });
+    const data = await chartsService.built({ id, count: query.count });
     return { ok: true, data };
   }
 

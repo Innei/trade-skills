@@ -3,6 +3,7 @@ import { chartUrl } from "../../chartUrl.js";
 import type { ChartsApi } from "../../contract/charts.js";
 import { ClientError } from "../../errors.js";
 import { ALL_TYPES, buildChart, mergeForPatch, rebuild, refreshBody } from "../../services/build.js";
+import { clampViewCount } from "../../services/history.js";
 import { predictionStale } from "../../services/staleness.js";
 import { createChart, deleteChart, listCharts, loadChart, saveChart } from "../../services/store.js";
 
@@ -47,10 +48,12 @@ export const chartsService: ChartsApi = {
     if (doc.type !== "intraday") {
       throw new ClientError(`history view only supports intraday charts, got: ${doc.type}`, undefined, 400);
     }
+    const count = clampViewCount(input.count);
+    if (count === null) throw new ClientError("`count` must be a positive integer", "e.g. ?count=300", 400);
     const body = refreshBody(doc.type, doc.input);
     if (!body) throw new ClientError("chart has no symbol to refetch", undefined, 400);
-    const result = await buildChart({ ...body, count: input.count, title: doc.title });
-    return { built: result.built, count: input.count };
+    const result = await buildChart({ ...body, count, title: doc.title });
+    return { built: result.built, count };
   },
 
   async update(input) {
