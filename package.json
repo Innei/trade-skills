@@ -5,6 +5,17 @@
   "description": "Personal US market observatory with trading records, agent skills, and realtime charts",
   "scripts": {
     "dev": "cd app && pnpm dev",
+    "dev:desktop": "cd app && pnpm dev:desktop",
+    "start": "cd app && pnpm start",
+    "start:desktop": "cd app && pnpm start:desktop",
+    "build": "cd app && pnpm build",
+    "build:desktop": "cd app && pnpm build:desktop",
+    "package:desktop": "cd app && pnpm package:desktop",
+    "release:desktop:dry-run": "app/desktop/scripts/release-dry-run.sh",
+    "test": "cd app && pnpm test",
+    "test:desktop": "cd app && pnpm test:desktop",
+    "typecheck": "cd app && pnpm typecheck",
+    "typecheck:desktop": "cd app && pnpm typecheck:desktop",
     "prepare": "skills experimental_install",
     "skills:install": "skills experimental_install",
     "skills:update": "skills update -p -y"
