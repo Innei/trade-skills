@@ -1,6 +1,6 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { app, Notification, shell } from "electron";
+import { app, dialog, Notification, shell } from "electron";
 import { loadSparkleBridgeForApp, type SparkleBridge, type SparkleInitOptions } from "./sparkle.js";
 
 const OWNER_REPO = "Innei/trade-skills";
@@ -20,6 +20,13 @@ export interface ReleaseInfo {
   htmlUrl: string;
 }
 
+export type CheckForUpdateResult =
+  | { kind: "throttled" }
+  | { kind: "fetch-failed"; message: string }
+  | { kind: "no-release" }
+  | { kind: "up-to-date"; current: string; latest: string }
+  | { kind: "available"; release: ReleaseInfo };
+
 export interface UpdaterDeps {
   currentVersion: string;
   now: () => string;
@@ -28,6 +35,7 @@ export interface UpdaterDeps {
   writeLastCheck: (iso: string) => Promise<void>;
   notify: (release: ReleaseInfo) => void;
   log?: (message: string) => void;
+  force?: boolean;
 }
 
 function normalizeVersion(raw: string): number[] {
@@ -67,20 +75,23 @@ export function parseLatestRelease(json: unknown): ReleaseInfo | null {
   return { version: tag_name, htmlUrl: html_url };
 }
 
-export async function checkForUpdate(deps: UpdaterDeps): Promise<void> {
+export async function checkForUpdate(deps: UpdaterDeps): Promise<CheckForUpdateResult> {
   const nowIso = deps.now();
-  const lastCheck = await deps.readLastCheck();
-  if (!shouldCheck(lastCheck, nowIso)) {
-    deps.log?.("skipped: throttled");
-    return;
+  if (!deps.force) {
+    const lastCheck = await deps.readLastCheck();
+    if (!shouldCheck(lastCheck, nowIso)) {
+      deps.log?.("skipped: throttled");
+      return { kind: "throttled" };
+    }
   }
 
   let json: unknown;
   try {
     json = await deps.fetchJson(RELEASES_URL);
   } catch (err) {
-    deps.log?.(`skipped: fetch failed (${(err as Error).message})`);
-    return;
+    const message = (err as Error).message;
+    deps.log?.(`skipped: fetch failed (${message})`);
+    return { kind: "fetch-failed", message };
   }
 
   await deps.writeLastCheck(nowIso);
@@ -88,14 +99,15 @@ export async function checkForUpdate(deps: UpdaterDeps): Promise<void> {
   const release = parseLatestRelease(json);
   if (!release) {
     deps.log?.("no-op: no usable release found");
-    return;
+    return { kind: "no-release" };
   }
   if (!isNewerVersion(deps.currentVersion, release.version)) {
     deps.log?.(`no-op: up to date (current ${deps.currentVersion}, latest ${release.version})`);
-    return;
+    return { kind: "up-to-date", current: deps.currentVersion, latest: release.version };
   }
   deps.notify(release);
   deps.log?.(`notified: ${release.version} available`);
+  return { kind: "available", release };
 }
 
 interface PersistedState {
@@ -137,6 +149,8 @@ async function fetchJsonWithTimeout(url: string): Promise<unknown> {
 
 export interface InitUpdaterOptions {
   delayMs?: number;
+  isDev?: boolean;
+  showMessage?: (options: { type: "info" | "warning" | "error"; title: string; message: string }) => void;
 }
 
 export interface StartUpdaterDeps {
@@ -164,31 +178,27 @@ export function startUpdater(deps: StartUpdaterDeps): "sparkle" | "weak" {
   return "weak";
 }
 
-export function initUpdater(options: InitUpdaterOptions = {}): void {
-  if (process.env.ELECTRON_DEV === "1") return;
+export type UpdaterHandle = {
+  checkNow: () => void;
+};
 
-  const log = (message: string) => console.debug(`[updater] ${message}`);
+type UpdaterMode = "dev" | "sparkle" | "weak";
 
-  startUpdater({
-    sparkleBridge: loadSparkleBridgeForApp(log),
-    sparkleOptions: {
-      appcastUrl: SPARKLE_APPCAST_URL,
-      publicEdKey: SPARKLE_PUBLIC_ED_KEY_PLACEHOLDER,
-    },
-    runWeakChecker: () => {
-      setTimeout(() => {
-        void runElectronCheck();
-      }, options.delayMs ?? CHECK_DELAY_MS);
-    },
-    log,
+function defaultShowMessage(options: {
+  type: "info" | "warning" | "error";
+  title: string;
+  message: string;
+}): void {
+  void dialog.showMessageBox({
+    type: options.type,
+    title: options.title,
+    message: options.message,
   });
 }
 
-async function runElectronCheck(): Promise<void> {
+function createWeakCheckDeps(log: (message: string) => void): UpdaterDeps {
   const stateFile = join(app.getPath("userData"), "updater.json");
-  const log = (message: string) => console.debug(`[updater] ${message}`);
-
-  const deps: UpdaterDeps = {
+  return {
     currentVersion: app.getVersion(),
     now: () => new Date().toISOString(),
     fetchJson: fetchJsonWithTimeout,
@@ -208,10 +218,138 @@ async function runElectronCheck(): Promise<void> {
     },
     log,
   };
+}
+
+export function createUpdaterHandle(options: {
+  mode: UpdaterMode;
+  sparkleBridge?: SparkleBridge | null;
+  showMessage?: InitUpdaterOptions["showMessage"];
+  runWeakCheck?: (force: boolean) => Promise<CheckForUpdateResult>;
+  log?: (message: string) => void;
+}): UpdaterHandle {
+  const showMessage = options.showMessage ?? defaultShowMessage;
+  const log = options.log ?? (() => {});
+
+  return {
+    checkNow: () => {
+      if (options.mode === "dev") {
+        showMessage({
+          type: "info",
+          title: "检查更新",
+          message: "开发模式不检查更新。",
+        });
+        return;
+      }
+
+      if (options.mode === "sparkle" && options.sparkleBridge) {
+        try {
+          options.sparkleBridge.checkForUpdates();
+        } catch (err) {
+          log(`checkNow sparkle failed: ${(err as Error).message}`);
+          showMessage({
+            type: "error",
+            title: "检查更新",
+            message: `检查更新失败：${(err as Error).message}`,
+          });
+        }
+        return;
+      }
+
+      const run = options.runWeakCheck;
+      if (!run) {
+        showMessage({
+          type: "warning",
+          title: "检查更新",
+          message: "更新检查暂不可用。",
+        });
+        return;
+      }
+
+      void (async () => {
+        try {
+          const result = await run(true);
+          if (result.kind === "available") return;
+          if (result.kind === "up-to-date") {
+            showMessage({
+              type: "info",
+              title: "检查更新",
+              message: "已是最新版本。",
+            });
+            return;
+          }
+          if (result.kind === "fetch-failed") {
+            showMessage({
+              type: "error",
+              title: "检查更新",
+              message: `检查更新失败：${result.message}`,
+            });
+            return;
+          }
+          if (result.kind === "no-release") {
+            showMessage({
+              type: "warning",
+              title: "检查更新",
+              message: "没有找到可用的发布版本。",
+            });
+            return;
+          }
+        } catch (err) {
+          log(`checkNow weak failed: ${(err as Error).message}`);
+          showMessage({
+            type: "error",
+            title: "检查更新",
+            message: `检查更新失败：${(err as Error).message}`,
+          });
+        }
+      })();
+    },
+  };
+}
+
+export function initUpdater(options: InitUpdaterOptions = {}): UpdaterHandle {
+  const isDev = options.isDev ?? process.env.ELECTRON_DEV === "1";
+  const log = (message: string) => console.debug(`[updater] ${message}`);
+  const showMessage = options.showMessage ?? defaultShowMessage;
+
+  if (isDev) {
+    return createUpdaterHandle({ mode: "dev", showMessage, log });
+  }
+
+  const sparkleBridge = loadSparkleBridgeForApp(log);
+  const mode = startUpdater({
+    sparkleBridge,
+    sparkleOptions: {
+      appcastUrl: SPARKLE_APPCAST_URL,
+      publicEdKey: SPARKLE_PUBLIC_ED_KEY_PLACEHOLDER,
+    },
+    runWeakChecker: () => {
+      setTimeout(() => {
+        void runElectronCheck(false);
+      }, options.delayMs ?? CHECK_DELAY_MS);
+    },
+    log,
+  });
+
+  return createUpdaterHandle({
+    mode,
+    sparkleBridge: mode === "sparkle" ? sparkleBridge : null,
+    showMessage,
+    runWeakCheck: async (force) => runElectronCheck(force),
+    log,
+  });
+}
+
+async function runElectronCheck(force = false): Promise<CheckForUpdateResult> {
+  const log = (message: string) => console.debug(`[updater] ${message}`);
+  const deps: UpdaterDeps = {
+    ...createWeakCheckDeps(log),
+    force,
+  };
 
   try {
-    await checkForUpdate(deps);
+    return await checkForUpdate(deps);
   } catch (err) {
     log(`skipped: unexpected error (${(err as Error).message})`);
+    return { kind: "fetch-failed", message: (err as Error).message };
   }
 }

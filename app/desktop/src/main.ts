@@ -8,8 +8,10 @@
 import { dataRoot } from "./bootEnv.js";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, shell } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, safeStorage, shell } from "electron";
+import { createAppMenuManager } from "./menu/appMenuManager.js";
 import { createServices } from "electron-ipc-decorator";
+import windowStateKeeper from "electron-window-state";
 import { createCredentialsBridgeHandlers, registerCredentialsIpc } from "./credentialsBridge.js";
 import { testLongbridgeCredentials } from "./credentialsTest.js";
 import { createCredentialStore } from "./credentialStore.js";
@@ -35,6 +37,7 @@ const PROD_APP_URL = "app://-/index.html";
 const WEB_DIST_ROOT = app.isPackaged
   ? join(process.resourcesPath, "web-dist")
   : join(resolveRepoRoot(), "app", "web", "dist");
+const APP_ICON_PNG = join(resolveRepoRoot(), "app", "desktop", "build", "icon.png");
 const IS_DEV = process.env.ELECTRON_DEV === "1";
 // Match web --bg-canvas so the native surface isn't white before the renderer paints.
 const WINDOW_BG = "#0a0a0a";
@@ -107,15 +110,24 @@ async function bootKernel() {
 }
 
 function createWindow() {
+  const windowState = windowStateKeeper({
+    defaultWidth: 1440,
+    defaultHeight: 900,
+    maximize: false,
+    fullScreen: false,
+  });
   const win = new BrowserWindow({
-    width: 1440,
-    height: 900,
+    x: windowState.x,
+    y: windowState.y,
+    width: windowState.width,
+    height: windowState.height,
     minWidth: 1100,
     minHeight: 720,
     backgroundColor: WINDOW_BG,
     show: false,
     titleBarStyle: "hiddenInset",
     trafficLightPosition: { x: 12, y: 12 },
+    ...(existsSync(APP_ICON_PNG) ? { icon: APP_ICON_PNG } : {}),
     webPreferences: {
       sandbox: true,
       contextIsolation: true,
@@ -123,6 +135,8 @@ function createWindow() {
       preload: join(app.getAppPath(), "dist-preload", "preload.cjs"),
     },
   });
+
+  windowState.manage(win);
 
   win.once("ready-to-show", () => {
     win.show();
@@ -259,35 +273,23 @@ function sendTabsCommand(command: TabsCommand): void {
   BrowserWindow.getFocusedWindow()?.webContents.send(TABS_COMMAND_CHANNEL, command);
 }
 
-function buildAppMenu(): void {
-  const template: Electron.MenuItemConstructorOptions[] = [
-    {
-      label: app.name,
-      submenu: [
-        {
-          label: "从 repo 导入数据…",
-          click: () => {
-            runImportFromRepoFlow(BrowserWindow.getFocusedWindow()).catch((error: unknown) => {
-              console.error("[desktop] import-from-repo flow crashed", error);
-            });
-          },
-        },
-        { type: "separator" },
-        { role: "quit" },
-      ],
+function installAppMenu(checkForUpdates: () => void): void {
+  createAppMenuManager({
+    appName: app.name,
+    deps: {
+      importFromRepo: () => {
+        runImportFromRepoFlow(BrowserWindow.getFocusedWindow()).catch((error: unknown) => {
+          console.error("[desktop] import-from-repo flow crashed", error);
+        });
+      },
+      openSettings: () => sendTabsCommand("open-settings"),
+      checkForUpdates,
+      newTab: () => sendTabsCommand("new-tab"),
+      closeTab: () => sendTabsCommand("close-tab"),
+      nextTab: () => sendTabsCommand("next-tab"),
+      prevTab: () => sendTabsCommand("prev-tab"),
     },
-    {
-      label: "Window",
-      submenu: [
-        { label: "New Tab", accelerator: "CmdOrCtrl+T", click: () => sendTabsCommand("new-tab") },
-        { label: "Close Tab", accelerator: "CmdOrCtrl+W", click: () => sendTabsCommand("close-tab") },
-        { type: "separator" },
-        { label: "Show Next Tab", accelerator: "CmdOrCtrl+Shift+]", click: () => sendTabsCommand("next-tab") },
-        { label: "Show Previous Tab", accelerator: "CmdOrCtrl+Shift+[", click: () => sendTabsCommand("prev-tab") },
-      ],
-    },
-  ];
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+  }).install();
 }
 
 function showFatalErrorWindow(error: unknown) {
@@ -305,8 +307,17 @@ function showFatalErrorWindow(error: unknown) {
   dialog.showErrorBox("trade failed to start", message);
 }
 
+function applyDevDockIcon() {
+  // Packaged macOS builds pick up build/icon.icns from the .app bundle.
+  // Dev still runs as Electron.app, so set Dock icon from the brand PNG.
+  if (app.isPackaged || process.platform !== "darwin") return;
+  if (!app.dock || !existsSync(APP_ICON_PNG)) return;
+  app.dock.setIcon(APP_ICON_PNG);
+}
+
 app.whenReady().then(async () => {
   try {
+    applyDevDockIcon();
     const kernel = await bootKernel();
     const apiApp = kernel.app.getInstance();
     const { ipcServiceClasses } = await import("./ipc/index.js");
@@ -321,9 +332,9 @@ app.whenReady().then(async () => {
     registerExternalApiIpc(externalApiController);
     await externalApiController.boot();
 
-    buildAppMenu();
+    const updater = initUpdater();
+    installAppMenu(() => updater.checkNow());
     createWindow();
-    initUpdater();
 
     app.on("activate", () => {
       if (BrowserWindow.getAllWindows().length === 0) createWindow();

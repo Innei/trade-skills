@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   checkForUpdate,
+  createUpdaterHandle,
   isNewerVersion,
   parseLatestRelease,
   shouldCheck,
@@ -190,7 +191,10 @@ describe("checkForUpdate", () => {
 
   it("stays silent when the fetch rejects (offline / rate-limit)", async () => {
     const deps = makeDeps({ fetchJson: vi.fn().mockRejectedValue(new Error("network down")) });
-    await expect(checkForUpdate(deps)).resolves.toBeUndefined();
+    await expect(checkForUpdate(deps)).resolves.toEqual({
+      kind: "fetch-failed",
+      message: "network down",
+    });
     expect(deps.notify).not.toHaveBeenCalled();
   });
 
@@ -199,5 +203,85 @@ describe("checkForUpdate", () => {
     await checkForUpdate(deps);
     expect(deps.notify).not.toHaveBeenCalled();
     expect(deps.writeLastCheck).toHaveBeenCalled();
+  });
+
+  it("bypasses throttle when force is true", async () => {
+    const deps = makeDeps({
+      force: true,
+      readLastCheck: vi.fn().mockResolvedValue("2026-07-11T00:00:01.000Z"),
+    });
+    const result = await checkForUpdate(deps);
+    expect(deps.fetchJson).toHaveBeenCalled();
+    expect(result.kind).toBe("available");
+  });
+
+  it("returns up-to-date when force check finds no newer release", async () => {
+    const deps = makeDeps({
+      force: true,
+      fetchJson: vi.fn().mockResolvedValue({
+        tag_name: "desktop-v1.0.0",
+        html_url: "https://x",
+        draft: false,
+      }),
+    });
+    const result = await checkForUpdate(deps);
+    expect(result).toEqual({ kind: "up-to-date", current: "1.0.0", latest: "desktop-v1.0.0" });
+    expect(deps.notify).not.toHaveBeenCalled();
+  });
+});
+
+describe("createUpdaterHandle", () => {
+  it("shows a dev dialog and does not touch sparkle or weak check", () => {
+    const showMessage = vi.fn();
+    const checkForUpdates = vi.fn();
+    const runWeakCheck = vi.fn();
+    const handle = createUpdaterHandle({
+      mode: "dev",
+      sparkleBridge: { init: vi.fn(), checkForUpdates, setAutomaticChecks: vi.fn() },
+      showMessage,
+      runWeakCheck,
+    });
+    handle.checkNow();
+    expect(showMessage).toHaveBeenCalledWith({
+      type: "info",
+      title: "检查更新",
+      message: "开发模式不检查更新。",
+    });
+    expect(checkForUpdates).not.toHaveBeenCalled();
+    expect(runWeakCheck).not.toHaveBeenCalled();
+  });
+
+  it("calls sparkle checkForUpdates in sparkle mode", () => {
+    const checkForUpdates = vi.fn();
+    const handle = createUpdaterHandle({
+      mode: "sparkle",
+      sparkleBridge: { init: vi.fn(), checkForUpdates, setAutomaticChecks: vi.fn() },
+      showMessage: vi.fn(),
+    });
+    handle.checkNow();
+    expect(checkForUpdates).toHaveBeenCalledOnce();
+  });
+
+  it("force-runs the weak checker and reports up-to-date", async () => {
+    const showMessage = vi.fn();
+    const runWeakCheck = vi.fn().mockResolvedValue({
+      kind: "up-to-date",
+      current: "1.0.0",
+      latest: "1.0.0",
+    });
+    const handle = createUpdaterHandle({
+      mode: "weak",
+      showMessage,
+      runWeakCheck,
+    });
+    handle.checkNow();
+    await vi.waitFor(() => {
+      expect(showMessage).toHaveBeenCalledWith({
+        type: "info",
+        title: "检查更新",
+        message: "已是最新版本。",
+      });
+    });
+    expect(runWeakCheck).toHaveBeenCalledWith(true);
   });
 });
