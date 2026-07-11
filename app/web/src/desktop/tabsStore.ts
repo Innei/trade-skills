@@ -99,6 +99,19 @@ export function closeTab(snapshot: TabsSnapshot, id: string): TabsSnapshot {
   return { tabs: remaining, activeTabId: nextActive.id };
 }
 
+export function closeOtherTabs(snapshot: TabsSnapshot, id: string): TabsSnapshot {
+  if (!snapshot.tabs.some((tab) => tab.id === id)) return snapshot;
+  return { tabs: snapshot.tabs.filter((tab) => tab.id === id), activeTabId: id };
+}
+
+export function closeTabsToRight(snapshot: TabsSnapshot, id: string): TabsSnapshot {
+  const idx = snapshot.tabs.findIndex((tab) => tab.id === id);
+  if (idx === -1) return snapshot;
+  const tabs = snapshot.tabs.slice(0, idx + 1);
+  const activeTabId = tabs.some((tab) => tab.id === snapshot.activeTabId) ? snapshot.activeTabId : id;
+  return { tabs, activeTabId };
+}
+
 export function closeActiveTab(snapshot: TabsSnapshot): TabsSnapshot {
   return closeTab(snapshot, snapshot.activeTabId);
 }

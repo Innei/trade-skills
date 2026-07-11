@@ -10,6 +10,8 @@ export interface TabsController {
   activeTab: TabState;
   activateTab(id: string): void;
   closeTabById(id: string): void;
+  closeOtherTabs(id: string): void;
+  closeTabsToRight(id: string): void;
   openHomeTab(): void;
   focusOrOpenSettings(): void;
 }
@@ -52,6 +54,14 @@ export function useTabsController(): TabsController {
     setSnapshot((prev) => tabsStore.closeTab(prev, id));
   }, []);
 
+  const closeOtherTabs = useCallback((id: string) => {
+    setSnapshot((prev) => tabsStore.closeOtherTabs(withCurrentScrollCaptured(prev), id));
+  }, []);
+
+  const closeTabsToRight = useCallback((id: string) => {
+    setSnapshot((prev) => tabsStore.closeTabsToRight(withCurrentScrollCaptured(prev), id));
+  }, []);
+
   const openHomeTab = useCallback(() => {
     setSnapshot((prev) => tabsStore.openTab(withCurrentScrollCaptured(prev), "/"));
   }, []);
@@ -83,5 +93,14 @@ export function useTabsController(): TabsController {
     });
   }, [openHomeTab, closeActiveTab, goToNextTab, goToPrevTab]);
 
-  return { snapshot, activeTab, activateTab, closeTabById, openHomeTab, focusOrOpenSettings };
+  return {
+    snapshot,
+    activeTab,
+    activateTab,
+    closeTabById,
+    closeOtherTabs,
+    closeTabsToRight,
+    openHomeTab,
+    focusOrOpenSettings,
+  };
 }

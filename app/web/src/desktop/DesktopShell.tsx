@@ -1,6 +1,6 @@
 import { Router } from "../PageRouter";
 import { RestrictedBanner } from "../RestrictedBanner";
-import { ModalHost } from "../ui";
+import { ContextMenuHost, ModalHost } from "../ui";
 import { DesktopTitlebar } from "./DesktopTitlebar";
 import { useTabsController } from "./tabsController";
 
@@ -15,6 +15,7 @@ export function DesktopShell() {
         <Router />
       </div>
       <ModalHost />
+      <ContextMenuHost />
     </>
   );
 }

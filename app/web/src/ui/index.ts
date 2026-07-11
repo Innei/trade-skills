@@ -16,5 +16,8 @@ export { MarketTime } from "./MarketTime";
 export { TimeAgo } from "./TimeAgo";
 export { Modal } from "./Modal";
 export { ModalHost } from "./ModalHost";
+export { ContextMenuHost } from "./ContextMenuHost";
+export { showContextMenu, closeContextMenu } from "./contextMenuStore";
+export type { ContextMenuItem } from "./contextMenuStore";
 export { openModal, closeModal } from "./modalStore";
 export type { ModalOptions } from "./modalStore";

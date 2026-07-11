@@ -274,6 +274,26 @@ a:hover { color: var(--accent); }
 }
 
 .topbar-chart-ctrls { display: inline-flex; align-items: center; gap: 8px; }
+
+.ui-context-menu-positioner { z-index: 300; outline: none; }
+.ui-context-menu-popup {
+  min-width: 168px; padding: 4px;
+  background: var(--bg-element); border: 1px solid var(--border-strong); border-radius: var(--radius);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  font-size: var(--fs-sm); color: var(--text-primary); outline: none;
+}
+.ui-context-menu-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 8px; border-radius: var(--radius);
+  color: var(--text-secondary); cursor: pointer; user-select: none; outline: none;
+}
+.ui-context-menu-item[data-highlighted] { color: var(--text-primary); background: var(--bg-hover); }
+.ui-context-menu-item[data-disabled] { color: var(--text-muted); cursor: default; }
+.ui-context-menu-item--danger { color: var(--down); }
+.ui-context-menu-item--danger[data-highlighted] { color: var(--bg-canvas); background: var(--down); }
+.ui-context-menu-item-icon { display: inline-flex; flex-shrink: 0; opacity: 0.8; }
+.ui-context-menu-item-label { flex: 1; min-width: 0; }
+.ui-context-menu-separator { height: 1px; margin: 4px 2px; background: var(--border); }
 .load-forward-btn {
   display: inline-flex; align-items: center; gap: 5px;
   height: 24px; padding: 0 9px; box-sizing: border-box;
@@ -1193,7 +1213,12 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 .credentials-form-label { display: flex; flex-direction: column; gap: 6px; font-size: var(--fs-sm); color: var(--text-secondary); }
 .credentials-form-actions { display: flex; gap: 8px; margin-top: 2px; }
 
-.onboarding-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+.onboarding-drag-bar {
+  position: fixed; top: 0; left: 0; right: 0; height: 40px; z-index: 80;
+  display: flex; align-items: center;
+  -webkit-app-region: drag;
+}
+.onboarding-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 40px 24px 24px; }
 .onboarding-card { max-width: 480px; width: 100%; }
 .onboarding-card h1 { font-size: var(--fs-xl); font-weight: 600; color: var(--text-primary); margin-bottom: 10px; }
 .onboarding-explainer { font-size: var(--fs-base); color: var(--text-secondary); line-height: 1.6; margin-bottom: 14px; }

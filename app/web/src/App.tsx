@@ -8,7 +8,7 @@ import { Router } from "./PageRouter";
 import { RestrictedBanner } from "./RestrictedBanner";
 import { isDesktopRealtime } from "./portTransport";
 import { useRoute } from "./router";
-import { ModalHost } from "./ui";
+import { ContextMenuHost, ModalHost } from "./ui";
 
 function GlobalTopbar() {
   const route = useRoute();
@@ -47,6 +47,7 @@ export function App() {
       <GlobalTopbar />
       <Router />
       <ModalHost />
+      <ContextMenuHost />
     </>
   );
 }
