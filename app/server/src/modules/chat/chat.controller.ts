@@ -1,60 +1,24 @@
 import { Body, Controller, Get, Param, Post } from "@tsuki-hono/common";
-import type { ChartDoc } from "../../../../shared/types.js";
-import { type ChatDeps, chatTurnState, runChatTurn, toDisplayMessages } from "../../../../packages/core/src/ai/chat.js";
-import { getSessionByChartId, listMessages } from "../../../../packages/core/src/ai/chatStore.js";
-import { aiConfig } from "../../../../packages/core/src/ai/models.js";
+import { chatService } from "../../../../packages/core/src/modules/chat/chat.service.js";
 import { ClientError } from "../../../../packages/core/src/errors.js";
 import { jsonResponse } from "../../httpResponse.js";
-import { loadChart } from "../../../../packages/core/src/services/store.js";
 
-const MAX_TEXT_LENGTH = 4000;
-
-function isIntradayChart(doc: ChartDoc): boolean {
-  return doc.built.kind === "intraday" && !!doc.symbol;
-}
-
-let testDeps: ChatDeps | null = null;
-
-export function setChatDepsForTests(deps: ChatDeps | null): void {
-  testDeps = deps;
-}
-
-function buildDeps(): ChatDeps {
-  return testDeps ?? { model: aiConfig().chatModel };
-}
+export { setChatDepsForTests } from "../../../../packages/core/src/modules/chat/chat.service.js";
 
 @Controller("charts")
 export class ChatController {
   @Get("/:id/chat")
   async getChat(@Param("id") id: string) {
-    const doc = await loadChart(id);
-    if (!doc || !isIntradayChart(doc)) {
-      throw new ClientError(`chart not found: ${id}`, "GET /api/charts lists available ids", 404);
-    }
-    const session = await getSessionByChartId(id);
-    const messages = session ? toDisplayMessages(await listMessages(session.id)) : [];
-    const { busy, partial } = chatTurnState(id);
-    return { session, messages, busy, partial };
+    return chatService.get({ id });
   }
 
   @Post("/:id/chat/messages")
   async postMessage(@Param("id") id: string, @Body() body: { text?: unknown } | null) {
     const text = body?.text;
-    if (typeof text !== "string" || !text.trim() || text.length > MAX_TEXT_LENGTH) {
+    if (typeof text !== "string") {
       throw new ClientError("`text` must be a non-empty string of at most 4000 characters", 'e.g. {"text": "..."}');
     }
-
-    const result = await runChatTurn(id, text, buildDeps());
-    if (result.started) {
-      result.done.catch((err) => console.error("chat: turn failed", err));
-      return jsonResponse(202, { accepted: true });
-    }
-    if (result.reason === "busy") {
-      return jsonResponse(409, { error: "上一条还在回答中" });
-    }
-    if (result.reason === "no_model") {
-      return jsonResponse(503, { error: "未配置追问模型，请在 /settings 配置" });
-    }
-    throw new ClientError(`chart not found: ${id}`, "GET /api/charts lists available ids", 404);
+    const result = await chatService.postMessage({ id, text });
+    return jsonResponse(result.status, result.body);
   }
 }
