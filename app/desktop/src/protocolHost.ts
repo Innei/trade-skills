@@ -19,14 +19,11 @@ export function registerAppScheme(): void {
   ]);
 }
 
-export type RouteDecision =
-  | { kind: "kernel" }
-  | { kind: "static"; relativePath: string }
-  | { kind: "blocked" };
+export type RouteDecision = { kind: "static"; relativePath: string } | { kind: "blocked" };
 
 // app://-/... always carries a host of "-"; the pathname after it is the
-// real route. `/api*` goes to the kernel, everything else resolves against
-// the static web build with SPA fallback for extensionless paths.
+// real route, resolved against the static web build with SPA fallback for
+// extensionless paths. The kernel is reached over IPC, not this protocol.
 export function decideRoute(requestUrl: string): RouteDecision {
   const url = new URL(requestUrl);
 
@@ -39,10 +36,6 @@ export function decideRoute(requestUrl: string): RouteDecision {
     pathname = decodeURIComponent(url.pathname);
   } catch {
     return { kind: "blocked" };
-  }
-
-  if (pathname === "/api" || pathname.startsWith("/api/")) {
-    return { kind: "kernel" };
   }
 
   const guarded = guardStaticPath(pathname);
@@ -104,7 +97,6 @@ export function missingDistErrorHtml(distRoot: string): string {
 }
 
 export interface ProtocolHostDeps {
-  kernelFetch: (request: Request) => Promise<Response>;
   distRoot: string;
   distRootExists: () => boolean;
 }
@@ -112,10 +104,6 @@ export interface ProtocolHostDeps {
 export function createAppProtocolHandler(deps: ProtocolHostDeps) {
   return async function handleAppRequest(request: Request): Promise<Response> {
     const decision = decideRoute(request.url);
-
-    if (decision.kind === "kernel") {
-      return deps.kernelFetch(request);
-    }
 
     if (decision.kind === "blocked") {
       return new Response("Forbidden", { status: 403 });

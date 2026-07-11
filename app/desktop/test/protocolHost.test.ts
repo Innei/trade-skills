@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   applySpaFallback,
   createAppProtocolHandler,
@@ -9,13 +9,7 @@ import {
 } from "../src/protocolHost.js";
 
 describe("decideRoute", () => {
-  it("routes /api paths to the kernel", () => {
-    expect(decideRoute("app://-/api/health")).toEqual({ kind: "kernel" });
-    expect(decideRoute("app://-/api")).toEqual({ kind: "kernel" });
-    expect(decideRoute("app://-/api/charts/1")).toEqual({ kind: "kernel" });
-  });
-
-  it("routes everything else to static with SPA fallback applied", () => {
+  it("routes everything to static with SPA fallback applied", () => {
     expect(decideRoute("app://-/index.html")).toEqual({ kind: "static", relativePath: "index.html" });
     expect(decideRoute("app://-/assets/app.js")).toEqual({ kind: "static", relativePath: "assets/app.js" });
     expect(decideRoute("app://-/charts/1")).toEqual({ kind: "static", relativePath: "index.html" });
@@ -100,22 +94,8 @@ describe("missingDistErrorHtml", () => {
 });
 
 describe("createAppProtocolHandler", () => {
-  const kernelFetch = vi.fn(async () => new Response("ok"));
-
-  it("forwards /api requests to the kernel untouched", async () => {
-    const handler = createAppProtocolHandler({
-      kernelFetch,
-      distRoot: "/dist",
-      distRootExists: () => true,
-    });
-    const request = new Request("app://-/api/health");
-    await handler(request);
-    expect(kernelFetch).toHaveBeenCalledWith(request);
-  });
-
   it("blocks encoded traversal attempts with 403", async () => {
     const handler = createAppProtocolHandler({
-      kernelFetch,
       distRoot: "/dist",
       distRootExists: () => true,
     });
@@ -125,7 +105,6 @@ describe("createAppProtocolHandler", () => {
 
   it("blocks malformed percent-encoding with 403 instead of rejecting", async () => {
     const handler = createAppProtocolHandler({
-      kernelFetch,
       distRoot: "/dist",
       distRootExists: () => true,
     });
@@ -135,7 +114,6 @@ describe("createAppProtocolHandler", () => {
 
   it("rejects non-GET/HEAD static requests", async () => {
     const handler = createAppProtocolHandler({
-      kernelFetch,
       distRoot: "/dist",
       distRootExists: () => true,
     });
@@ -145,7 +123,6 @@ describe("createAppProtocolHandler", () => {
 
   it("serves the missing-dist error page instead of throwing when dist is absent", async () => {
     const handler = createAppProtocolHandler({
-      kernelFetch,
       distRoot: "/nowhere",
       distRootExists: () => false,
     });
@@ -157,7 +134,6 @@ describe("createAppProtocolHandler", () => {
 
   it("404s a static file that does not exist under an existing dist root", async () => {
     const handler = createAppProtocolHandler({
-      kernelFetch,
       distRoot: "/tmp/definitely-not-here-desktop-test",
       distRootExists: () => true,
     });
