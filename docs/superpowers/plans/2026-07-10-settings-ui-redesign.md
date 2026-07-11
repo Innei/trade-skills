@@ -657,9 +657,9 @@ Expected: PASS。
 **Files:**
 - Modify: `app/web/src/pages/settings/ProviderCredentialsCard.tsx`
 
-- [ ] **Step 1: 按目录逐行渲染全部 Provider**
+- [ ] **Step 1: 渲染相关 Provider 与紧凑添加入口**
 
-遍历 catalog.providers。API key Provider 从 settings.credentials 查找对应记录；Codex 使用 catalog auth 状态。未配置 Provider 保持可见，但不进入全局问题，除非被已启用用途引用。
+从 catalog.providers 中固定渲染已保存凭据、Codex 和当前角色草稿正在引用的 Provider。其余未配置 API key Provider 收进一行 Select + Input + Button，避免目录数量较多时把问题清单推出首屏。
 
 - [ ] **Step 2: 原地添加或更新 key**
 

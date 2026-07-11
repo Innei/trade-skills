@@ -142,7 +142,7 @@
 
 ## Provider 与凭据
 
-右侧面板始终列出当前目录中的可用 Provider，并按认证形态显示事实状态。
+右侧面板固定列出已保存凭据的 Provider、OpenAI Codex，以及当前主模型或用途正在引用的 Provider。其余未配置 Provider 收进底部“添加 Provider”选择器，避免目录数量较多时把“需处理”区域推出首屏。所有状态仍按认证形态显示事实。
 
 ### API key Provider
 
@@ -164,6 +164,7 @@
 ### 编辑方式
 
 - 点击“添加 key”或“更新 key”后，在当前 Provider 行内展开密码输入框；
+- 未被引用且尚未配置的 Provider 通过底部选择器添加，选择 Provider、填写 key 后一次保存；
 - 成功后重新读取 settings 与 catalog，立即刷新可选 Provider 和问题清单；
 - 删除继续使用明确操作按钮；删除会导致正在依赖该 Provider 的用途进入“需处理”；
 - 本轮不新增 Provider 单独测试按钮。连接验证仍通过具体模型的“测试模型”完成。

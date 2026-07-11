@@ -9,6 +9,8 @@ export interface RoleSetting {
   stale: boolean;
 }
 
+export type AiRoles = Record<Role | "primary", RoleSetting>;
+
 export interface CredentialEntry {
   provider: string;
   masked: string | null;
@@ -19,7 +21,7 @@ export interface CredentialEntry {
 export type MasterKeyStatus = "ready" | "missing" | "invalid";
 
 export interface AiSettings {
-  roles: Record<Role | "primary", RoleSetting>;
+  roles: AiRoles;
   credentials: CredentialEntry[];
   masterKey: MasterKeyStatus;
 }

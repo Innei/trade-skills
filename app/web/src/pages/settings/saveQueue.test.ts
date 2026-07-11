@@ -125,7 +125,7 @@ describe("createSaveQueue", () => {
     expect(queue.confirmed()).toEqual({ v: 0 });
     expect(queue.pending()).toBeNull();
     expect(queue.flushing()).toBe(false);
-    expect(onError).toHaveBeenCalledWith(err, { v: 0 });
+    expect(onError).toHaveBeenCalledWith(err, { v: 0 }, { v: 2 });
     expect(save).toHaveBeenCalledTimes(1);
 
     queue.push({ v: 3 });
@@ -134,6 +134,22 @@ describe("createSaveQueue", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(queue.confirmed()).toEqual({ v: 3 });
+  });
+
+  it("reports the latest user intent as retry snapshot when an earlier save fails", async () => {
+    const d1 = defer<void>();
+    const save = vi.fn(() => d1.promise);
+    const onError = vi.fn();
+    const queue = createSaveQueue({ save, initial: { v: 0 }, onError });
+
+    queue.push({ v: 1 });
+    queue.push({ v: 2 });
+    d1.reject(new Error("boom"));
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(onError).toHaveBeenCalledWith(expect.any(Error), { v: 0 }, { v: 2 });
   });
 
   it("mixed push→push→push with interleaved rejects lands on the final pushed state", async () => {

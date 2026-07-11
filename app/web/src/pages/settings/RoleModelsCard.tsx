@@ -1,45 +1,69 @@
-import { useState } from "react";
 import { Card, SectionTitle } from "../../ui";
 import { PrimaryRow } from "./PrimaryRow";
 import { RoleRow } from "./RoleRow";
-import { ROLES, type AiSettings, type Catalog, type UsageToday } from "./types";
+import type { SettingsViewModel } from "./settingsViewModel";
+import {
+  ROLES,
+  type AiRoles,
+  type Catalog,
+  type CredentialEntry,
+  type Role,
+  type RoleSetting,
+} from "./types";
 
 export function RoleModelsCard({
-  settings,
+  initialRoles,
+  roles,
   catalog,
-  usage,
+  credentials,
+  view,
+  onDraftChange,
 }: {
-  settings: AiSettings;
+  initialRoles: AiRoles;
+  roles: AiRoles;
   catalog: Catalog;
-  usage: UsageToday | null;
+  credentials: CredentialEntry[];
+  view: SettingsViewModel;
+  onDraftChange: (role: Role | "primary", next: RoleSetting) => void;
 }) {
-  const [primaryDraft, setPrimaryDraft] = useState(settings.roles.primary);
-
   return (
     <Card className="settings-roles-card">
-      <SectionTitle>模型分配</SectionTitle>
+      <div className="settings-card-heading">
+        <SectionTitle>模型分配</SectionTitle>
+        <span>
+          {view.summary.usageLabel === "暂不可用"
+            ? "今日用量暂不可用"
+            : "今日合计 " + view.summary.usageLabel}
+        </span>
+      </div>
       <PrimaryRow
-        setting={settings.roles.primary}
+        initial={initialRoles.primary}
+        draft={roles.primary}
         catalog={catalog}
-        credentials={settings.credentials}
-        onDraft={setPrimaryDraft}
+        credentials={credentials}
+        onDraftChange={(next) => onDraftChange("primary", next)}
       />
-      {ROLES.map((role) => (
-        <RoleRow
-          key={role}
-          role={role}
-          setting={settings.roles[role]}
-          primary={primaryDraft}
-          catalog={catalog}
-          credentials={settings.credentials}
-          usage={usage?.roles[role]}
-        />
-      ))}
-      {usage && (
-        <div className="settings-usage-total">
-          今日合计 ${usage.total.cost.toFixed(2)} · {usage.total.calls} 次
+      <div className="settings-roles-scroll">
+        <div className="settings-role-table-head" aria-hidden="true">
+          <span>用途</span>
+          <span>分配方式</span>
+          <span>当前生效模型</span>
+          <span>今日用量</span>
+          <span />
         </div>
-      )}
+        {ROLES.map((role) => (
+          <RoleRow
+            key={role}
+            role={role}
+            initial={initialRoles[role]}
+            draft={roles[role]}
+            catalog={catalog}
+            credentials={credentials}
+            view={view.roles[role]}
+            onDraftChange={(next) => onDraftChange(role, next)}
+          />
+        ))}
+      </div>
     </Card>
   );
 }

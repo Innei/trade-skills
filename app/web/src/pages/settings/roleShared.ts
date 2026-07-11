@@ -1,8 +1,18 @@
 import { api } from "../../api";
-import { CODEX_PROVIDER, type Catalog, type CredentialEntry, type RoleSetting } from "./types";
+import {
+  CODEX_PROVIDER,
+  type Catalog,
+  type CatalogProvider,
+  type CredentialEntry,
+  type RoleSetting,
+} from "./types";
 
 export function firstModelId(catalog: Catalog, providerId: string): string | null {
   return catalog.providers.find((p) => p.id === providerId)?.models[0]?.id ?? null;
+}
+
+export function selectableProviders(catalog: Catalog, currentId?: string | null): CatalogProvider[] {
+  return catalog.providers.filter((p) => p.auth.status === "configured" || p.id === currentId);
 }
 
 export function providerLabel(catalog: Catalog, providerId: string): string {
@@ -19,7 +29,7 @@ export function providerKeyReady(providerId: string, credentials: CredentialEntr
 }
 
 export function defaultCustom(catalog: Catalog): RoleSetting {
-  const provider = catalog.providers[0]?.id ?? null;
+  const provider = selectableProviders(catalog)[0]?.id ?? null;
   const modelId = provider ? firstModelId(catalog, provider) : null;
   return { mode: "custom", provider, modelId, thinkingLevel: "off", stale: false };
 }

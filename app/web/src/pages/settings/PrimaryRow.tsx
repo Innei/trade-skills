@@ -2,44 +2,40 @@ import { useState } from "react";
 import { Check, TriangleAlert } from "lucide-react";
 import { api, errorMessage } from "../../api";
 import { Button, Chip, openModal, Select, Spinner } from "../../ui";
-import { defaultCustom, firstModelId, providerKeyReady, providerLabel, saveRole } from "./roleShared";
+import { defaultCustom, firstModelId, providerKeyReady, providerLabel, saveRole, selectableProviders } from "./roleShared";
 import { thinkingLabel, type Catalog, type CredentialEntry, type RoleSetting } from "./types";
 import { useSaveQueue } from "./useSaveQueue";
 
 export function PrimaryRow({
-  setting,
+  initial,
+  draft,
   catalog,
   credentials,
-  onDraft,
+  onDraftChange,
 }: {
-  setting: RoleSetting;
+  initial: RoleSetting;
+  draft: RoleSetting;
   catalog: Catalog;
   credentials: CredentialEntry[];
-  onDraft: (next: RoleSetting) => void;
+  onDraftChange: (next: RoleSetting) => void;
 }) {
-  const [draft, setDraftState] = useState(setting);
-  const [rolledBack, setRolledBack] = useState(false);
+  const [failure, setFailure] = useState<{ message: string; retrySnapshot: RoleSetting } | null>(null);
   const [testState, setTestState] = useState<{ status: "idle" | "busy" | "ok" | "fail"; text?: string }>({
     status: "idle",
   });
 
-  const setDraft = (next: RoleSetting) => {
-    setDraftState(next);
-    onDraft(next);
-  };
-
   const queue = useSaveQueue<RoleSetting>({
-    initial: setting,
+    initial,
     save: (snapshot) => saveRole("primary", snapshot),
-    onError: (_err, rolledBackTo) => {
-      setDraft(rolledBackTo ?? setting);
-      setRolledBack(true);
+    onError: (err, rolledBackTo, retrySnapshot) => {
+      onDraftChange(rolledBackTo ?? initial);
+      setFailure({ message: errorMessage(err), retrySnapshot });
     },
   });
 
   const push = (next: RoleSetting) => {
-    setDraft(next);
-    setRolledBack(false);
+    onDraftChange(next);
+    setFailure(null);
     setTestState({ status: "idle" });
     queue.push(next);
   };
@@ -98,35 +94,45 @@ export function PrimaryRow({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ provider: draft.provider, modelId: draft.modelId, thinkingLevel: draft.thinkingLevel }),
       });
-      setTestState({ status: "ok", text: `✓ ${res.latencyMs}ms` });
+      setTestState({ status: "ok", text: `通过 · ${res.latencyMs}ms` });
     } catch (err) {
       setTestState({ status: "fail", text: errorMessage(err) });
     }
   };
 
   return (
-    <div className="settings-role-row settings-primary-row">
-      <div className="settings-role-head">
+    <div className="settings-primary-row" id="settings-role-primary">
+      <div className="settings-primary-head">
         <span className="settings-role-name">主模型</span>
         {draft.mode !== "custom" && <Chip onClick={() => push(defaultCustom(catalog))}>设置主模型</Chip>}
-        <span className={`settings-role-status${rolledBack ? " settings-role-status--rollback" : ""}`}>
+        <span
+          className={failure ? "settings-role-status settings-role-status--rollback" : "settings-role-status"}
+          aria-live="polite"
+        >
           {queue.flushing() ? (
-            <Spinner />
-          ) : rolledBack ? (
+            <>
+              <Spinner /> 保存中
+            </>
+          ) : failure ? (
             <>
               <TriangleAlert size={12} className="icon" /> 未保存
             </>
           ) : (
-            <Check size={12} className="icon" />
+            <>
+              <Check size={12} className="icon" /> 已保存
+            </>
           )}
         </span>
       </div>
 
       {draft.mode === "custom" && (
-        <div className="settings-role-body">
+        <div className="settings-primary-editor">
           <Select
             value={draft.provider ?? ""}
-            options={catalog.providers.map((p) => ({ value: p.id, label: providerLabel(catalog, p.id) }))}
+            options={selectableProviders(catalog, draft.provider).map((p) => ({
+              value: p.id,
+              label: providerLabel(catalog, p.id),
+            }))}
             onChange={setProvider}
           />
           <Select
@@ -140,7 +146,7 @@ export function PrimaryRow({
             onChange={setThinkingLevel}
           />
           <Button disabled={!complete || testState.status === "busy"} onClick={runTest}>
-            测试
+            测试模型
           </Button>
           {testState.status === "busy" && <Spinner />}
           {testState.status === "ok" && (
@@ -155,6 +161,12 @@ export function PrimaryRow({
         </div>
       )}
 
+      {failure ? (
+        <div className="settings-save-error" role="alert">
+          <span>{failure.message}</span>
+          <Button onClick={() => push(failure.retrySnapshot)}>重试</Button>
+        </div>
+      ) : null}
       {draft.mode !== "custom" && (
         <div className="settings-role-warning">未设置——所有「跟随主模型」的用途都处于暂停</div>
       )}

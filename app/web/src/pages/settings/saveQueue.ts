@@ -9,7 +9,7 @@ export interface SaveQueue<T> {
 export function createSaveQueue<T>(opts: {
   save: (snapshot: T) => Promise<T | void>;
   initial: T | null;
-  onError?: (err: unknown, rolledBackTo: T | null) => void;
+  onError?: (err: unknown, rolledBackTo: T | null, retrySnapshot: T) => void;
 }): SaveQueue<T> {
   let confirmed = opts.initial;
   let pending: T | null = null;
@@ -37,10 +37,11 @@ export function createSaveQueue<T>(opts: {
         }
       },
       (err) => {
+        const retrySnapshot = pending ?? snapshot;
         pending = null;
         flushing = false;
         notify();
-        opts.onError?.(err, confirmed);
+        opts.onError?.(err, confirmed, retrySnapshot);
       },
     );
   };

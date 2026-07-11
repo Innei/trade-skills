@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Check, TriangleAlert } from "lucide-react";
 import { api, errorMessage } from "../../api";
-import { Button, Chip, Select, Spinner } from "../../ui";
-import { defaultCustom, firstModelId, providerKeyReady, providerLabel, saveRole } from "./roleShared";
+import { Button, Select, Spinner } from "../../ui";
+import { RoleModeControl } from "./RoleModeControl";
+import { defaultCustom, firstModelId, providerKeyReady, providerLabel, saveRole, selectableProviders } from "./roleShared";
+import type { RoleView } from "./settingsViewModel";
 import {
   ROLE_LABEL,
   thinkingLabel,
@@ -11,63 +13,43 @@ import {
   type Role,
   type RoleMode,
   type RoleSetting,
-  type RoleUsage,
 } from "./types";
 import { useSaveQueue } from "./useSaveQueue";
 
-function usageText(usage: RoleUsage | undefined): string {
-  if (!usage || (usage.calls === 0 && usage.cost === 0)) return "今日 —";
-  return `今日 $${usage.cost.toFixed(2)} · ${usage.calls} 次`;
-}
-
-function resolvePrimaryText(primary: RoleSetting, catalog: Catalog): string | null {
-  if (primary.mode !== "custom" || !primary.provider || !primary.modelId) return null;
-  const model = catalog.providers
-    .find((p) => p.id === primary.provider)
-    ?.models.find((m) => m.id === primary.modelId);
-  if (!model) return null;
-  return `${model.name} · ${thinkingLabel(primary.thinkingLevel)}`;
-}
-
-const MODE_OPTIONS: { mode: RoleMode; label: string }[] = [
-  { mode: "inherit", label: "跟随主模型" },
-  { mode: "custom", label: "自定义" },
-  { mode: "disabled", label: "停用" },
-];
-
 export function RoleRow({
   role,
-  setting,
-  primary,
+  initial,
+  draft,
   catalog,
   credentials,
-  usage,
+  view,
+  onDraftChange,
 }: {
   role: Role;
-  setting: RoleSetting;
-  primary: RoleSetting;
+  initial: RoleSetting;
+  draft: RoleSetting;
   catalog: Catalog;
   credentials: CredentialEntry[];
-  usage?: RoleUsage;
+  view: RoleView;
+  onDraftChange: (next: RoleSetting) => void;
 }) {
-  const [draft, setDraft] = useState(setting);
-  const [rolledBack, setRolledBack] = useState(false);
+  const [failure, setFailure] = useState<{ message: string; retrySnapshot: RoleSetting } | null>(null);
   const [testState, setTestState] = useState<{ status: "idle" | "busy" | "ok" | "fail"; text?: string }>({
     status: "idle",
   });
 
   const queue = useSaveQueue<RoleSetting>({
-    initial: setting,
+    initial,
     save: (snapshot) => saveRole(role, snapshot),
-    onError: (_err, rolledBackTo) => {
-      setDraft(rolledBackTo ?? setting);
-      setRolledBack(true);
+    onError: (err, rolledBackTo, retrySnapshot) => {
+      onDraftChange(rolledBackTo ?? initial);
+      setFailure({ message: errorMessage(err), retrySnapshot });
     },
   });
 
   const push = (next: RoleSetting) => {
-    setDraft(next);
-    setRolledBack(false);
+    onDraftChange(next);
+    setFailure(null);
     setTestState({ status: "idle" });
     queue.push(next);
   };
@@ -106,7 +88,6 @@ export function RoleRow({
     draft.mode === "custom" && Boolean(draft.provider) && !providerKeyReady(draft.provider!, credentials, catalog);
   const complete =
     draft.mode === "custom" && Boolean(draft.provider) && Boolean(draft.modelId) && Boolean(draft.thinkingLevel);
-  const primaryText = resolvePrimaryText(primary, catalog);
 
   const runTest = async () => {
     if (!draft.provider || !draft.modelId || !draft.thinkingLevel) return;
@@ -117,73 +98,82 @@ export function RoleRow({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ provider: draft.provider, modelId: draft.modelId, thinkingLevel: draft.thinkingLevel }),
       });
-      setTestState({ status: "ok", text: `✓ ${res.latencyMs}ms` });
+      setTestState({ status: "ok", text: `通过 · ${res.latencyMs}ms` });
     } catch (err) {
       setTestState({ status: "fail", text: errorMessage(err) });
     }
   };
 
   return (
-    <div className="settings-role-row">
-      <div className="settings-role-head">
+    <div className={"settings-assignment-row settings-assignment-row--" + draft.mode} id={"settings-role-" + role}>
+      <div className="settings-role-grid">
         <span className="settings-role-name">{ROLE_LABEL[role]}</span>
-        {MODE_OPTIONS.map((opt) => (
-          <Chip key={opt.mode} active={draft.mode === opt.mode} onClick={() => setMode(opt.mode)}>
-            {opt.label}
-          </Chip>
-        ))}
-        <span className="settings-role-usage">{usageText(usage)}</span>
-        <span className={`settings-role-status${rolledBack ? " settings-role-status--rollback" : ""}`}>
+        <RoleModeControl role={role} value={draft.mode} onChange={setMode} />
+        <span className={"settings-role-effective settings-role-effective--" + view.tone}>
+          {view.effectiveLabel}
+        </span>
+        <span className="settings-role-usage">{view.usageLabel}</span>
+        <span
+          className={failure ? "settings-role-status settings-role-status--rollback" : "settings-role-status"}
+          aria-live="polite"
+        >
           {queue.flushing() ? (
-            <Spinner />
-          ) : rolledBack ? (
+            <Spinner aria-label="保存中" />
+          ) : failure ? (
             <>
               <TriangleAlert size={12} className="icon" /> 未保存
             </>
           ) : (
-            <Check size={12} className="icon" />
+            <Check size={12} className="icon" aria-label="已保存" />
           )}
         </span>
       </div>
 
       {draft.mode === "custom" && (
-        <div className="settings-role-body">
-          <Select
-            value={draft.provider ?? ""}
-            options={catalog.providers.map((p) => ({ value: p.id, label: providerLabel(catalog, p.id) }))}
-            onChange={setProvider}
-          />
-          <Select
-            value={draft.modelId ?? ""}
-            options={models.map((m) => ({ value: m.id, label: m.name }))}
-            onChange={setModelId}
-          />
-          <Select
-            value={draft.thinkingLevel ?? "off"}
-            options={thinkingLevels.map((t) => ({ value: t, label: thinkingLabel(t) }))}
-            onChange={setThinkingLevel}
-          />
-          <Button disabled={!complete || testState.status === "busy"} onClick={runTest}>
-            测试
-          </Button>
-          {testState.status === "busy" && <Spinner />}
-          {testState.status === "ok" && (
-            <span className="settings-test-result settings-test-result--ok">{testState.text}</span>
-          )}
-          {testState.status === "fail" && (
-            <span className="settings-test-result settings-test-result--fail">{testState.text}</span>
-          )}
+        <div className="settings-role-editor">
+          <div className="settings-role-editor-controls">
+            <Select
+              value={draft.provider ?? ""}
+              options={selectableProviders(catalog, draft.provider).map((p) => ({
+                value: p.id,
+                label: providerLabel(catalog, p.id),
+              }))}
+              onChange={setProvider}
+            />
+            <Select
+              value={draft.modelId ?? ""}
+              options={models.map((m) => ({ value: m.id, label: m.name }))}
+              onChange={setModelId}
+            />
+            <Select
+              value={draft.thinkingLevel ?? "off"}
+              options={thinkingLevels.map((t) => ({ value: t, label: thinkingLabel(t) }))}
+              onChange={setThinkingLevel}
+            />
+            <Button disabled={!complete || testState.status === "busy"} onClick={runTest}>
+              测试模型
+            </Button>
+          </div>
+          <div className="settings-role-editor-status" aria-live="polite">
+            {testState.status === "busy" ? <Spinner aria-label="测试中" /> : null}
+            {testState.status === "ok" ? (
+              <span className="settings-test-result settings-test-result--ok">{testState.text}</span>
+            ) : null}
+            {testState.status === "fail" ? (
+              <span className="settings-test-result settings-test-result--fail">{testState.text}</span>
+            ) : null}
+            {computedStale ? <span className="settings-role-warning">模型已不在目录，请改选</span> : null}
+            {keyMissing ? <span className="settings-role-warning">该 Provider 未配置认证</span> : null}
+          </div>
         </div>
       )}
 
-      {computedStale && <div className="settings-role-warning">模型已不在目录，请改选</div>}
-      {keyMissing && <div className="settings-role-warning">该 provider 未配 key</div>}
-      {draft.mode === "inherit" &&
-        (primaryText ? (
-          <div className="settings-role-warning settings-role-warning--gray">跟随主模型 · {primaryText}</div>
-        ) : (
-          <div className="settings-role-warning">主模型未设置，此用途暂停</div>
-        ))}
+      {failure ? (
+        <div className="settings-save-error" role="alert">
+          <span>{failure.message}</span>
+          <Button onClick={() => push(failure.retrySnapshot)}>重试</Button>
+        </div>
+      ) : null}
     </div>
   );
 }

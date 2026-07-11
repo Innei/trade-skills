@@ -55,11 +55,11 @@ importers:
   server:
     dependencies:
       '@earendil-works/pi-agent-core':
-        specifier: ^0.80.3
-        version: 0.80.3(ws@8.21.0)(zod@4.4.3)
+        specifier: ^0.80.6
+        version: 0.80.6(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-ai':
-        specifier: ^0.80.3
-        version: 0.80.3(ws@8.21.0)(zod@4.4.3)
+        specifier: ^0.80.6
+        version: 0.80.6(ws@8.21.0)(zod@4.4.3)
       '@hono/node-server':
         specifier: 1.19.14
         version: 1.19.14(hono@4.12.26)
@@ -379,12 +379,12 @@ packages:
       '@types/react':
         optional: true
 
-  '@earendil-works/pi-agent-core@0.80.3':
-    resolution: {integrity: sha512-3qw0/GeRQBU/nlGjDe5Yb7ePKTmoxefx2YxyKMFAviFUMXpFexBG/hS7mBtwFahFvzrrTPPoRT6sFIDjwoDWPQ==}
+  '@earendil-works/pi-agent-core@0.80.6':
+    resolution: {integrity: sha512-Lvn89ko42h5ETUb6Z0Ku6ldskEqXaTdQBYvSa0+7bdG9V6rUEpXptv5e0OVZ1HDcvi8s6/2lGCQWsxKX+DFHNw==}
     engines: {node: '>=22.19.0'}
 
-  '@earendil-works/pi-ai@0.80.3':
-    resolution: {integrity: sha512-jPZLMeGL5kkMSEAwAklfXTMHqZvfhsJtCCpKGIr5Duk7mc0n4skjB1dugk7y0z3z8ZHIUCmPAWHdyDqgUz5vdA==}
+  '@earendil-works/pi-ai@0.80.6':
+    resolution: {integrity: sha512-7xfLk8sANBp+bpPEbjoOZTbPxsa+++b1JXAoSJsNa3vbs9AHHEclmvg54XLQcxH+fuwaeti/g2jeIfJ+mVYLpA==}
     engines: {node: '>=22.19.0'}
     hasBin: true
 
@@ -3445,9 +3445,9 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.17
 
-  '@earendil-works/pi-agent-core@0.80.3(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-agent-core@0.80.6(ws@8.21.0)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-ai': 0.80.3(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-ai': 0.80.6(ws@8.21.0)(zod@4.4.3)
       ignore: 7.0.5
       typebox: 1.1.38
       yaml: 2.9.0
@@ -3459,7 +3459,7 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-ai@0.80.3(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-ai@0.80.6(ws@8.21.0)(zod@4.4.3)':
     dependencies:
       '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
       '@aws-sdk/client-bedrock-runtime': 3.1048.0

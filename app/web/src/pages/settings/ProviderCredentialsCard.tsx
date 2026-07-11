@@ -1,85 +1,234 @@
 import { useState } from "react";
 import { api, errorMessage } from "../../api";
-import { Badge, Button, Card, Input, openModal, Select, SectionTitle } from "../../ui";
-import { CODEX_PROVIDER, type AiSettings, type Catalog } from "./types";
+import { Button, Card, Dot, Input, openModal, Select, SectionTitle } from "../../ui";
+import {
+  CODEX_PROVIDER,
+  type AiSettings,
+  type Catalog,
+  type CatalogProvider,
+  type CredentialEntry,
+} from "./types";
 
 const CODEX_STATUS_LABEL: Record<string, string> = {
-  configured: "已通过 codex 登录",
+  configured: "已登录",
   missing: "未登录，终端运行 codex 登录",
   error: "登录态异常",
 };
 
-function providerName(catalog: Catalog, id: string): string {
-  return catalog.providers.find((p) => p.id === id)?.name ?? id;
+function ResetCredentialsDialog({
+  closeModal,
+  onChanged,
+}: {
+  closeModal: () => void;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const reset = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      await api("/api/settings/ai/reset-credentials", { method: "POST" });
+      onChanged();
+      closeModal();
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="settings-reset-confirm">
+      <p>会清空全部已存 key，需重新填写。确定继续吗？</p>
+      {error ? <div className="settings-test-result settings-test-result--fail">{error}</div> : null}
+      <div className="settings-cred-actions">
+        <Button disabled={busy} onClick={closeModal}>
+          取消
+        </Button>
+        <Button accent disabled={busy} onClick={reset}>
+          {busy ? "重置中…" : "确认重置"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function credentialMeta(credential: CredentialEntry | undefined): string {
+  if (!credential) return "尚未保存 API key";
+  if (!credential.ok) return "已存凭据无法解密";
+  return (credential.masked ?? "已保存") + " · 更新于 " + credential.updatedAt.slice(0, 10);
+}
+
+function providerState(credential: CredentialEntry | undefined): {
+  label: string;
+  tone: "up" | "accent" | "muted";
+} {
+  if (!credential) return { label: "未配置", tone: "muted" };
+  if (!credential.ok) return { label: "需重新填写", tone: "accent" };
+  return { label: "已保存", tone: "up" };
+}
+
+function ProviderAuthRow({
+  provider,
+  credential,
+  editing,
+  editKey,
+  busy,
+  error,
+  onStartEdit,
+  onEditKey,
+  onSave,
+  onCancel,
+  onDelete,
+}: {
+  provider: CatalogProvider;
+  credential: CredentialEntry | undefined;
+  editing: boolean;
+  editKey: string;
+  busy: boolean;
+  error: string | null;
+  onStartEdit: () => void;
+  onEditKey: (value: string) => void;
+  onSave: () => void;
+  onCancel: () => void;
+  onDelete: () => void;
+}) {
+  const state = providerState(credential);
+
+  return (
+    <div className="settings-provider-row" id={"settings-provider-" + provider.id}>
+      <div className="settings-provider-head">
+        <span className="settings-provider-name">{provider.name}</span>
+        <span className={"settings-provider-state settings-provider-state--" + state.tone}>
+          <Dot tone={state.tone === "muted" ? undefined : state.tone} />
+          {state.label}
+        </span>
+      </div>
+      <div className="settings-provider-meta">{credentialMeta(credential)}</div>
+      {editing ? (
+        <div className="settings-provider-editor">
+          <Input
+            autoComplete="off"
+            type="password"
+            value={editKey}
+            onChange={(event) => onEditKey(event.target.value)}
+            placeholder="API key"
+          />
+          <Button accent disabled={busy || !editKey} onClick={onSave}>
+            {busy ? "保存中…" : "保存"}
+          </Button>
+          <Button disabled={busy} onClick={onCancel}>
+            取消
+          </Button>
+        </div>
+      ) : (
+        <div className="settings-provider-actions">
+          <Button onClick={onStartEdit}>{credential ? "更新 key" : "添加 key"}</Button>
+          {credential ? (
+            <Button disabled={busy} onClick={onDelete}>
+              {busy ? "删除中…" : "删除"}
+            </Button>
+          ) : null}
+        </div>
+      )}
+      {error ? (
+        <div className="settings-provider-error" role="alert">
+          {error}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function CodexAuthRow({ provider }: { provider: CatalogProvider }) {
+  const tone =
+    provider.auth.status === "configured" ? "up" : provider.auth.status === "error" ? "down" : "accent";
+
+  return (
+    <div className="settings-provider-row" id={"settings-provider-" + provider.id}>
+      <div className="settings-provider-head">
+        <span className="settings-provider-name">{provider.name}</span>
+        <span className={"settings-provider-state settings-provider-state--" + tone}>
+          <Dot tone={tone} />
+          {CODEX_STATUS_LABEL[provider.auth.status]}
+        </span>
+      </div>
+      <div className="settings-provider-meta">使用本机 Codex 登录态，不在此页面保存 key</div>
+    </div>
+  );
 }
 
 export function ProviderCredentialsCard({
   settings,
   catalog,
+  usedProviderIds,
   onChanged,
 }: {
   settings: AiSettings;
   catalog: Catalog;
+  usedProviderIds: string[];
   onChanged: () => void;
 }) {
   const [editingProvider, setEditingProvider] = useState<string | null>(null);
   const [editKey, setEditKey] = useState("");
-  const [editBusy, setEditBusy] = useState(false);
-  const [editError, setEditError] = useState<string | null>(null);
-
+  const [busyProvider, setBusyProvider] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [addProvider, setAddProvider] = useState("");
   const [addKey, setAddKey] = useState("");
   const [addBusy, setAddBusy] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
-  const [resetBusy, setResetBusy] = useState(false);
-
-  const configured = settings.credentials.filter((c) => c.provider !== CODEX_PROVIDER);
-  const configuredIds = new Set(configured.map((c) => c.provider));
-  const availableToAdd = catalog.providers.filter(
-    (p) => p.auth.kind === "api_key" && !configuredIds.has(p.id),
-  );
-
-  const codexAuth = catalog.providers.find((p) => p.id === CODEX_PROVIDER)?.auth;
-  const effectiveAddProvider = addProvider || availableToAdd[0]?.id || "";
-
-  const saveCredential = async (provider: string, key: string) => {
-    await api(`/api/settings/ai/credentials/${encodeURIComponent(provider)}`, {
-      method: "PUT",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ key }),
-    });
-    onChanged();
+  const setProviderError = (provider: string, error: string | null) => {
+    setErrors((current) => ({ ...current, [provider]: error }));
   };
 
-  const deleteCredential = async (provider: string) => {
-    await api(`/api/settings/ai/credentials/${encodeURIComponent(provider)}`, { method: "DELETE" });
-    onChanged();
+  const startEdit = (provider: string) => {
+    setEditingProvider(provider);
+    setEditKey("");
+    setProviderError(provider, null);
   };
 
-  const handleUpdate = async (provider: string) => {
+  const cancelEdit = (provider: string) => {
+    setEditingProvider(null);
+    setEditKey("");
+    setProviderError(provider, null);
+  };
+
+  const saveCredential = async (provider: string) => {
     if (!editKey) return;
-    setEditBusy(true);
-    setEditError(null);
+    setBusyProvider(provider);
+    setProviderError(provider, null);
     try {
-      await saveCredential(provider, editKey);
+      await api("/api/settings/ai/credentials/" + encodeURIComponent(provider), {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ key: editKey }),
+      });
       setEditingProvider(null);
       setEditKey("");
+      onChanged();
     } catch (err) {
-      setEditError(errorMessage(err));
+      setProviderError(provider, errorMessage(err));
     } finally {
-      setEditBusy(false);
+      setBusyProvider(null);
     }
   };
 
-  const handleAdd = async () => {
-    if (!effectiveAddProvider || !addKey) return;
+  const addCredential = async (provider: string) => {
+    if (!provider || !addKey) return;
     setAddBusy(true);
     setAddError(null);
     try {
-      await saveCredential(effectiveAddProvider, addKey);
+      await api("/api/settings/ai/credentials/" + encodeURIComponent(provider), {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ key: addKey }),
+      });
       setAddProvider("");
       setAddKey("");
+      onChanged();
     } catch (err) {
       setAddError(errorMessage(err));
     } finally {
@@ -87,115 +236,109 @@ export function ProviderCredentialsCard({
     }
   };
 
+  const deleteCredential = async (provider: string) => {
+    setBusyProvider(provider);
+    setProviderError(provider, null);
+    try {
+      await api("/api/settings/ai/credentials/" + encodeURIComponent(provider), { method: "DELETE" });
+      onChanged();
+    } catch (err) {
+      setProviderError(provider, errorMessage(err));
+    } finally {
+      setBusyProvider(null);
+    }
+  };
+
   const handleReset = () => {
     openModal({
       title: "重置全部凭据",
-      body: (closeModal) => (
-        <div className="settings-reset-confirm">
-          <p>会清空全部已存 key，需重新填写。确定继续吗？</p>
-          <div className="settings-cred-actions">
-            <Button onClick={closeModal}>取消</Button>
-            <Button
-              accent
-              disabled={resetBusy}
-              onClick={async () => {
-                setResetBusy(true);
-                try {
-                  await api("/api/settings/ai/reset-credentials", { method: "POST" });
-                  onChanged();
-                  closeModal();
-                } finally {
-                  setResetBusy(false);
-                }
-              }}
-            >
-              确认重置
-            </Button>
-          </div>
-        </div>
-      ),
+      body: (closeModal) => <ResetCredentialsDialog closeModal={closeModal} onChanged={onChanged} />,
     });
   };
 
+  const credentials = new Map(settings.credentials.map((credential) => [credential.provider, credential]));
+  const usedProviders = new Set(usedProviderIds);
+  const visibleProviders = catalog.providers.filter(
+    (provider) =>
+      provider.id === CODEX_PROVIDER || credentials.has(provider.id) || usedProviders.has(provider.id),
+  );
+  const availableToAdd = catalog.providers.filter(
+    (provider) =>
+      provider.auth.kind === "api_key" &&
+      !credentials.has(provider.id) &&
+      !usedProviders.has(provider.id),
+  );
+  const effectiveAddProvider = addProvider || availableToAdd[0]?.id || "";
+  const apiKeyCount = settings.credentials.filter((credential) => credential.ok).length;
+  const codex = catalog.providers.find((provider) => provider.id === CODEX_PROVIDER);
+  const codexSummary =
+    codex?.auth.status === "configured"
+      ? "Codex 已登录"
+      : codex?.auth.status === "error"
+        ? "Codex 登录异常"
+        : "Codex 未登录";
+
   return (
-    <Card className="settings-credentials-card">
-      <SectionTitle>Provider 与 API key</SectionTitle>
-      {settings.masterKey === "invalid" && (
+    <Card className="settings-credentials-card" id="settings-provider-panel">
+      <div className="settings-card-heading">
+        <SectionTitle>Provider 与凭据</SectionTitle>
+        <span>{apiKeyCount + " 个 key · " + codexSummary}</span>
+      </div>
+      {settings.masterKey === "invalid" ? (
         <div className="settings-warning-strip">
           <span>主密钥异常，已存的凭据无法解密</span>
           <Button onClick={handleReset}>重置全部凭据</Button>
         </div>
-      )}
-      {configured.map((c) => (
-        <div className="settings-cred-row" key={c.provider}>
-          <span className="settings-cred-name">{providerName(catalog, c.provider)}</span>
-          <span className="settings-cred-meta">
-            {c.ok ? c.masked : "需重新填写"} · {c.updatedAt.slice(0, 10)}
-          </span>
-          {editingProvider === c.provider ? (
-            <span className="settings-cred-actions">
-              <Input
-                type="password"
-                value={editKey}
-                onChange={(e) => setEditKey(e.target.value)}
-                placeholder="新 key"
-              />
-              <Button accent disabled={editBusy || !editKey} onClick={() => handleUpdate(c.provider)}>
-                保存
-              </Button>
-              <Button
-                onClick={() => {
-                  setEditingProvider(null);
-                  setEditKey("");
-                  setEditError(null);
-                }}
-              >
-                取消
-              </Button>
-            </span>
+      ) : null}
+      <div className="settings-provider-list">
+        {visibleProviders.map((provider) =>
+          provider.id === CODEX_PROVIDER || provider.auth.kind === "oauth" ? (
+            <CodexAuthRow key={provider.id} provider={provider} />
           ) : (
-            <span className="settings-cred-actions">
-              <Button
-                onClick={() => {
-                  setEditingProvider(c.provider);
-                  setEditKey("");
-                  setEditError(null);
-                }}
-              >
-                更新
-              </Button>
-              <Button onClick={() => deleteCredential(c.provider)}>删除</Button>
-            </span>
-          )}
-        </div>
-      ))}
-      {editingProvider && editError && <div className="settings-test-result settings-test-result--fail">{editError}</div>}
-
-      {availableToAdd.length > 0 && (
-        <div className="settings-cred-add">
-          <Select
-            value={effectiveAddProvider}
-            options={availableToAdd.map((p) => ({ value: p.id, label: p.name }))}
-            onChange={setAddProvider}
-          />
-          <Input
-            type="password"
-            value={addKey}
-            onChange={(e) => setAddKey(e.target.value)}
-            placeholder="API key"
-          />
-          <Button accent disabled={addBusy || !addKey} onClick={handleAdd}>
-            保存
-          </Button>
-        </div>
-      )}
-      {addError && <div className="settings-test-result settings-test-result--fail">{addError}</div>}
-
-      <div className="settings-cred-row">
-        <span className="settings-cred-name">{providerName(catalog, CODEX_PROVIDER)}</span>
-        <Badge tone={codexAuth?.status === "configured" ? "up" : codexAuth?.status === "error" ? "down" : undefined}>
-          {CODEX_STATUS_LABEL[codexAuth?.status ?? "missing"]}
-        </Badge>
+            <ProviderAuthRow
+              key={provider.id}
+              provider={provider}
+              credential={credentials.get(provider.id)}
+              editing={editingProvider === provider.id}
+              editKey={editingProvider === provider.id ? editKey : ""}
+              busy={busyProvider === provider.id}
+              error={errors[provider.id] ?? null}
+              onStartEdit={() => startEdit(provider.id)}
+              onEditKey={setEditKey}
+              onSave={() => saveCredential(provider.id)}
+              onCancel={() => cancelEdit(provider.id)}
+              onDelete={() => deleteCredential(provider.id)}
+            />
+          ),
+        )}
+        {availableToAdd.length > 0 ? (
+          <div className="settings-provider-add">
+            <Select
+              value={effectiveAddProvider}
+              options={availableToAdd.map((provider) => ({ value: provider.id, label: provider.name }))}
+              onChange={setAddProvider}
+            />
+            <Input
+              autoComplete="off"
+              type="password"
+              value={addKey}
+              onChange={(event) => setAddKey(event.target.value)}
+              placeholder="API key"
+            />
+            <Button
+              accent
+              disabled={addBusy || !effectiveAddProvider || !addKey}
+              onClick={() => addCredential(effectiveAddProvider)}
+            >
+              {addBusy ? "保存中…" : "添加 Provider"}
+            </Button>
+            {addError ? (
+              <div className="settings-provider-error" role="alert">
+                {addError}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </Card>
   );

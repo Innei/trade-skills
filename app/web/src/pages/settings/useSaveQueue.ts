@@ -10,7 +10,7 @@ interface Snapshot<T> {
 export function useSaveQueue<T>(opts: {
   save: (snapshot: T) => Promise<T | void>;
   initial: T | null;
-  onError?: (err: unknown, rolledBackTo: T | null) => void;
+  onError?: (err: unknown, rolledBackTo: T | null, retrySnapshot: T) => void;
 }): SaveQueue<T> {
   const optsRef = useRef(opts);
   optsRef.current = opts;
@@ -20,7 +20,8 @@ export function useSaveQueue<T>(opts: {
       createSaveQueue<T>({
         save: (snapshot) => optsRef.current.save(snapshot),
         initial: opts.initial,
-        onError: (err, rolledBackTo) => optsRef.current.onError?.(err, rolledBackTo),
+        onError: (err, rolledBackTo, retrySnapshot) =>
+          optsRef.current.onError?.(err, rolledBackTo, retrySnapshot),
       }),
     [],
   );
