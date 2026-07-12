@@ -1,6 +1,7 @@
 import type { CredentialsApi } from "../../contract/credentials.js";
 import { locateLongbridgeCli } from "../../services/longbridgeCli.js";
 import { readLongbridgeToken, LongbridgeTokenError } from "../../services/longbridgeToken.js";
+import { probeOpencli } from "../../services/opencli.js";
 
 export const credentialsService: CredentialsApi = {
   async status() {
@@ -22,5 +23,8 @@ export const credentialsService: CredentialsApi = {
       const message = error instanceof Error ? error.message : String(error);
       return { configured: false, method: "cli", lastError: message, state, cliPath };
     }
+  },
+  opencliStatus() {
+    return probeOpencli();
   },
 };

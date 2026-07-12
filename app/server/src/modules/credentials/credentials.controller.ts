@@ -8,4 +8,10 @@ export class CredentialsController {
     const data = await credentialsService.status();
     return { ok: true, data };
   }
+
+  @Get("/opencli")
+  async getOpencliStatus() {
+    const data = await credentialsService.opencliStatus();
+    return { ok: true, data };
+  }
 }

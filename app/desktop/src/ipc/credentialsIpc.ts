@@ -10,4 +10,9 @@ export class CredentialsIpc extends IpcService implements WrapEnvelope<Credentia
   status() {
     return toEnvelope("credentials.status", () => credentialsService.status());
   }
+
+  @IpcMethod()
+  opencliStatus() {
+    return toEnvelope("credentials.opencliStatus", () => credentialsService.opencliStatus());
+  }
 }
