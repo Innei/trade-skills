@@ -34,7 +34,7 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "TradeCharts $TAG" "$GITHUB_SHA"
+          git tag -a "$TAG" -m "Kansoku $TAG" "$GITHUB_SHA"
           git push origin "refs/tags/$TAG"
           # tags pushed with GITHUB_TOKEN never trigger other workflows
           # (GitHub's recursion guard), so the release run is dispatched

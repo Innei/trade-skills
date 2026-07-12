@@ -1,4 +1,4 @@
-# TradeCharts 更新日志
+# Kansoku 更新日志
 
 每个版本一节，`## X.Y.Z — YYYY-MM-DD` 格式，新版本插在最上面。
 发版 CI（desktop-release.yml）会提取对应版本的段落作为 GitHub Release 的说明，
@@ -6,7 +6,7 @@
 
 ## 0.1.1 — 2026-07-12
 
-TradeCharts 桌面版首个公开版本（macOS · Apple Silicon）。
+Kansoku 桌面版首个公开版本（macOS · Apple Silicon）。
 
 - 本地图表应用：K 线、成交量与常用指标一屏呈现，支持标签页多图切换
 - 接入长桥账户：实时行情推送，盘前、盘后、夜盘时段都能看

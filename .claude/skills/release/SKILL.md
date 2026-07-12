@@ -5,7 +5,7 @@ description: Use when the user wants to release a new desktop app version (发�
 
 # Desktop Release
 
-Opens a version-bump PR for the TradeCharts desktop app. Everything after the PR merge is automated:
+Opens a version-bump PR for the Kansoku desktop app. Everything after the PR merge is automated:
 
 ```
 this skill → release PR (ci.yml gates it) → merge to main

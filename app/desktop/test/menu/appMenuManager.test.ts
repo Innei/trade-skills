@@ -43,9 +43,9 @@ function findByRole(
 
 describe("buildAppMenuTemplate", () => {
   it("builds app / edit / view / window top-level sections", () => {
-    const template = buildAppMenuTemplate("TradeCharts", makeDeps());
+    const template = buildAppMenuTemplate("Kansoku", makeDeps());
     expect(template.map((item) => item.label ?? item.role)).toEqual([
-      "TradeCharts",
+      "Kansoku",
       "编辑",
       "显示",
       "窗口",
@@ -54,7 +54,7 @@ describe("buildAppMenuTemplate", () => {
 
   it("includes about, check updates, import, settings, and quit in the app menu", () => {
     const deps = makeDeps();
-    const appMenu = asSubmenu(buildAppMenuTemplate("TradeCharts", deps)[0]);
+    const appMenu = asSubmenu(buildAppMenuTemplate("Kansoku", deps)[0]);
     expect(findByRole(appMenu, "about").role).toBe("about");
     expect(findByLabel(appMenu, "检查更新…").label).toBe("检查更新…");
     expect(findByLabel(appMenu, "从 repo 导入数据…").label).toBe("从 repo 导入数据…");
@@ -67,7 +67,7 @@ describe("buildAppMenuTemplate", () => {
 
   it("wires app menu clicks to deps", () => {
     const deps = makeDeps();
-    const appMenu = asSubmenu(buildAppMenuTemplate("TradeCharts", deps)[0]);
+    const appMenu = asSubmenu(buildAppMenuTemplate("Kansoku", deps)[0]);
     findByLabel(appMenu, "检查更新…").click?.(undefined as never, undefined as never, undefined as never);
     findByLabel(appMenu, "从 repo 导入数据…").click?.(
       undefined as never,
@@ -82,7 +82,7 @@ describe("buildAppMenuTemplate", () => {
 
   it("includes tab actions and avoids role close on close-tab", () => {
     const deps = makeDeps();
-    const windowMenu = asSubmenu(buildAppMenuTemplate("TradeCharts", deps)[3]);
+    const windowMenu = asSubmenu(buildAppMenuTemplate("Kansoku", deps)[3]);
     const closeTab = findByLabel(windowMenu, "关闭标签页");
     expect(closeTab).toMatchObject({
       label: "关闭标签页",
@@ -96,7 +96,7 @@ describe("buildAppMenuTemplate", () => {
 
   it("wires window tab clicks to deps", () => {
     const deps = makeDeps();
-    const windowMenu = asSubmenu(buildAppMenuTemplate("TradeCharts", deps)[3]);
+    const windowMenu = asSubmenu(buildAppMenuTemplate("Kansoku", deps)[3]);
     findByLabel(windowMenu, "新建标签页").click?.(undefined as never, undefined as never, undefined as never);
     findByLabel(windowMenu, "关闭标签页").click?.(undefined as never, undefined as never, undefined as never);
     findByLabel(windowMenu, "下一个标签页").click?.(undefined as never, undefined as never, undefined as never);
@@ -108,7 +108,7 @@ describe("buildAppMenuTemplate", () => {
   });
 
   it("includes standard edit and view roles", () => {
-    const template = buildAppMenuTemplate("TradeCharts", makeDeps());
+    const template = buildAppMenuTemplate("Kansoku", makeDeps());
     const edit = asSubmenu(template[1]);
     const view = asSubmenu(template[2]);
     expect(findByRole(edit, "copy").role).toBe("copy");
@@ -125,7 +125,7 @@ describe("createAppMenuManager", () => {
     const fakeMenu = { id: "menu" } as unknown as Electron.Menu;
     const buildFromTemplate = vi.fn().mockReturnValue(fakeMenu);
     const manager = createAppMenuManager({
-      appName: "TradeCharts",
+      appName: "Kansoku",
       deps: makeDeps(),
       setApplicationMenu,
       buildFromTemplate,

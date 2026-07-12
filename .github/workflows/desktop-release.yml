@@ -259,6 +259,6 @@ jobs:
           # releases/latest/download/appcast.xml, so publishing IS the rollout.
           gh release create "$TAG" \
             --repo "$REPO_SLUG" \
-            --title "TradeCharts $TAG" \
+            --title "Kansoku $TAG" \
             --notes-file "${{ steps.notes.outputs.file }}" \
             "${ASSETS[@]}"

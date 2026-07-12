@@ -5,7 +5,7 @@
 发布前贴进 GitHub Release 的描述框里，删掉没用到的空分类。
 
 ```markdown
-## TradeCharts vX.Y.Z
+## Kansoku vX.Y.Z
 
 ### 新功能
 
