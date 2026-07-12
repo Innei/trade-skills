@@ -1,14 +1,8 @@
 import { useState } from "react";
+import { normalizeSymbol } from "../../lib/symbol";
 import { navigate } from "../../router";
 import { listRecentSymbols } from "../../recentCharts";
 import { Chip, Input } from "../../ui";
-
-function normalizeSymbol(raw: string): string | null {
-  let sym = raw.trim().toUpperCase();
-  if (!sym) return null;
-  if (!sym.includes(".")) sym += ".US";
-  return /^[A-Z0-9.]+$/.test(sym) ? sym : null;
-}
 
 export function QuickBar({ shortcuts }: { shortcuts: string[] }) {
   const [input, setInput] = useState("");

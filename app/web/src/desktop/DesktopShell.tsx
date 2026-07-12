@@ -1,4 +1,5 @@
 import { Router } from "../PageRouter";
+import { CommandPalette } from "../palette/CommandPalette";
 import { RestrictedBanner } from "../RestrictedBanner";
 import { ContextMenuHost, ModalHost } from "../ui";
 import { DesktopTitlebar } from "./DesktopTitlebar";
@@ -14,6 +15,7 @@ export function DesktopShell() {
         <RestrictedBanner />
         <Router />
       </div>
+      <CommandPalette />
       <ModalHost />
       <ContextMenuHost />
     </>
