@@ -1225,12 +1225,14 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 .onboarding-drag-bar {
   position: fixed; top: 0; left: 0; right: 0; height: 40px; z-index: 80;
   display: flex; align-items: center;
+  background: var(--bg-canvas);
   -webkit-app-region: drag;
 }
 .onboarding-page {
   display: flex; align-items: center; justify-content: center;
-  min-height: 100vh; padding: 40px 24px 24px;
-  background: #080d14;
+  min-height: 100vh; max-width: none; width: 100%; margin: 0;
+  padding: 40px 24px 24px;
+  background: var(--bg-canvas);
 }
 .onboarding-card { max-width: 480px; width: 100%; }
 .onboarding-card h1 { font-size: var(--fs-xl); font-weight: 600; color: var(--text-primary); margin-bottom: 10px; }
