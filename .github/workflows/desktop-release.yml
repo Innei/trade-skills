@@ -54,6 +54,16 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: assert Sparkle secrets present (fail fast — an empty public key would be silently baked into the app)
+        env:
+          SPARKLE_ED_PUBLIC_KEY: ${{ secrets.SPARKLE_ED_PUBLIC_KEY }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: |
+          if [ -z "$SPARKLE_ED_PUBLIC_KEY" ] || [ -z "$SPARKLE_ED_PRIVATE_KEY" ]; then
+            echo "::error::SPARKLE_ED_PUBLIC_KEY / SPARKLE_ED_PRIVATE_KEY repo secrets are missing or empty"
+            exit 1
+          fi
+
       - name: extract release notes from CHANGELOG (fail fast, before the build)
         id: notes
         run: |
