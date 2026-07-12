@@ -17,6 +17,8 @@ import { applyDevDockIcon } from "./window/dockIcon.js";
 import { registerAppProtocolHandler, registerAppScheme, resolveWebDistRoot } from "./protocol/protocol.js";
 import { createExternalApiController, type ExternalApiController } from "./externalApi/controller.js";
 import { registerExternalApiIpc } from "./externalApi/ipc.js";
+import { createOnboardingStore } from "./onboarding/store.js";
+import { registerOnboardingIpc } from "./onboarding/ipc.js";
 import { runImportFromRepoFlow } from "./dataImport/flow.js";
 import { sendTabsCommand } from "./tabs/commands.js";
 import { initUpdater } from "./updater/updater.js";
@@ -65,6 +67,8 @@ app.whenReady().then(async () => {
     externalApiController = createExternalApiController(async (request) => apiApp.fetch(request));
     registerExternalApiIpc(externalApiController);
     await externalApiController.boot();
+
+    registerOnboardingIpc(createOnboardingStore());
 
     const updater = initUpdater();
     installAppMenu(() => updater.checkNow());

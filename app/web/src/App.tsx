@@ -33,8 +33,8 @@ export function App() {
     return <AppSkeleton />;
   }
 
-  if (gate.status === "onboarding" && gate.bridge) {
-    return <Onboarding status={gate.details} onRecheck={gate.recheck} />;
+  if (gate.status === "onboarding" && gate.bridge && gate.step) {
+    return <Onboarding step={gate.step} status={gate.details} onRecheck={gate.recheck} onComplete={gate.completeAi} />;
   }
 
   if (isDesktopRealtime()) {

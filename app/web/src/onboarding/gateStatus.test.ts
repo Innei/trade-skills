@@ -1,34 +1,51 @@
 import { describe, expect, it } from "vitest";
 import { computeGateStatus } from "./gateStatus";
 
+const base = { hasDesktopBridge: true, statusLoading: false, configured: true, onboardingCompleted: true };
+
 describe("computeGateStatus", () => {
   it("is ready immediately in a plain browser (no desktop bridge), regardless of everything else", () => {
     expect(
-      computeGateStatus({ hasDesktopBridge: false, statusLoading: true, configured: false }),
-    ).toBe("ready");
+      computeGateStatus({ ...base, hasDesktopBridge: false, statusLoading: true, configured: false, onboardingCompleted: false }),
+    ).toEqual({ status: "ready", step: null });
   });
 
   it("is loading while the desktop status request is in flight", () => {
-    expect(
-      computeGateStatus({ hasDesktopBridge: true, statusLoading: true, configured: null }),
-    ).toBe("loading");
+    expect(computeGateStatus({ ...base, statusLoading: true, configured: null, onboardingCompleted: null })).toEqual({
+      status: "loading",
+      step: null,
+    });
   });
 
-  it("is ready when desktop and status reports configured:true (e.g. OAuth-only machine)", () => {
-    expect(
-      computeGateStatus({ hasDesktopBridge: true, statusLoading: false, configured: true }),
-    ).toBe("ready");
+  it("onboards at the longbridge step when the CLI is not ready", () => {
+    expect(computeGateStatus({ ...base, configured: false, onboardingCompleted: true })).toEqual({
+      status: "onboarding",
+      step: "longbridge",
+    });
   });
 
-  it("fails open to ready when the status request itself failed (configured unknown)", () => {
-    expect(
-      computeGateStatus({ hasDesktopBridge: true, statusLoading: false, configured: null }),
-    ).toBe("ready");
+  it("fails open to ready when the credentials request itself failed (configured unknown)", () => {
+    expect(computeGateStatus({ ...base, configured: null })).toEqual({ status: "ready", step: null });
   });
 
-  it("is onboarding when desktop and the CLI is not ready", () => {
-    expect(
-      computeGateStatus({ hasDesktopBridge: true, statusLoading: false, configured: false }),
-    ).toBe("onboarding");
+  it("onboards at the ai step when longbridge is ready but onboarding was never completed", () => {
+    expect(computeGateStatus({ ...base, configured: true, onboardingCompleted: false })).toEqual({
+      status: "onboarding",
+      step: "ai",
+    });
+  });
+
+  it("is ready once longbridge is ready and onboarding is completed", () => {
+    expect(computeGateStatus({ ...base, configured: true, onboardingCompleted: true })).toEqual({
+      status: "ready",
+      step: null,
+    });
+  });
+
+  it("fails open to ready when the onboarding flag is unknown (bridge missing / read failed)", () => {
+    expect(computeGateStatus({ ...base, configured: true, onboardingCompleted: null })).toEqual({
+      status: "ready",
+      step: null,
+    });
   });
 });

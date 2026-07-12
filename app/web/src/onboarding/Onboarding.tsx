@@ -1,36 +1,55 @@
-import { Button, Card } from "../ui";
 import type { CredentialsGetResult } from "../pages/settings/desktopCredentials";
+import type { OnboardingStep } from "./gateStatus";
+import { StepAi } from "./StepAi";
+import { StepLongbridge } from "./StepLongbridge";
 
-const INSTALL_URL = "https://open.longbridge.com/docs/cli/install";
+const STEPS: { key: OnboardingStep; label: string }[] = [
+  { key: "longbridge", label: "连接数据" },
+  { key: "ai", label: "配置 AI" },
+];
 
-export function Onboarding({ status, onRecheck }: { status: CredentialsGetResult | null; onRecheck: () => void }) {
-  const state = status?.state ?? "cli_missing";
-  const title = state === "cli_missing" ? "安装 Longbridge CLI" : state === "login_required" ? "登录长桥账号" : "修复登录状态";
-  const command = state === "cli_missing" ? "curl -fsSL https://open.longbridge.com/install | sh" : "longbridge auth login";
-  const explanation =
-    state === "cli_missing"
-      ? "TradeCharts 使用本机 Longbridge CLI 获取行情和账户数据。安装完成后请返回这里重新检测。"
-      : state === "login_required"
-        ? "CLI 已安装，但尚未登录。请在终端执行登录命令，并在浏览器中完成授权。"
-        : "CLI 的登录文件无法读取或已经失效。请重新登录；如果问题持续，请升级 Longbridge CLI。";
+function Progress({ step }: { step: OnboardingStep }) {
+  const activeIndex = step === "longbridge" ? 0 : 1;
+  return (
+    <ol className="onboarding-progress">
+      {STEPS.map((s, i) => {
+        const cls = i < activeIndex ? " is-done" : i === activeIndex ? " is-active" : "";
+        return (
+          <li key={s.key} className={"onboarding-progress-step" + cls}>
+            <span className="onboarding-progress-index">{i < activeIndex ? "✓" : i + 1}</span>
+            <span className="onboarding-progress-label">{s.label}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
 
+export function Onboarding({
+  step,
+  status,
+  onRecheck,
+  onComplete,
+}: {
+  step: OnboardingStep;
+  status: CredentialsGetResult | null;
+  onRecheck: () => void;
+  onComplete: () => Promise<void>;
+}) {
   return (
     <>
       <div className="onboarding-drag-bar" aria-hidden="true">
         <div className="desktop-titlebar-traffic-spacer" />
       </div>
       <div className="page onboarding-page">
-        <Card className="onboarding-card">
-          <h1>{title}</h1>
-          <p className="onboarding-explainer">{explanation}</p>
-          <pre className="onboarding-cli-command"><code>{command}</code></pre>
-          {status?.cliPath && <p className="onboarding-explainer">已找到：{status.cliPath}</p>}
-          {status?.lastError && <div className="settings-test-result settings-test-result--fail">{status.lastError}</div>}
-          <div className="settings-cred-actions">
-            <Button onClick={() => window.open(INSTALL_URL, "_blank", "noopener,noreferrer")}>查看安装说明</Button>
-            <Button accent onClick={onRecheck}>重新检测</Button>
-          </div>
-        </Card>
+        <div className="onboarding-shell">
+          <Progress step={step} />
+          {step === "longbridge" ? (
+            <StepLongbridge status={status} onRecheck={onRecheck} />
+          ) : (
+            <StepAi onComplete={onComplete} />
+          )}
+        </div>
       </div>
     </>
   );

@@ -55,6 +55,11 @@ if (isPrivilegedOrigin) {
     resetToken: () => ipcRenderer.invoke("desktop:external-api:reset-token"),
   };
 
+  desktopApi.onboarding = {
+    getState: () => ipcRenderer.invoke("desktop:onboarding:get-state"),
+    complete: () => ipcRenderer.invoke("desktop:onboarding:complete"),
+  };
+
   desktopApi.tabs = {
     onCommand: (cb: (command: TabsCommand) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, command: TabsCommand) => cb(command);
