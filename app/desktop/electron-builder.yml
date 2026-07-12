@@ -47,3 +47,4 @@ mac:
     # greppable (SPARKLE_ED_PUBLIC_KEY_PLACEHOLDER) so that step has a stable anchor.
     SUPublicEDKey: SPARKLE_ED_PUBLIC_KEY_PLACEHOLDER
     SUEnableInstallerLauncherService: false
+    SUScheduledCheckInterval: 3600

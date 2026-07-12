@@ -5,7 +5,7 @@ import { loadSparkleBridgeForApp, type SparkleBridge, type SparkleInitOptions } 
 
 const OWNER_REPO = "Innei/kansoku";
 const RELEASES_URL = `https://api.github.com/repos/${OWNER_REPO}/releases/latest`;
-const THROTTLE_MS = 24 * 60 * 60 * 1000;
+const THROTTLE_MS = 60 * 60 * 1000;
 const CHECK_DELAY_MS = 10_000;
 const FETCH_TIMEOUT_MS = 5_000;
 

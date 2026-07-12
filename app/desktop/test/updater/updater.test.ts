@@ -39,13 +39,13 @@ describe("shouldCheck", () => {
     expect(shouldCheck("not-a-date", now)).toBe(true);
   });
 
-  it("does not check inside 24h", () => {
-    const last = "2026-07-10T12:00:01.000Z"; // 23h59m59s ago
+  it("does not check inside 1h", () => {
+    const last = "2026-07-11T11:00:01.000Z";
     expect(shouldCheck(last, now)).toBe(false);
   });
 
-  it("checks once past 24h", () => {
-    const last = "2026-07-10T11:58:59.000Z"; // 24h01m ago
+  it("checks once past 1h", () => {
+    const last = "2026-07-11T10:58:59.000Z";
     expect(shouldCheck(last, now)).toBe(true);
   });
 });
@@ -170,7 +170,7 @@ describe("checkForUpdate", () => {
   });
 
   it("skips the network call entirely when the throttle blocks it", async () => {
-    const deps = makeDeps({ readLastCheck: vi.fn().mockResolvedValue("2026-07-11T00:00:01.000Z") });
+    const deps = makeDeps({ readLastCheck: vi.fn().mockResolvedValue("2026-07-11T11:30:00.000Z") });
     await checkForUpdate(deps);
     expect(deps.fetchJson).not.toHaveBeenCalled();
     expect(deps.notify).not.toHaveBeenCalled();
@@ -208,7 +208,7 @@ describe("checkForUpdate", () => {
   it("bypasses throttle when force is true", async () => {
     const deps = makeDeps({
       force: true,
-      readLastCheck: vi.fn().mockResolvedValue("2026-07-11T00:00:01.000Z"),
+      readLastCheck: vi.fn().mockResolvedValue("2026-07-11T11:30:00.000Z"),
     });
     const result = await checkForUpdate(deps);
     expect(deps.fetchJson).toHaveBeenCalled();
