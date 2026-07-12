@@ -30,11 +30,7 @@ export function RoleModelsCard({
     <Card className="settings-roles-card">
       <div className="settings-card-heading">
         <SectionTitle>模型分配</SectionTitle>
-        <span>
-          {view.summary.usageLabel === "暂不可用"
-            ? "今日用量暂不可用"
-            : "今日合计 " + view.summary.usageLabel}
-        </span>
+        <span>改动即存即生效，进行中的一轮分析仍用旧配置</span>
       </div>
       <PrimaryRow
         initial={initialRoles.primary}

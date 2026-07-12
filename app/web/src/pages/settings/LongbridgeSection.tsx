@@ -1,11 +1,11 @@
 import { useQuery } from "../../apiHooks";
 import { client } from "../../client";
-import { Badge, Button, Card, SectionTitle } from "../../ui";
+import { Badge, Button } from "../../ui";
 import { getDesktopCredentialsBridge, type CredentialsGetResult } from "./desktopCredentials";
 
 const INSTALL_URL = "https://open.longbridge.com/docs/cli/install";
 
-export function CredentialsSettingsCard() {
+export function LongbridgeSection() {
   const bridge = getDesktopCredentialsBridge();
   const { data, reload } = useQuery<CredentialsGetResult>(
     bridge ? "credentials.status" : null,
@@ -23,18 +23,17 @@ export function CredentialsSettingsCard() {
         : "Token 无法读取";
 
   return (
-    <Card className="settings-longbridge-card">
-      <SectionTitle>Longbridge CLI</SectionTitle>
-      <div className="settings-cred-row">
-        <span className="settings-cred-name">连接状态</span>
+    <section className="settings-conn-section settings-conn-longbridge">
+      <div className="settings-conn-title">
+        <span>Longbridge CLI</span>
         <Badge tone={ready ? "up" : "down"}>{label}</Badge>
       </div>
       {data?.cliPath && <div className="settings-provider-meta">{data.cliPath}</div>}
       {data?.lastError && <div className="settings-test-result settings-test-result--fail">{data.lastError}</div>}
       <div className="settings-cred-actions">
         <Button onClick={() => window.open(INSTALL_URL, "_blank", "noopener,noreferrer")}>安装说明</Button>
-        <Button accent onClick={reload}>重新检测</Button>
+        <Button onClick={reload}>重新检测</Button>
       </div>
-    </Card>
+    </section>
   );
 }

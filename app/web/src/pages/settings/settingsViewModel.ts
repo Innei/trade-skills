@@ -1,5 +1,4 @@
 import {
-  CODEX_PROVIDER,
   ROLE_LABEL,
   ROLES,
   thinkingLabel,
@@ -33,8 +32,6 @@ export interface SettingsViewModel {
     statusLabel: string;
     statusTone: "up" | "accent" | "down";
     enabledLabel: string;
-    primaryLabel: string;
-    providerLabel: string;
     usageLabel: string;
   };
   roles: Record<Role, RoleView>;
@@ -190,29 +187,6 @@ export function deriveSettingsViewModel(input: {
 
   issues.sort((left, right) => left.priority - right.priority || left.id.localeCompare(right.id));
 
-  const primary = input.roles.primary;
-  const primaryProvider = primary.provider ? providers.get(primary.provider) : undefined;
-  const primaryModel = primaryProvider?.models.find((model) => model.id === primary.modelId);
-  const primaryValid =
-    primary.mode === "custom" &&
-    !primary.stale &&
-    Boolean(primary.thinkingLevel && primaryModel?.thinkingLevels.includes(primary.thinkingLevel));
-  const primaryLabel = primaryValid
-    ? primaryModel?.name + " · " + thinkingLabel(primary.thinkingLevel)
-    : primary.mode === "custom"
-      ? "模型已失效"
-      : "未设置";
-  const apiKeyCount = input.catalog.providers.filter(
-    (provider) => provider.auth.kind === "api_key" && provider.auth.status === "configured",
-  ).length;
-  const codex = providers.get(CODEX_PROVIDER);
-  const codexLabel = codex
-    ? codex.auth.status === "configured"
-      ? "Codex 已登录"
-      : codex.auth.status === "error"
-        ? "Codex 登录异常"
-        : "Codex 未登录"
-    : null;
   const enabledCount = ROLES.filter((role) => input.roles[role].mode !== "disabled").length;
 
   return {
@@ -224,8 +198,6 @@ export function deriveSettingsViewModel(input: {
           ? "accent"
           : "up",
       enabledLabel: enabledCount + "/" + ROLES.length + " 用途启用",
-      primaryLabel,
-      providerLabel: apiKeyCount + " 个 key" + (codexLabel ? " · " + codexLabel : ""),
       usageLabel: input.usage
         ? "$" + input.usage.total.cost.toFixed(2) + " · " + input.usage.total.calls + " 次"
         : "暂不可用",

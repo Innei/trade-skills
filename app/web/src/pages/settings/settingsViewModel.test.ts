@@ -73,7 +73,6 @@ describe("deriveSettingsViewModel", () => {
 
     expect(view.issues.map((issue) => issue.id)).toEqual(["missing-auth-anthropic"]);
     expect(view.summary.statusLabel).toBe("1 项需要处理");
-    expect(view.summary.providerLabel).toBe("1 个 key · Codex 未登录");
   });
 
   it("reports one missing-primary issue for all inherited roles", () => {
@@ -91,7 +90,6 @@ describe("deriveSettingsViewModel", () => {
 
     expect(view.issues.map((issue) => issue.id)).toEqual(["missing-primary"]);
     expect(view.issues[0]?.detail).toContain("盘中快评、追问");
-    expect(view.summary.primaryLabel).toBe("未设置");
   });
 
   it("sorts master-key errors ahead of stale custom models without duplicating api-key errors", () => {

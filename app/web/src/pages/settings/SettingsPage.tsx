@@ -3,12 +3,11 @@ import { ArrowLeft } from "lucide-react";
 import { useQuery } from "../../apiHooks";
 import { client } from "../../client";
 import { navigate } from "../../router";
-import { Button, ErrorBox } from "../../ui";
+import { Button, Card, ErrorBox, SectionTitle } from "../../ui";
 import { useTitle } from "../../useTitle";
-import { CredentialsSettingsCard } from "./CredentialsSettingsCard";
-import { ProviderCredentialsCard } from "./ProviderCredentialsCard";
+import { LongbridgeSection } from "./LongbridgeSection";
+import { ProviderCredentialsSection } from "./ProviderCredentialsSection";
 import { RoleModelsCard } from "./RoleModelsCard";
-import { SettingsIssuesPanel } from "./SettingsIssuesPanel";
 import { SettingsStatusStrip } from "./SettingsStatusStrip";
 import { deriveSettingsViewModel } from "./settingsViewModel";
 import type {
@@ -68,9 +67,12 @@ function SettingsWorkspace({
           view={view}
           onDraftChange={updateRoleDraft}
         />
-        <div className="settings-side">
-          <CredentialsSettingsCard />
-          <ProviderCredentialsCard
+        <Card className="settings-connections-card">
+          <div className="settings-card-heading">
+            <SectionTitle>连接</SectionTitle>
+          </div>
+          <LongbridgeSection />
+          <ProviderCredentialsSection
             settings={settings}
             catalog={catalog}
             usedProviderIds={usedProviderIds}
@@ -79,11 +81,7 @@ function SettingsWorkspace({
             lobehubCredits={lobehubCredits}
             lobehubCreditsError={lobehubCreditsError}
           />
-          <SettingsIssuesPanel issues={view.issues} />
-        </div>
-      </div>
-      <div className="settings-footer-note">
-        改动即存即生效；正在进行中的一轮分析仍用旧配置，下一轮起使用新配置。
+        </Card>
       </div>
     </>
   );

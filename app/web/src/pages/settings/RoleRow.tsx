@@ -46,6 +46,9 @@ export function RoleRow({
   const [testState, setTestState] = useState<{ status: "idle" | "busy" | "ok" | "fail"; text?: string }>({
     status: "idle",
   });
+  const [editing, setEditing] = useState(
+    () => initial.mode === "custom" && (!initial.provider || !initial.modelId || !initial.thinkingLevel),
+  );
 
   const queue = useSaveQueue<RoleSetting>({
     initial,
@@ -65,6 +68,7 @@ export function RoleRow({
 
   const setMode = (mode: RoleMode) => {
     if (mode === draft.mode) return;
+    setEditing(mode === "custom");
     if (mode === "custom" && (!draft.provider || !draft.modelId)) {
       push(defaultCustom(catalog));
       return;
@@ -132,6 +136,11 @@ export function RoleRow({
         <RoleModeControl role={role} value={draft.mode} onChange={setMode} />
         <span className={"settings-role-effective settings-role-effective--" + view.tone}>
           {view.effectiveLabel}
+          {draft.mode === "custom" && !editing ? (
+            <button className="settings-role-edit" type="button" onClick={() => setEditing(true)}>
+              修改
+            </button>
+          ) : null}
         </span>
         <span className="settings-role-usage">{view.usageLabel}</span>
         <span
@@ -150,7 +159,7 @@ export function RoleRow({
         </span>
       </div>
 
-      {draft.mode === "custom" && (
+      {draft.mode === "custom" && editing && (
         <div className="settings-role-editor">
           <div className="settings-role-editor-controls">
             <Select
@@ -174,6 +183,14 @@ export function RoleRow({
             <Button disabled={!complete || testState.status === "busy"} onClick={runTest}>
               测试模型
             </Button>
+            <button
+              className="settings-role-edit settings-role-edit--done"
+              type="button"
+              disabled={!complete}
+              onClick={() => setEditing(false)}
+            >
+              完成
+            </button>
           </div>
           <div className="settings-role-editor-status" aria-live="polite">
             {testState.status === "busy" ? <Spinner aria-label="测试中" /> : null}

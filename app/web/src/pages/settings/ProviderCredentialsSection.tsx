@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { errorMessage } from "../../api";
 import { client } from "../../client";
-import { Button, Card, Dot, Input, openModal, Select, SectionTitle } from "../../ui";
+import { Button, Dot, Input, openModal, Select } from "../../ui";
 import { DeviceLoginDialog } from "./DeviceLoginDialog";
 import {
   CODEX_PROVIDER,
@@ -121,7 +121,7 @@ function ProviderAuthRow({
             onChange={(event) => onEditKey(event.target.value)}
             placeholder="API key"
           />
-          <Button accent disabled={busy || !editKey} onClick={onSave}>
+          <Button disabled={busy || !editKey} onClick={onSave}>
             {busy ? "保存中…" : "保存"}
           </Button>
           <Button disabled={busy} onClick={onCancel}>
@@ -257,7 +257,7 @@ function LobeHubAuthRow({
         {status === "connected" ? (
           <Button disabled={busy} onClick={logout}>{busy ? "退出中…" : "退出登录"}</Button>
         ) : (
-          <Button accent disabled={busy || status === "unavailable"} onClick={login}>
+          <Button disabled={busy || status === "unavailable"} onClick={login}>
             {busy ? "启动中…" : status === "refresh_required" ? "重新登录" : "登录 LobeHub Cloud"}
           </Button>
         )}
@@ -267,7 +267,7 @@ function LobeHubAuthRow({
   );
 }
 
-export function ProviderCredentialsCard({
+export function ProviderCredentialsSection({
   settings,
   catalog,
   usedProviderIds,
@@ -395,10 +395,12 @@ export function ProviderCredentialsCard({
         : "LobeHub 未连接";
 
   return (
-    <Card className="settings-credentials-card" id="settings-provider-panel">
-      <div className="settings-card-heading">
-        <SectionTitle>Provider 与凭据</SectionTitle>
-        <span>{apiKeyCount + " 个 key · " + codexSummary + " · " + lobehubSummary}</span>
+    <section className="settings-conn-section" id="settings-provider-panel">
+      <div className="settings-conn-title settings-conn-title--padded">
+        <span>Provider 与凭据</span>
+        <span className="settings-conn-summary">
+          {apiKeyCount + " 个 key · " + codexSummary + " · " + lobehubSummary}
+        </span>
       </div>
       {settings.masterKey === "invalid" ? (
         <div className="settings-warning-strip">
@@ -451,7 +453,6 @@ export function ProviderCredentialsCard({
               placeholder="API key"
             />
             <Button
-              accent
               disabled={addBusy || !effectiveAddProvider || !addKey}
               onClick={() => addCredential(effectiveAddProvider)}
             >
@@ -465,6 +466,6 @@ export function ProviderCredentialsCard({
           </div>
         ) : null}
       </div>
-    </Card>
+    </section>
   );
 }
