@@ -249,6 +249,9 @@ jobs:
           rm -f "$KEY_FILE"
           hdiutil detach "$DEV"
 
+      - name: repoint old appcast enclosures at their own release tags
+        run: node .github/scripts/fix-appcast-enclosure-urls.mjs "${{ steps.archive.outputs.dir }}/appcast.xml" "$REPO_SLUG"
+
       - name: publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
