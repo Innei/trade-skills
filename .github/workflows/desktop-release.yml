@@ -4,15 +4,21 @@ on:
   push:
     tags:
       - "desktop-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "release tag (desktop-vX.Y.Z), must already exist"
+        required: true
+        type: string
 
 concurrency:
-  group: desktop-release-${{ github.ref }}
+  group: desktop-release-${{ inputs.tag || github.ref }}
   cancel-in-progress: false
 
 env:
   SPARKLE_VERSION: "2.9.4"
   SPARKLE_TARBALL_SHA256: "ce89daf967db1e1893ed3ebd67575ed82d3902563e3191ca92aaec9164fbdef9"
-  REPO_SLUG: "Innei/trade-skills"
+  REPO_SLUG: "Innei/kansoku"
 
 jobs:
   release:
@@ -23,11 +29,22 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: version consistency check (tag vs desktop package.json)
         id: version
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          TAG="${GITHUB_REF#refs/tags/}"
+          TAG="${INPUT_TAG:-${GITHUB_REF#refs/tags/}}"
+          case "$TAG" in
+            desktop-v*) ;;
+            *)
+              echo "::error::tag $TAG does not match desktop-vX.Y.Z"
+              exit 1
+              ;;
+          esac
           TAG_VERSION="${TAG#desktop-v}"
           PKG_VERSION="$(node -p "require('./app/desktop/package.json').version")"
           if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
@@ -36,6 +53,22 @@ jobs:
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=$TAG_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: extract release notes from CHANGELOG (fail fast, before the build)
+        id: notes
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          NOTES_FILE="$RUNNER_TEMP/release-notes.md"
+          awk -v ver="$VERSION" '
+            $0 ~ "^## " ver "( |$)" { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+          ' app/desktop/CHANGELOG.md > "$NOTES_FILE"
+          if ! grep -q '[^[:space:]]' "$NOTES_FILE"; then
+            echo "::error::no \"## $VERSION\" section found in app/desktop/CHANGELOG.md — run the release skill (or add the section) before tagging"
+            exit 1
+          fi
+          echo "file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
 
       - name: setup pnpm
         uses: pnpm/action-setup@v4
@@ -155,9 +188,9 @@ jobs:
         run: |
           # old zips are fetched into the same dir generate_appcast scans so it can
           # diff them for deltas, but they must NOT be re-uploaded as this release's
-          # own assets — the draft-release step uploads only this release's own
+          # own assets — the publish step uploads only this release's own
           # dmg (dmg_path) and zip (zip_name), captured above, plus appcast.xml + *.delta.
-          # $REPO_SLUG (trade-skills) also hosts non-desktop releases, so these
+          # $REPO_SLUG (kansoku) also hosts non-desktop releases, so these
           # queries filter to desktop-v* tags explicitly rather than trusting
           # "latest across the whole repo" — an unrelated release published
           # after a desktop one would otherwise get picked as the delta base.
@@ -199,7 +232,7 @@ jobs:
           rm -f "$KEY_FILE"
           hdiutil detach "$DEV"
 
-      - name: draft GitHub Release
+      - name: publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -212,9 +245,10 @@ jobs:
             "$ARCHIVE_DIR/appcast.xml"
             "$ARCHIVE_DIR"/*.delta
           )
+          # published immediately (no --draft): the app's Sparkle feed points at
+          # releases/latest/download/appcast.xml, so publishing IS the rollout.
           gh release create "$TAG" \
             --repo "$REPO_SLUG" \
-            --draft \
             --title "TradeCharts $TAG" \
-            --generate-notes \
+            --notes-file "${{ steps.notes.outputs.file }}" \
             "${ASSETS[@]}"

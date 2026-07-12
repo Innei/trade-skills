@@ -55,12 +55,12 @@ describe("parseLatestRelease", () => {
     expect(
       parseLatestRelease({
         tag_name: "desktop-v1.2.3",
-        html_url: "https://github.com/Innei/trade-skills/releases/tag/desktop-v1.2.3",
+        html_url: "https://github.com/Innei/kansoku/releases/tag/desktop-v1.2.3",
         draft: false,
       }),
     ).toEqual({
       version: "desktop-v1.2.3",
-      htmlUrl: "https://github.com/Innei/trade-skills/releases/tag/desktop-v1.2.3",
+      htmlUrl: "https://github.com/Innei/kansoku/releases/tag/desktop-v1.2.3",
     });
   });
 
@@ -148,7 +148,7 @@ function makeDeps(overrides: Partial<UpdaterDeps> = {}): UpdaterDeps {
     now: () => "2026-07-11T12:00:00.000Z",
     fetchJson: vi.fn().mockResolvedValue({
       tag_name: "desktop-v1.1.0",
-      html_url: "https://github.com/Innei/trade-skills/releases/tag/desktop-v1.1.0",
+      html_url: "https://github.com/Innei/kansoku/releases/tag/desktop-v1.1.0",
       draft: false,
     }),
     readLastCheck: vi.fn().mockResolvedValue(null),
@@ -164,7 +164,7 @@ describe("checkForUpdate", () => {
     await checkForUpdate(deps);
     expect(deps.notify).toHaveBeenCalledWith({
       version: "desktop-v1.1.0",
-      htmlUrl: "https://github.com/Innei/trade-skills/releases/tag/desktop-v1.1.0",
+      htmlUrl: "https://github.com/Innei/kansoku/releases/tag/desktop-v1.1.0",
     });
     expect(deps.writeLastCheck).toHaveBeenCalledWith("2026-07-11T12:00:00.000Z");
   });

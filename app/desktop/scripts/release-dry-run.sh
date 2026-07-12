@@ -3,7 +3,7 @@ set -euo pipefail
 
 SPARKLE_VERSION="2.9.4"
 SPARKLE_TARBALL_SHA256="ce89daf967db1e1893ed3ebd67575ed82d3902563e3191ca92aaec9164fbdef9"
-REPO_SLUG="Innei/trade-skills"
+REPO_SLUG="Innei/kansoku"
 DESKTOP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 WORK_DIR="$(mktemp -d /tmp/trade-desktop-release-dry-run.XXXXXX)"
 ACCOUNT="trade-dryrun-$$-$RANDOM"

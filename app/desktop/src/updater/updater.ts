@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { app, dialog, Notification, shell } from "electron";
 import { loadSparkleBridgeForApp, type SparkleBridge, type SparkleInitOptions } from "./sparkle.js";
 
-const OWNER_REPO = "Innei/trade-skills";
+const OWNER_REPO = "Innei/kansoku";
 const RELEASES_URL = `https://api.github.com/repos/${OWNER_REPO}/releases/latest`;
 const THROTTLE_MS = 24 * 60 * 60 * 1000;
 const CHECK_DELAY_MS = 10_000;
@@ -12,7 +12,7 @@ const FETCH_TIMEOUT_MS = 5_000;
 // Mirrors electron-builder.yml's extendInfo SUFeedURL/SUPublicEDKey — belt-and-braces
 // path for builds where Info.plist lacks those keys (see sparkle_bridge.mm). CI injects
 // the real EdDSA public key over this placeholder at package time.
-const SPARKLE_APPCAST_URL = "https://github.com/Innei/trade-skills/releases/latest/download/appcast.xml";
+const SPARKLE_APPCAST_URL = "https://github.com/Innei/kansoku/releases/latest/download/appcast.xml";
 const SPARKLE_PUBLIC_ED_KEY_PLACEHOLDER = "SPARKLE_ED_PUBLIC_KEY_PLACEHOLDER";
 
 export interface ReleaseInfo {

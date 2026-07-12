@@ -35,7 +35,7 @@ mac:
       arch: [arm64]
   identity: null
   extendInfo:
-    SUFeedURL: https://github.com/Innei/trade-skills/releases/latest/download/appcast.xml
+    SUFeedURL: https://github.com/Innei/kansoku/releases/latest/download/appcast.xml
     # CI injects the real EdDSA public key over this placeholder at build time — keep it
     # greppable (SPARKLE_ED_PUBLIC_KEY_PLACEHOLDER) so that step has a stable anchor.
     SUPublicEDKey: SPARKLE_ED_PUBLIC_KEY_PLACEHOLDER

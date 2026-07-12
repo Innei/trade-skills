@@ -1,0 +1,42 @@
+name: desktop-tag
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "app/desktop/package.json"
+
+concurrency:
+  group: desktop-tag
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      actions: write
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: create tag and dispatch release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="$(node -p "require('./app/desktop/package.json').version")"
+          TAG="desktop-v$VERSION"
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+            echo "tag $TAG already exists — nothing to release"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "TradeCharts $TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$TAG"
+          # tags pushed with GITHUB_TOKEN never trigger other workflows
+          # (GitHub's recursion guard), so the release run is dispatched
+          # explicitly instead of relying on the tag-push trigger.
+          gh workflow run desktop-release.yml -f tag="$TAG"

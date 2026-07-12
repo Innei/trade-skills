@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  pull_request:
+    paths:
+      - "app/**"
+      - ".github/**"
+  push:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - ".github/**"
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+
+      - name: setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: app/package.json
+
+      - name: setup node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: install dependencies
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+
+      - name: typecheck (web, server, desktop)
+        working-directory: app
+        run: pnpm -r typecheck
+
+      - name: test — web, desktop
+        working-directory: app
+        run: |
+          pnpm --filter @trade/web test
+          pnpm --filter @trade/desktop test
+
+      - name: test — server (json report for the known-failure gate)
+        working-directory: app/server
+        # no leading `--` here: pnpm forwards it verbatim to the underlying
+        # `vitest run` script, which then reads it as a positional file filter
+        # instead of a flag separator, and --reporter/--outputFile are silently
+        # swallowed as filter globs instead of applied.
+        run: pnpm test --reporter=json --outputFile=test-results.json || true
+
+      - name: gate — server suite has no NEW failures
+        run: node .github/scripts/assert-known-test-failures.mjs app/server/test-results.json

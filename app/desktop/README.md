@@ -5,7 +5,7 @@
 
 ## 下载与安装
 
-去 [Releases 页面](https://github.com/Innei/trade-skills/releases) 下载最新一个
+去 [Releases 页面](https://github.com/Innei/kansoku/releases) 下载最新一个
 `desktop-v*` 版本的 `TradeCharts-x.y.z-arm64.dmg`，双击挂载，把 `TradeCharts.app`
 拖进「应用程序」文件夹。目前只发 Apple Silicon（arm64）版本。
 

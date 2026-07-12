@@ -21,6 +21,7 @@ node_modules/
 !/.claude/skills/gdelt/
 !/.claude/skills/intraday-signal/
 !/.claude/skills/market-session-tracker/
+!/.claude/skills/release/
 !/.claude/skills/sec-edgar/
 !/.claude/skills/stock-deep-dive/
 !/.claude/skills/trump-truth-monitor/
