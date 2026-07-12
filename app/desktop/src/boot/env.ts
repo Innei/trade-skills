@@ -6,7 +6,7 @@ import { resolveDataRoot, scaffoldDataRoot } from "./paths.js";
 // Electron would otherwise use verbatim for app.getPath("userData") — the
 // "/" turns into a nested folder. Pin it to productName before any path
 // resolution runs.
-app.setName("TradeCharts");
+app.setName("Kansoku");
 
 export const dataRoot = resolveDataRoot({
   isPackaged: app.isPackaged,

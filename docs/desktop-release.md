@@ -1,6 +1,6 @@
 # 桌面版发布流程（Sparkle 自动更新）
 
-TradeCharts 桌面版走 Sparkle 2 做自动更新。发布靠 `.github/workflows/desktop-release.yml`：打
+Kansoku 桌面版走 Sparkle 2 做自动更新。发布靠 `.github/workflows/desktop-release.yml`：打
 `desktop-vX.Y.Z` 标签会触发 CI 打包 dmg/zip、用 EdDSA 私钥签名更新包、生成
 `appcast.xml`（含增量更新包 delta）、开一个**草稿** GitHub Release，人工确认没问题
 再手动发布。CI 本身绝不会自动把 Release 从草稿状态改成公开。

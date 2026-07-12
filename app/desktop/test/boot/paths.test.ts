@@ -26,9 +26,9 @@ describe("resolveDataRoot", () => {
     const root = resolveDataRoot({
       isPackaged: true,
       envOverride: undefined,
-      userDataPath: "/Users/x/Library/Application Support/TradeCharts",
+      userDataPath: "/Users/x/Library/Application Support/Kansoku",
     });
-    expect(root).toBe("/Users/x/Library/Application Support/TradeCharts");
+    expect(root).toBe("/Users/x/Library/Application Support/Kansoku");
   });
 
   it("falls back to the repo root in dev, ignoring userData", () => {

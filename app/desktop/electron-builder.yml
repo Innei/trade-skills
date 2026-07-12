@@ -1,5 +1,5 @@
-appId: dev.innei.trade-charts
-productName: TradeCharts
+appId: dev.innei.kansoku
+productName: Kansoku
 # Brand asset: app/web/public/brand/kansoku-icon.svg — rebuild with scripts/generate-icon.sh
 icon: build/icon.icns
 directories:

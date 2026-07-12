@@ -7,11 +7,11 @@ describe("resolveSparkleAddonPath", () => {
   it("resolves inside app.asar.unpacked when packaged", () => {
     const path = resolveSparkleAddonPath({
       isPackaged: true,
-      resourcesPath: "/Applications/TradeCharts.app/Contents/Resources",
+      resourcesPath: "/Applications/Kansoku.app/Contents/Resources",
       moduleUrl,
     });
     expect(path).toBe(
-      "/Applications/TradeCharts.app/Contents/Resources/app.asar.unpacked/native/sparkle-bridge/build/Release/sparkle_bridge.node",
+      "/Applications/Kansoku.app/Contents/Resources/app.asar.unpacked/native/sparkle-bridge/build/Release/sparkle_bridge.node",
     );
   });
 
