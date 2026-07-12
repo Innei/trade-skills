@@ -186,6 +186,11 @@ jobs:
           # with a warning (or worse, confuse delta-base detection). The dmg
           # is uploaded to the release directly from app/desktop/release/.
           cp app/desktop/release/*.zip "$ARCHIVE_DIR/"
+          # a .md with the same basename as the zip is how generate_appcast picks up
+          # release notes; with --embed-release-notes below they land in the appcast
+          # <description sparkle:format="markdown"> so the Sparkle dialog shows them.
+          ZIP_BASE="$(basename app/desktop/release/*.zip .zip)"
+          cp "${{ steps.notes.outputs.file }}" "$ARCHIVE_DIR/$ZIP_BASE.md"
           {
             echo "dir=$ARCHIVE_DIR"
             echo "dmg_path=$(echo app/desktop/release/*.dmg)"
@@ -236,6 +241,8 @@ jobs:
           generate_appcast \
             --ed-key-file "$KEY_FILE" \
             --download-url-prefix "https://github.com/${REPO_SLUG}/releases/download/${TAG}/" \
+            --embed-release-notes \
+            --full-release-notes-url "https://github.com/${REPO_SLUG}/releases" \
             "$ARCHIVE_DIR"
 
           dd if=/dev/urandom of="$KEY_FILE" bs=1024 count=4 conv=notrunc 2>/dev/null
