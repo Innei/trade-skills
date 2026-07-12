@@ -2,6 +2,7 @@ import { Settings } from "lucide-react";
 import { AppSkeleton } from "./AppSkeleton";
 import { DesktopShell } from "./desktop/DesktopShell";
 import { Onboarding } from "./onboarding/Onboarding";
+import { CommandPalette } from "./palette/CommandPalette";
 import { useCredentialsGate } from "./onboarding/useCredentialsGate";
 import { Router } from "./PageRouter";
 import { RestrictedBanner } from "./RestrictedBanner";
@@ -41,6 +42,7 @@ export function App() {
       <RestrictedBanner />
       <GlobalTopbar />
       <Router />
+      <CommandPalette />
       <ModalHost />
       <ContextMenuHost />
     </>
