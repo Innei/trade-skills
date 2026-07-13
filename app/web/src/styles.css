@@ -532,6 +532,22 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 .ai-reassess { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .ai-hint { font-size: var(--fs-sm); color: var(--text-secondary); }
 .ai-date-select { margin-left: auto; }
+.ai-run-control { margin-bottom: 12px; }
+.ai-run-control > .ai-reassess { margin-bottom: 0; }
+.ai-run-status {
+  margin-top: 8px; padding: 10px 12px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg-element));
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+  border-radius: var(--radius); font-variant-numeric: tabular-nums;
+}
+.ai-run-status-head {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px;
+  font-size: var(--fs-sm);
+}
+.ai-run-status-phase { display: inline-flex; align-items: center; gap: 7px; color: var(--text-primary); font-weight: 600; }
+.ai-run-status-elapsed { color: var(--text-muted); white-space: nowrap; }
+.ai-run-status-activity { margin-top: 7px; color: var(--text-secondary); font-size: var(--fs-base); line-height: 1.45; }
+.ai-run-status-meta { margin-top: 4px; color: var(--text-muted); font-size: var(--fs-xs); }
 
 .ui-select-trigger {
   display: inline-flex; align-items: center; gap: 5px;

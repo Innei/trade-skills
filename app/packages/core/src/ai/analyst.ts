@@ -61,6 +61,7 @@ export function buildJournalTool(
   symbol: string,
   journalDir: string,
   now: () => number,
+  onWrite?: () => void,
 ): AgentTool<typeof journalSchema> {
   const base = symbol.split(".")[0].toUpperCase();
   return {
@@ -71,6 +72,7 @@ export function buildJournalTool(
     execute: async (_id, params) => {
       const content = params.content;
       if (!content.trim()) return textResult("rejected: content is empty");
+      onWrite?.();
       const file = `${usSessionDate(now())}-${base}-intraday.md`;
       const path = join(journalDir, file);
       await fs.mkdir(journalDir, { recursive: true });
@@ -164,18 +166,41 @@ export interface StartResult {
 }
 
 const analystRunLock = createRunLock();
-const analystRunStartedAt = new Map<string, string>();
+const analystRunStates = new Map<string, Extract<AnalystRunStatus, { running: true }>>();
 const lastEscalationStart = new Map<string, number>();
 
-export interface AnalystRunStatus {
-  running: boolean;
-  startedAt?: string;
-}
+export type AnalystRunPhase = "preparing" | "researching" | "writing" | "finalizing";
+
+export type AnalystRunStatus =
+  | { running: false }
+  | {
+      running: true;
+      origin: AnalystOrigin;
+      phase: AnalystRunPhase;
+      activity: string;
+      startedAt: string;
+      updatedAt: string;
+    };
 
 export function analystRunStatus(symbol: string): AnalystRunStatus {
   if (!analystRunLock.isLocked(symbol)) return { running: false };
-  const startedAt = analystRunStartedAt.get(symbol);
-  return { running: true, ...(startedAt ? { startedAt } : {}) };
+  return analystRunStates.get(symbol) ?? { running: false };
+}
+
+function updateAnalystRunStatus(
+  symbol: string,
+  phase: AnalystRunPhase,
+  activity: string,
+  now: () => number,
+): void {
+  const current = analystRunStates.get(symbol);
+  if (!current) return;
+  analystRunStates.set(symbol, {
+    ...current,
+    phase,
+    activity,
+    updatedAt: new Date(now()).toISOString(),
+  });
 }
 
 export function escalationOnCooldown(symbol: string, now: number): boolean {
@@ -210,16 +235,26 @@ function buildTools(
   },
   state: RunState,
   isDone: () => boolean,
+  reportProgress: (phase: AnalystRunPhase, activity: string) => void,
 ): AgentTool[] {
   const readDataPack = buildDataPackTool(symbol, {
-    buildPack: deps.buildReassessPack,
+    buildPack: (symbol) => {
+      reportProgress("researching", "正在整理多周期行情、资金流与持仓");
+      return deps.buildReassessPack(symbol);
+    },
     onPack: (pack) => {
       if (pack.prediction_chart_id && state.chartId == null) state.chartId = pack.prediction_chart_id;
     },
   });
 
-  const fetchNewsTool = buildNewsTool(symbol, deps.fetchNews);
-  const fetchKlineTool = buildKlineTool(symbol, deps.fetchKline);
+  const fetchNewsTool = buildNewsTool(symbol, (symbol) => {
+    reportProgress("researching", "正在核对最新消息与催化事件");
+    return deps.fetchNews(symbol);
+  });
+  const fetchKlineTool = buildKlineTool(symbol, (symbol, period, count) => {
+    reportProgress("researching", `正在补拉 ${period} K 线`);
+    return deps.fetchKline(symbol, period, count);
+  });
 
   const appendCommentTool: AgentTool<typeof commentSchema> = {
     name: "append_comment",
@@ -228,6 +263,7 @@ function buildTools(
     parameters: commentSchema,
     execute: async (_id, params) => {
       if (isDone()) return textResult("skipped");
+      reportProgress("researching", "正在记录阶段性判断");
       await deps.appendComment({
         ts: new Date().toISOString(),
         symbol,
@@ -255,6 +291,7 @@ function buildTools(
         return textResult(`prediction 未通过校验：${issues.join("；")}。请修正后重新调用 submit_prediction。`);
       }
       const { comment, ...prediction } = params;
+      reportProgress("finalizing", "正在生成图表并提交最终结论");
       const chart = await deps.createChart({
         type: "intraday",
         symbol,
@@ -284,16 +321,24 @@ function buildTools(
     fetchKlineTool,
     appendCommentTool,
     submitPrediction,
-    buildBashTool(deps.exec),
+    buildBashTool((command) => {
+      reportProgress("researching", "正在补充外部资料与风险信息");
+      return deps.exec(command);
+    }),
     buildReadSkillTool(skillIndex),
     buildReadFileTool(deps.repoRoot),
-    buildJournalTool(symbol, deps.journalDir, deps.now),
+    buildJournalTool(symbol, deps.journalDir, deps.now, () =>
+      reportProgress("writing", "正在写入本次复盘日志"),
+    ),
   ];
 }
 
 export async function executeAnalystRun(symbol: string, deps: AnalystDeps): Promise<void> {
   const append = deps.appendComment ?? defaultAppendComment;
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const now = deps.now ?? (() => Date.now());
+  const reportProgress = (phase: AnalystRunPhase, activity: string) =>
+    updateAnalystRunStatus(symbol, phase, activity, now);
 
   const writeError = (text: string) =>
     append({ ts: new Date().toISOString(), symbol, level: "error", text, source: "system" });
@@ -301,6 +346,7 @@ export async function executeAnalystRun(symbol: string, deps: AnalystDeps): Prom
   const state: RunState = { chartId: null, submitted: false };
   let session: ReturnType<typeof createAgentSession> | undefined;
 
+  reportProgress("preparing", "正在加载分析纪律与工具");
   const repoRoot = deps.repoRoot ?? PROJECT_ROOT;
   const skillText = deps.skillText ?? loadIntradaySkillText(repoRoot);
   if (!skillText) {
@@ -320,10 +366,11 @@ export async function executeAnalystRun(symbol: string, deps: AnalystDeps): Prom
         repoRoot,
         journalDir: deps.journalDir ?? JOURNAL_DIR,
         exec: deps.exec ?? createDefaultExec(repoRoot),
-        now: deps.now ?? (() => Date.now()),
+        now,
       },
       state,
       () => session?.isDone() ?? false,
+      reportProgress,
     );
 
     session = createAgentSession({
@@ -336,6 +383,7 @@ export async function executeAnalystRun(symbol: string, deps: AnalystDeps): Prom
       agentFactory: deps.agentFactory,
     });
 
+    reportProgress("researching", "正在规划分析步骤并读取市场信息");
     await session.runTurn(`请重估 ${symbol} 的短线多周期结论。`, timeoutMs);
 
     if (!state.submitted) {
@@ -370,10 +418,18 @@ export function runAnalyst({ symbol, origin, deps }: RunAnalystInput): StartResu
 
   if (origin === "escalation") lastEscalationStart.set(symbol, now);
 
-  analystRunStartedAt.set(symbol, new Date(now).toISOString());
+  const startedAt = new Date(now).toISOString();
+  analystRunStates.set(symbol, {
+    running: true,
+    origin,
+    phase: "preparing",
+    activity: "正在准备分析环境",
+    startedAt,
+    updatedAt: startedAt,
+  });
 
   const done = executeAnalystRun(symbol, { ...deps, origin }).finally(() => {
-    analystRunStartedAt.delete(symbol);
+    analystRunStates.delete(symbol);
     analystRunLock.release(symbol);
   });
   return { started: true, done };

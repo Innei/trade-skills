@@ -41,14 +41,22 @@ describe("analyst routes", () => {
   });
 
   it("returns the live run state for a normalized symbol", async () => {
-    analyst.analystRunStatus.mockReturnValue({ running: true, startedAt: "2026-07-14T02:03:04.000Z" });
+    const status = {
+      running: true,
+      origin: "manual",
+      phase: "researching",
+      activity: "正在整理多周期行情、资金流与持仓",
+      startedAt: "2026-07-14T02:03:04.000Z",
+      updatedAt: "2026-07-14T02:03:09.000Z",
+    };
+    analyst.analystRunStatus.mockReturnValue(status);
 
     const res = await tsukiRequest("/api/symbols/mu/reassess/status");
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({
       ok: true,
-      data: { running: true, startedAt: "2026-07-14T02:03:04.000Z" },
+      data: status,
     });
     expect(analyst.analystRunStatus).toHaveBeenCalledWith("MU.US");
   });

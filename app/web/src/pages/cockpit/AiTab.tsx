@@ -4,9 +4,10 @@ import { marketDate } from "../../../../shared/time";
 import { useQuery } from "../../apiHooks";
 import { client } from "../../client";
 import { Badge, Button, MarketTime, Select, Spinner } from "../../ui";
+import { AnalysisRunDetails } from "./AnalysisRunDetails";
 import { buildFeed, type FeedRow } from "./aiFeed";
 import { symbolUrl } from "./analysisMode";
-import { useReassessSymbol } from "./useReassessSymbol";
+import { useAnalystRun } from "./useAnalystRun";
 
 const LEVEL_LABEL: Record<string, string> = { info: "info", warn: "warn", alert: "alert", error: "error" };
 const LEVEL_TONE: Record<string, "up" | "down" | "accent" | "solid" | undefined> = {
@@ -16,7 +17,6 @@ const LEVEL_TONE: Record<string, "up" | "down" | "accent" | "solid" | undefined>
   error: "solid",
 };
 const SOURCE_LABEL: Record<string, string> = { analyst: "分析员", system: "系统" };
-const RUN_TIMEOUT_MS = 10 * 60 * 1000;
 
 function CommentItem({ symbol, comment }: { symbol: string; comment: CockpitComment }) {
   const dim = comment.source === "commentator" && comment.level === "info";
@@ -69,11 +69,8 @@ export function AiTab({
   readOnly?: boolean;
   loaded?: boolean;
 }) {
-  const [running, setRunning] = useState(false);
-  const [hint, setHint] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
-  const startedAtRef = useRef(0);
-  const { pending, reassess } = useReassessSymbol(symbol);
+  const run = useAnalystRun(symbol, !readOnly);
 
   const today = marketDate();
   const { data: dates } = useQuery<string[]>(
@@ -101,36 +98,6 @@ export function AiTab({
   const shownComments = selectedDate ? (pastComments ?? []) : comments;
   const shownError = selectedDate ? pastError : error;
 
-  useEffect(() => {
-    if (!running) return;
-    const t = window.setTimeout(() => setRunning(false), RUN_TIMEOUT_MS);
-    return () => window.clearTimeout(t);
-  }, [running]);
-
-  useEffect(() => {
-    if (!running) return;
-    const done = comments.some(
-      (c) => (c.source === "analyst" || c.source === "system") && Date.parse(c.ts) >= startedAtRef.current,
-    );
-    if (done) setRunning(false);
-  }, [comments, running]);
-
-  const runReassess = async () => {
-    setHint(null);
-    const result = await reassess();
-    if (!result.ok) {
-      if (!result.aborted) setHint(result.error);
-      return;
-    }
-    if (result.data.started) {
-      startedAtRef.current = Date.now();
-      setRunning(true);
-    } else {
-      setHint("已在运行");
-      window.setTimeout(() => setHint(null), 3000);
-    }
-  };
-
   const rows = useMemo(() => buildFeed(shownComments).reverse(), [shownComments]);
 
   const toggleFold = (id: string) => {
@@ -145,20 +112,23 @@ export function AiTab({
   return (
     <div className="ai-tab">
       {!readOnly && (
-        <div className="ai-reassess">
-          <Button onClick={runReassess} disabled={pending || running}>
-            {running && <Spinner />}
-            {running ? "重估进行中…" : "重新分析"}
-          </Button>
-          {hint && <span className="ai-hint">{hint}</span>}
-          {pastDates.length > 0 && (
-            <Select
-              className="ai-date-select"
-              value={selectedDate ?? "today"}
-              options={[{ value: "today", label: "今天" }, ...pastDates.map((d) => ({ value: d, label: d }))]}
-              onChange={(v) => setSelectedDate(v === "today" ? null : v)}
-            />
-          )}
+        <div className="ai-run-control">
+          <div className="ai-reassess">
+            <Button onClick={run.start} disabled={run.pending || run.running || run.checking}>
+              {(run.running || run.checking) && <Spinner />}
+              {run.checking ? "正在确认分析状态…" : run.running ? "重估进行中…" : "重新分析"}
+            </Button>
+            {run.hint && <span className="ai-hint">{run.hint}</span>}
+            {pastDates.length > 0 && (
+              <Select
+                className="ai-date-select"
+                value={selectedDate ?? "today"}
+                options={[{ value: "today", label: "今天" }, ...pastDates.map((d) => ({ value: d, label: d }))]}
+                onChange={(v) => setSelectedDate(v === "today" ? null : v)}
+              />
+            )}
+          </div>
+          {run.status && <AnalysisRunDetails status={run.status} />}
         </div>
       )}
 

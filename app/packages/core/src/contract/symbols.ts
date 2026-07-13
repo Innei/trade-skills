@@ -27,7 +27,17 @@ export interface NoteResult {
 }
 
 export type ReassessResult = { started: boolean; reason?: string };
-export type ReassessStatus = { running: boolean; startedAt?: string };
+export type ReassessPhase = "preparing" | "researching" | "writing" | "finalizing";
+export type ReassessStatus =
+  | { running: false }
+  | {
+      running: true;
+      origin: "manual" | "escalation";
+      phase: ReassessPhase;
+      activity: string;
+      startedAt: string;
+      updatedAt: string;
+    };
 
 export type DeepDiveStartResult = { started: true } | { started: false; reason: "busy" | "disabled" };
 

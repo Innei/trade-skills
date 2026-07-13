@@ -306,10 +306,41 @@ describe("runAnalyst gating", () => {
     });
 
     expect(run.started).toBe(true);
-    expect(analystRunStatus(symbol)).toEqual({ running: true, startedAt });
+    expect(analystRunStatus(symbol)).toEqual({
+      running: true,
+      origin: "manual",
+      phase: "researching",
+      activity: "正在规划分析步骤并读取市场信息",
+      startedAt,
+      updatedAt: startedAt,
+    });
 
     release();
     await run.done;
+    expect(analystRunStatus(symbol)).toEqual({ running: false });
+  });
+
+  it("reports concrete activity as the run advances through its tools", async () => {
+    const symbol = "PHASES.US";
+    const observed: ReturnType<typeof analystRunStatus>[] = [];
+    const { deps } = harness(async (tools) => {
+      await tool(tools, "read_data_pack").execute("c1", {});
+      observed.push(analystRunStatus(symbol));
+      await tool(tools, "write_journal").execute("c2", { content: "## 阶段状态测试" });
+      observed.push(analystRunStatus(symbol));
+      await tool(tools, "submit_prediction").execute("c3", validPrediction);
+      observed.push(analystRunStatus(symbol));
+    });
+
+    const run = runAnalyst({ symbol, origin: "manual", deps });
+    expect(run.started).toBe(true);
+    await run.done;
+
+    expect(observed).toMatchObject([
+      { running: true, phase: "researching", activity: "正在整理多周期行情、资金流与持仓" },
+      { running: true, phase: "writing", activity: "正在写入本次复盘日志" },
+      { running: true, phase: "finalizing", activity: "正在生成图表并提交最终结论" },
+    ]);
     expect(analystRunStatus(symbol)).toEqual({ running: false });
   });
 

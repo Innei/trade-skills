@@ -60,8 +60,16 @@ describe("createHttpClient", () => {
   });
 
   it("reads the current AI analysis run state from the symbol status route", async () => {
+    const runStatus = {
+      running: true,
+      origin: "manual",
+      phase: "researching",
+      activity: "正在整理多周期行情、资金流与持仓",
+      startedAt: "2026-07-14T02:03:04.000Z",
+      updatedAt: "2026-07-14T02:03:09.000Z",
+    };
     const fetchMock = vi.fn(async (_url?: string, _init?: RequestInit) =>
-      jsonResponse({ ok: true, data: { running: true, startedAt: "2026-07-14T02:03:04.000Z" } }),
+      jsonResponse({ ok: true, data: runStatus }),
     );
     vi.stubGlobal("fetch", fetchMock);
     const client = createHttpClient(allRoutes);
@@ -69,7 +77,7 @@ describe("createHttpClient", () => {
     const status = await client.symbols.reassessStatus({ sym: "MU" });
 
     expect(fetchMock.mock.calls[0][0]).toBe("/api/symbols/MU/reassess/status");
-    expect(status).toEqual({ running: true, startedAt: "2026-07-14T02:03:04.000Z" });
+    expect(status).toEqual(runStatus);
   });
 
   it("reassembles {data, meta} for withMeta routes", async () => {

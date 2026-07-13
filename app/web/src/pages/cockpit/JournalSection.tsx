@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { errorMessage } from "../../api";
 import { client } from "../../client";
 import { Button, ErrorBox, Spinner } from "../../ui";
+import { AnalysisRunDetails } from "./AnalysisRunDetails";
 import { openMarkdownModal } from "./markdown";
-import { REASON_TEXT, useReassessSymbol } from "./useReassessSymbol";
+import { useAnalystRun } from "./useAnalystRun";
 
 const RUN_POLL_MS = 5_000;
-const RUN_TIMEOUT_MS = 10 * 60_000;
 
 export interface JournalEntryMeta {
   name: string;
@@ -28,52 +28,19 @@ export function JournalSection({
 }) {
   const [loadingName, setLoadingName] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const { pending, reassess } = useReassessSymbol(symbol);
-  const [running, setRunning] = useState(false);
-  const [hint, setHint] = useState<string | null>(null);
-  const baselineRef = useRef<Set<string>>(new Set());
-  const startedAtRef = useRef(0);
+  const run = useAnalystRun(symbol);
+  const wasRunningRef = useRef(false);
 
   useEffect(() => {
-    setRunning(false);
-    setHint(null);
-  }, [symbol]);
-
-  useEffect(() => {
-    if (!running) return;
+    if (!run.running) return;
     const timer = window.setInterval(reloadJournal, RUN_POLL_MS);
     return () => window.clearInterval(timer);
-  }, [running, reloadJournal]);
+  }, [run.running, reloadJournal]);
 
   useEffect(() => {
-    if (!running) return;
-    if (entries.some((e) => !baselineRef.current.has(e.name))) {
-      setRunning(false);
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setRunning(false);
-      setHint("等待超时——分析可能失败了，稍后刷新页面看看");
-    }, Math.max(0, RUN_TIMEOUT_MS - (Date.now() - startedAtRef.current)));
-    return () => window.clearTimeout(timer);
-  }, [running, entries]);
-
-  const startRun = async () => {
-    setHint(null);
-    const result = await reassess();
-    if (!result.ok) {
-      if (!result.aborted) setHint(result.error);
-      return;
-    }
-    if (result.data.started) {
-      baselineRef.current = new Set(entries.map((e) => e.name));
-      startedAtRef.current = Date.now();
-      setRunning(true);
-    } else {
-      const reason = result.data.reason ?? "";
-      setHint(REASON_TEXT[reason] ?? (reason || "未能启动分析"));
-    }
-  };
+    if (wasRunningRef.current && !run.running) reloadJournal();
+    wasRunningRef.current = run.running;
+  }, [run.running, reloadJournal]);
 
   useEffect(() => {
     if (!selected) return;
@@ -104,12 +71,15 @@ export function JournalSection({
 
   return (
     <div className="journal-section">
-      <div className="ai-reassess">
-        <Button onClick={startRun} disabled={pending || running}>
-          {running && <Spinner />}
-          {running ? "分析中，写完日志会自动出现…" : "跑一次分析"}
-        </Button>
-        {hint && <span className="ai-hint">{hint}</span>}
+      <div className="ai-run-control">
+        <div className="ai-reassess">
+          <Button onClick={run.start} disabled={run.pending || run.running || run.checking}>
+            {(run.running || run.checking) && <Spinner />}
+            {run.checking ? "正在确认分析状态…" : run.running ? "分析进行中…" : "跑一次分析"}
+          </Button>
+          {run.hint && <span className="ai-hint">{run.hint}</span>}
+        </div>
+        {run.status && <AnalysisRunDetails status={run.status} />}
       </div>
       {entries.length === 0 ? (
         <p className="note-block">还没有分析日志——点上面的按钮跑一次</p>
