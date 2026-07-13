@@ -13,9 +13,15 @@ const ctx = vi.hoisted(() => {
 
 vi.mock("../src/env.js", () => ({ CHART_DATA_DIR: ctx.dir }));
 
-const { allocateId, listCharts, loadChart, saveChart, createChart, deleteChart } = await import(
-  "../src/services/store.js"
-);
+const {
+  allocateId,
+  listCharts,
+  loadChart,
+  refreshChartIndex,
+  saveChart,
+  createChart,
+  deleteChart,
+} = await import("../src/services/store.js");
 const { subscribeAnalyses } = await import("../src/realtime/analyses.js");
 
 function buildResult(overrides: Partial<BuildResult> = {}): BuildResult {
@@ -57,6 +63,20 @@ describe("chart store", () => {
     await fs.writeFile(join(ctx.dir, "2026-07-01-legacy.json"), JSON.stringify(doc("2026-07-01-legacy")));
     const metas = await listCharts();
     expect(metas.map((m) => m.id)).toContain("2026-07-01-legacy");
+  });
+
+  it("makes chart files added after startup visible when the index is refreshed", async () => {
+    const importedId = "2026-07-01-imported-after-startup";
+    await fs.writeFile(join(ctx.dir, `${importedId}.json`), JSON.stringify(doc(importedId)));
+    await fs.writeFile(join(ctx.dir, "broken-import.json"), "not json");
+
+    expect((await listCharts()).map((meta) => meta.id)).not.toContain(importedId);
+
+    const result = await refreshChartIndex();
+
+    expect(result.indexed).toBeGreaterThan(0);
+    expect(result.failures).toEqual([{ file: "broken-import.json", error: expect.any(String) }]);
+    expect((await listCharts()).map((meta) => meta.id)).toContain(importedId);
   });
 
   it("saves a doc to file and index, newest first", async () => {

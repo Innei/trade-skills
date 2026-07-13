@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog } from "electron";
+import type { ChartIndexRefreshResult } from "../../../packages/core/src/services/store.js";
 import { dataRoot } from "../boot/env.js";
 import { buildImportManifest, copyImportManifest, validateImportSource } from "./manifest.js";
 
@@ -58,13 +59,33 @@ async function runImportFromRepoFlowUnsafe(win: BrowserWindow | null): Promise<v
   }
 
   const result = copyImportManifest(manifest, { overwrite });
+  let indexResult: ChartIndexRefreshResult | null = null;
+  let indexError: string | null = null;
+  try {
+    const { refreshChartIndex } = await import("../../../packages/core/src/services/store.js");
+    indexResult = await refreshChartIndex();
+  } catch (error) {
+    indexError = error instanceof Error ? error.message : String(error);
+  }
+
   const summaryLines = [`导入完成：复制 ${result.copied} 个文件，跳过 ${result.skipped} 个。`];
+  if (indexResult) {
+    summaryLines.push(`图表索引已同步：识别 ${indexResult.indexed} 个，忽略 ${indexResult.skipped} 个。`);
+    if (indexResult.failures.length > 0) {
+      summaryLines.push(...indexResult.failures.slice(0, 5).map((failure) => `- ${failure.file}: ${failure.error}`));
+      if (indexResult.failures.length > 5) {
+        summaryLines.push(`- 另有 ${indexResult.failures.length - 5} 个文件未进入索引。`);
+      }
+    }
+  } else if (indexError) {
+    summaryLines.push(`文件已经复制，但图表索引同步失败：${indexError}`);
+  }
   if (result.failed > 0) {
     summaryLines.push(`有 ${result.failed} 个文件复制失败：`);
     summaryLines.push(...result.failures.map((failure) => `- ${failure.relPath}: ${failure.error}`));
   }
   await messageBox(win, {
-    type: result.failed > 0 ? "warning" : "info",
+    type: result.failed > 0 || indexError || (indexResult?.skipped ?? 0) > 0 ? "warning" : "info",
     title: "从 repo 导入数据",
     message: summaryLines.join("\n"),
   });

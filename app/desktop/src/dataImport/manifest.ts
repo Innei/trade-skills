@@ -3,6 +3,10 @@ import { join } from "node:path";
 
 const CHART_DATA_REL = join("journal", "charts", "data");
 
+function isChartJson(name: string): boolean {
+  return name.endsWith(".json") && name !== "index.json";
+}
+
 // app.db is deliberately never part of the import scope: the packaged
 // kernel holds an open WAL-mode connection to dataRoot's app.db for the
 // entire app lifetime (see packages/core/src/db/index.ts), and this menu item
@@ -21,7 +25,7 @@ export function validateImportSource(sourceRoot: string, destRoot: string): Sour
   if (!existsSync(chartDataDir)) {
     return { ok: false, reason: "missing-journal" };
   }
-  const hasJson = readdirSync(chartDataDir).some((name) => name.endsWith(".json"));
+  const hasJson = readdirSync(chartDataDir).some(isChartJson);
   if (!hasJson) {
     return { ok: false, reason: "empty" };
   }
@@ -45,7 +49,7 @@ export function buildImportManifest(sourceRoot: string, destRoot: string): Impor
   const destChartDataDir = join(destRoot, CHART_DATA_REL);
 
   const fileNames = existsSync(sourceChartDataDir)
-    ? readdirSync(sourceChartDataDir).filter((name) => name.endsWith(".json"))
+    ? readdirSync(sourceChartDataDir).filter(isChartJson)
     : [];
 
   const entries: ImportManifestEntry[] = fileNames.map((name) => {

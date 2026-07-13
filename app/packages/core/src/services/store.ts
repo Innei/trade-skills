@@ -58,23 +58,42 @@ function docPath(id: string): string {
 
 let scanned = false;
 
+export interface ChartIndexRefreshResult {
+  scanned: number;
+  indexed: number;
+  skipped: number;
+  failures: { file: string; error: string }[];
+}
+
+export async function refreshChartIndex(db: Db = getDb()): Promise<ChartIndexRefreshResult> {
+  await ensureDir();
+  const files = (await fs.readdir(CHART_DATA_DIR)).filter(
+    (file) => file.endsWith(".json") && file !== "index.json",
+  );
+  let indexed = 0;
+  const failures: ChartIndexRefreshResult["failures"] = [];
+
+  for (const file of files) {
+    try {
+      const doc = JSON.parse(await fs.readFile(join(CHART_DATA_DIR, file), "utf-8")) as ChartDoc;
+      if (!doc.id || !doc.type) throw new Error("缺少图表 id 或 type");
+      const row = metaToRow(toMeta(doc));
+      await db.insert(chartMeta).values(row).onConflictDoUpdate({ target: chartMeta.id, set: row });
+      indexed++;
+    } catch (error) {
+      failures.push({ file, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
+  return { scanned: files.length, indexed, skipped: failures.length, failures };
+}
+
 async function ensureIndex(db: Db): Promise<void> {
   if (scanned) return;
   scanned = true;
   const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(chartMeta);
   if (count > 0) return;
-  await ensureDir();
-  const files = (await fs.readdir(CHART_DATA_DIR)).filter((f) => f.endsWith(".json") && f !== "index.json");
-  for (const f of files) {
-    try {
-      const doc = JSON.parse(await fs.readFile(join(CHART_DATA_DIR, f), "utf-8")) as ChartDoc;
-      if (doc.id && doc.type) {
-        await db.insert(chartMeta).values(metaToRow(toMeta(doc))).onConflictDoNothing();
-      }
-    } catch {
-      continue;
-    }
-  }
+  await refreshChartIndex(db);
 }
 
 export interface ListFilter {

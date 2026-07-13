@@ -32,6 +32,11 @@ describe("dataImport", () => {
       expect(validateImportSource(source, dest)).toEqual({ ok: false, reason: "empty" });
     });
 
+    it("rejects a source whose chart data dir only has the retired index.json", () => {
+      writeFileSync(join(source, "journal", "charts", "data", "index.json"), "{}");
+      expect(validateImportSource(source, dest)).toEqual({ ok: false, reason: "empty" });
+    });
+
     it("rejects a source missing journal/charts/data entirely", () => {
       const bareRoot = join(root, "bare");
       mkdirSync(bareRoot, { recursive: true });
@@ -63,9 +68,10 @@ describe("dataImport", () => {
       expect(manifest.collisionCount).toBe(0);
     });
 
-    it("ignores non-json files in the source dir, including the sqlite db", () => {
+    it("ignores non-chart files in the source dir, including the sqlite db and retired index", () => {
       writeFileSync(join(source, "journal", "charts", "data", "notes.txt"), "hi");
       writeFileSync(join(source, "journal", "charts", "data", "app.db"), "");
+      writeFileSync(join(source, "journal", "charts", "data", "index.json"), "{}");
       const manifest = buildImportManifest(source, dest);
       expect(manifest.entries).toEqual([]);
     });
