@@ -20,6 +20,10 @@ export function buildAppSectionWithName(
         click: () => deps.importFromRepo(),
       },
       {
+        label: "选择数据目录…",
+        click: () => deps.selectDataRoot(),
+      },
+      {
         label: "设置…",
         accelerator: "CmdOrCtrl+,",
         click: () => deps.openSettings(),
