@@ -1179,11 +1179,11 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 .settings-statusline-retry:hover { color: var(--text-primary); }
 
 .settings-workspace {
-  display: grid; grid-template-columns: minmax(0, 1.8fr) minmax(280px, 0.9fr);
+  display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(300px, 1fr);
   gap: 12px; align-items: start;
 }
-.settings-side-column { display: grid; min-width: 0; gap: 12px; }
-.settings-roles-card, .settings-connections-card, .settings-display-card { overflow: hidden; padding: 0; min-width: 0; }
+.settings-main-column, .settings-side-column { display: grid; min-width: 0; gap: 12px; }
+.settings-roles-card, .settings-connections-card, .settings-display-card, .settings-provider-card { overflow: hidden; padding: 0; min-width: 0; }
 .settings-card-heading {
   display: flex; min-height: 34px; align-items: center; justify-content: space-between;
   gap: 12px; padding: 0 11px; border-bottom: 1px solid var(--border);
@@ -1299,7 +1299,6 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   color: var(--text-primary); font-size: var(--fs-sm); font-weight: 600;
 }
-.settings-conn-title--padded { padding: 10px 11px 0; }
 .settings-conn-summary {
   color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-xs);
   font-variant-numeric: tabular-nums; font-weight: 400;

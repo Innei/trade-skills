@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { errorMessage } from "../../api";
 import { client } from "../../client";
-import { Button, Dot, Input, openModal, Select } from "../../ui";
+import { Button, Dot, Input, openModal, SectionTitle, Select } from "../../ui";
 import { DeviceLoginDialog } from "./DeviceLoginDialog";
 import {
   CODEX_PROVIDER,
@@ -395,9 +395,9 @@ export function ProviderCredentialsSection({
         : "LobeHub 未连接";
 
   return (
-    <section className="settings-conn-section" id="settings-provider-panel">
-      <div className="settings-conn-title settings-conn-title--padded">
-        <span>Provider 与凭据</span>
+    <section id="settings-provider-panel">
+      <div className="settings-card-heading">
+        <SectionTitle>Provider 与凭据</SectionTitle>
         <span className="settings-conn-summary">
           {apiKeyCount + " 个 key · " + codexSummary + " · " + lobehubSummary}
         </span>
