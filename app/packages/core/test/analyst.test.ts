@@ -1,8 +1,13 @@
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { CockpitComment } from "../../../shared/types.js";
 import type { AiAgentFactory, AiAgentHandle } from "../src/ai/agentSession.js";
 import {
   type AnalystDeps,
+  buildAnalystSystemPrompt,
+  buildJournalTool,
   escalationOnCooldown,
   executeAnalystRun,
   runAnalyst,
@@ -41,7 +46,11 @@ interface Harness {
   comments: CockpitComment[];
   createCalls: Record<string, unknown>[];
   klineCalls: { period: string; count: number }[];
+  bashCalls: string[];
+  systemPrompts: string[];
 }
+
+const FAKE_SKILL = "# intraday-signal\n假技能全文。";
 
 function harness(
   script: (tools: Tools) => Promise<void>,
@@ -51,11 +60,15 @@ function harness(
     createChart?: AnalystDeps["createChart"];
     hang?: boolean;
     onAbort?: () => void;
+    skillText?: string | null;
   } = {},
 ): Harness {
   const comments: CockpitComment[] = [];
   const createCalls: Record<string, unknown>[] = [];
   const klineCalls: { period: string; count: number }[] = [];
+  const bashCalls: string[] = [];
+  const systemPrompts: string[] = [];
+  const sandbox = mkdtempSync(join(tmpdir(), "analyst-test-"));
 
   const createChart =
     opts.createChart ??
@@ -64,7 +77,8 @@ function harness(
       return { id: "chart-new", url: "http://localhost/#/charts/chart-new" };
     });
 
-  const agentFactory: AiAgentFactory = ({ tools }) => {
+  const agentFactory: AiAgentFactory = ({ tools, systemPrompt }) => {
+    systemPrompts.push(systemPrompt);
     const agent: AiAgentHandle = {
       prompt: opts.hang ? () => new Promise<void>(() => {}) : () => script(tools),
       abort: () => opts.onAbort?.(),
@@ -86,9 +100,16 @@ function harness(
       comments.push(c);
     },
     timeoutMs: opts.timeoutMs,
+    repoRoot: sandbox,
+    journalDir: join(sandbox, "journal"),
+    exec: async (command) => {
+      bashCalls.push(command);
+      return { stdout: "ok", stderr: "" };
+    },
+    ...("skillText" in opts ? (opts.skillText == null ? {} : { skillText: opts.skillText }) : { skillText: FAKE_SKILL }),
   };
 
-  return { deps, comments, createCalls, klineCalls };
+  return { deps, comments, createCalls, klineCalls, bashCalls, systemPrompts };
 }
 
 function tool(tools: Tools, name: string) {
@@ -310,6 +331,62 @@ describe("analyst tools", () => {
     expect(comments).toHaveLength(1);
     expect(comments[0].level).toBe("error");
     expect(comments[0].text).toContain("超时");
+  });
+});
+
+describe("skill-based system prompt", () => {
+  it("embeds the intraday-signal skill text after the adapter preamble", async () => {
+    const { deps, systemPrompts } = harness(async () => {});
+    await executeAnalystRun("MU.US", deps);
+    expect(systemPrompts).toHaveLength(1);
+    expect(systemPrompts[0]).toContain("假技能全文");
+    expect(systemPrompts[0].indexOf("in-app 环境映射")).toBeLessThan(systemPrompts[0].indexOf("假技能全文"));
+    expect(buildAnalystSystemPrompt("SKILL BODY")).toContain("SKILL BODY");
+  });
+
+  it("aborts with an error comment when the skill file is missing", async () => {
+    const { deps, comments, systemPrompts } = harness(async () => {}, { skillText: null });
+    await executeAnalystRun("MU.US", deps);
+    expect(systemPrompts).toHaveLength(0);
+    expect(comments).toHaveLength(1);
+    expect(comments[0].level).toBe("error");
+    expect(comments[0].text).toContain("SKILL.md");
+  });
+
+  it("bash runs through the injected exec and rejects write commands", async () => {
+    let out: string | undefined;
+    let rejected: string | undefined;
+    const { deps, bashCalls } = harness(async (tools) => {
+      const ok = await tool(tools, "bash").execute("c1", { command: "longbridge quote SPY.US" });
+      out = (ok.content[0] as { text: string }).text;
+      const bad = await tool(tools, "bash").execute("c2", { command: "echo hi > /tmp/x" });
+      rejected = (bad.content[0] as { text: string }).text;
+    });
+    await executeAnalystRun("MU.US", deps);
+    expect(bashCalls).toEqual(["longbridge quote SPY.US"]);
+    expect(out).toBe("ok");
+    expect(rejected).toContain("rejected");
+  });
+});
+
+describe("buildJournalTool", () => {
+  const now = () => Date.parse("2026-07-13T18:00:00Z");
+
+  it("creates then appends the dated journal file, stripping the .US suffix", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "journal-test-"));
+    const journal = buildJournalTool("MU.US", dir, now);
+    await journal.execute("c1", { content: "## 第一节" });
+    const second = await journal.execute("c2", { content: "## 第二节" });
+    const file = readFileSync(join(dir, "2026-07-13-MU-intraday.md"), "utf8");
+    expect(file).toBe("## 第一节\n\n---\n\n## 第二节");
+    expect((second.content[0] as { text: string }).text).toContain("appended");
+  });
+
+  it("rejects empty content", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "journal-test-"));
+    const journal = buildJournalTool("MU.US", dir, now);
+    const res = await journal.execute("c1", { content: "   " });
+    expect((res.content[0] as { text: string }).text).toContain("rejected");
   });
 });
 

@@ -1,16 +1,11 @@
-import { exec as nodeExec } from "node:child_process";
-import { promisify } from "node:util";
 import { PROJECT_ROOT } from "../env.js";
 import { type AiAgentFactory, createAgentSession } from "./agentSession.js";
-import { buildSystemPrompt, buildTools, type ExecFn, type ExecResult } from "./deepDiveTools.js";
+import { createDefaultExec, type ExecFn, type ExecResult } from "./agentTools.js";
+import { buildSystemPrompt, buildTools } from "./deepDiveTools.js";
 import { aiConfig, type AiModel } from "./models.js";
 import { emitNotice } from "./notices.js";
 
 const DEFAULT_TIMEOUT_MS = 15 * 60_000;
-const BASH_TIMEOUT_MS = 120_000;
-const BASH_MAX_BUFFER = 10 * 1024 * 1024;
-
-const nodeExecAsync = promisify(nodeExec);
 
 export type DeepDiveState = {
   running: boolean;
@@ -42,17 +37,6 @@ export function resetDeepDiveStateForTests(): void {
   state = { running: false };
 }
 
-function defaultExec(repoRoot: string): ExecFn {
-  return async (command: string) => {
-    const { stdout, stderr } = await nodeExecAsync(command, {
-      cwd: repoRoot,
-      timeout: BASH_TIMEOUT_MS,
-      maxBuffer: BASH_MAX_BUFFER,
-    });
-    return { stdout, stderr };
-  };
-}
-
 async function captureGitStatus(exec: ExecFn): Promise<string> {
   try {
     const { stdout } = await exec("git status --porcelain -- stocks/");
@@ -76,7 +60,7 @@ async function executeDeepDiveRun(symbol: string, deps: DeepDiveDeps): Promise<v
     ((title: string, body: string, kind: "deep_dive_done" | "deep_dive_failed") =>
       emitNotice({ symbol, kind, title, body, at: new Date().toISOString() }));
   const timeoutMs = deps.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const exec = deps.exec ?? defaultExec(repoRoot);
+  const exec = deps.exec ?? createDefaultExec(repoRoot);
   const now = deps.now ?? (() => Date.now());
 
   const before = await captureGitStatus(exec);

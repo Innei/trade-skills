@@ -1,12 +1,23 @@
+import { promises as fs } from "node:fs";
+import { join } from "node:path";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { type Static, Type } from "typebox";
 import { Check } from "typebox/value";
 import { type CockpitComment, type CommentLevel, type NewsItem, type RawBar } from "../../../../shared/types.js";
 import { chartUrl } from "../chartUrl.js";
+import { JOURNAL_DIR, PROJECT_ROOT } from "../env.js";
 import { buildChart } from "../services/build.js";
 import { getProvider } from "../services/marketdata/registry.js";
+import { loadSkillIndex, readSkill } from "../services/skills.js";
 import { createChart } from "../services/store.js";
 import { AgentTimeoutError, type AiAgentFactory, createAgentSession } from "./agentSession.js";
+import {
+  buildBashTool,
+  buildReadFileTool,
+  buildReadSkillTool,
+  createDefaultExec,
+  type ExecFn,
+} from "./agentTools.js";
 import { appendComment as defaultAppendComment } from "./comments.js";
 import { buildDataPackTool, buildKlineTool, buildNewsTool, textResult } from "./dataTools.js";
 import { buildReassessPack as defaultBuildReassessPack, type ReassessPack } from "./datapack.js";
@@ -14,35 +25,61 @@ import type { AiModel } from "./models.js";
 import { emitNotice } from "./notices.js";
 import { createRunLock } from "./runLock.js";
 
-const DEFAULT_TIMEOUT_MS = 600_000;
+const DEFAULT_TIMEOUT_MS = 15 * 60_000;
 const ESCALATION_COOLDOWN_MS = 30 * 60_000;
+const SKILL_NAME = "intraday-signal";
 
-const SYSTEM_PROMPT = [
-  "你是短线技术分析员，为单一美股标的做多周期（5 分钟 / 15 分钟 / 1 小时 / 日线）重估。",
-  "工作流程：",
-  "1. 先调用 read_data_pack 拿到快照（多周期 K 线摘要、资金流、相对成交量、日内关键价位、日线背景 day_context（日线趋势/20 与 50 日均线/近 20 日高低/VWAP）、期权墙 options_levels、教训清单 lessons、大盘参照 SPY/QQQ、新闻、已归档预测、持仓）。",
-  "2. 需要时调用 fetch_kline 补拉某个周期的更多 K 线、fetch_news 再拉最新消息。",
-  "3. 想边看边记录判断，可调用 append_comment 写一条中文白话观察。",
-  "4. 最后必须调用 submit_prediction 恰好一次，给出完整结论并落图。",
-  "判读纪律：",
-  "- 周期分工：日线定背景（day_context 的趋势与关键位——逆日线的结论要单独说明理由），1 小时定趋势方向，15 分钟定结构与入场，5 分钟只做触发与微调。",
-  "- 先定级：快照新闻里有当天能动价的事（财报/指引、政策、行业大消息、已明显砸出行情的新闻）就按催化日处理——消息主导，纯技术面情景的概率封顶 40，必要时直接 neutral；否则按平静日，技术面主导。",
-  "- 大盘对齐：对照快照 market 里 SPY/QQQ 的当日方向，逆着大盘的结论必须在 comment 里给一句理由。",
-  "- 量能：突破/反转类结论要引用相对成交量 rel_volume 佐证；无量突破按存疑处理，不要当确认信号。",
-  "- 期权位：options_levels 是现价附近高持仓行权价（dominant=call 的是上方磁铁/压力，dominant=put 的是下方支撑墙）。止损和目标不要贴着这些价位或整数关口放——那是止损扎堆区，容易被一波冲高/杀低精确扫掉；突破类情景的触发价参照这些墙来定。",
-  "- 教训清单：lessons 里每一条都是过去真金白银换来的规则，结论不得重蹈任何一条；有适用条目时在 comment 里点名引用。",
-  "- 事件风险：快照没有财报日历——新闻里若见财报/FOMC/CPI 在即，必须写进情景；若无法确认，在 comment 里注明事件风险未核实。",
-  "结论纪律（写进 submit_prediction）：",
-  "- direction：明确 long / short / neutral。",
-  "- anchor：必填，给出判断锚点（哪个周期、时间、价格）——没有锚点的预测事后无法对账。锚点周期默认 m15（观望也是——观望是 15 分钟级别看不出方向的陈述，不要因为盯着 5 分钟 K 线就锚在 m5）；只有纯超短的抢单判断才锚 m5，波段级陈述才锚 h1。时间对齐到该周期的 K 线边界（m15 → :00/:15/:30/:45）。",
-  "- entry_plan：只在 long / short 时给出，入场 entry、止损 stop、目标 target1（必填，价格或百分比皆可）/ target2。止损必须依托具体结构（摆动点外沿、123 结构的①、区间边界），在 rationale 里写明是哪个结构；做多止损在入场下方、目标在上方，做空相反。T1 口径盈亏比不足 1:1 的计划不要提交——换结构重做或转 neutral；1:1 到 2:1 之间允许，但必须在 comment 里明说赔率偏薄。",
-  "- neutral（观望）不要提交 entry_plan——观望就是现在没有可执行的入场/止损/目标。但必须在 range_plan 里给出箱体下沿 low / 上沿 high（观望 = 预判价格守在这个区间内，事后按守住/破位对账），两侧的条件应对写进 long_tactic / short_tactic。",
-  "- scenarios：2 到 4 个情景（通常是上破 / 震荡 / 下破三个，按真实结构给，不要硬凑数量），probability 用 0–100 的百分数，合计约为 100。",
-  "- comment：一句话中文白话结论，会作为点评写入。若快照里持仓不为空，comment 必须包含对现有持仓的处置（加 / 减 / 持 / 清）并对照成本价说明理由。",
-  "- 不要给仓位建议（股数/金额）——自动重估拿不到账户资金数据，仓位由人工流程决定。",
-  "若快照里没有已归档预测，说明这是该标的的首次分析而非重估，照常完成全部流程并给出完整结论。",
+const ADAPTER_PROMPT = [
+  "你是 app 内自动运行的短线重估分析员。下方附上 intraday-signal 技能全文——判读纪律、工作流程、反模式一律以技能原文为准。",
+  "in-app 环境映射（仅以下几点与技能原文不同，其余照原文执行）：",
+  "- 技能 Step 3 的 POST /api/charts preview：改调 read_data_pack 工具，拿到同一份聚合快照（多周期 technicals、day_context、options_levels、lessons、SPY/QQQ、news、资金流、相对成交量、持仓、已归档预测）。禁止用 bash curl 本机图表接口——那会重复建图。",
+  "- 技能 Step 5 的 PATCH prediction：改调 submit_prediction 工具提交，恰好成功一次；它带硬校验，被打回必须修正后重交。context 部分没有对应工具，把 sources_used 与新闻标注写进 journal。",
+  "- 技能 Step 7 的 journal：改调 write_journal 工具——路径由服务端按美东交易日拼定，同日自动追加分节；你只提供 markdown 内容（含时间戳小节标题）。注意执行顺序与技能原文不同：write_journal 必须在 submit_prediction 之前调用——submit_prediction 成功即结束本次运行，之后没有任何补写机会。",
+  "- 其余步骤（查 X、options-levels 脚本、finance-calendar、portfolio 仓位、读 journal/lessons.md）照技能原文用 bash 执行（cwd = 仓库根目录）；bash 只读，不得写文件。",
+  "- 补拉 K 线用 fetch_kline，最新消息用 fetch_news，过程观察用 append_comment；read_skill / read_file 可加载关联技能（twitter-reader、options-levels、chart）与仓库文件。",
+  "- 若快照里没有已归档预测，说明这是该标的的首次分析而非重估，照常完成全部流程并给出完整结论。",
   "全程中文白话，只做美股，不要臆造数据，拿不到就说明。",
 ].join("\n");
+
+export function buildAnalystSystemPrompt(skillText: string): string {
+  return [ADAPTER_PROMPT, "", "---", "", skillText].join("\n");
+}
+
+function loadIntradaySkillText(repoRoot: string): string | null {
+  const index = loadSkillIndex([join(repoRoot, ".claude", "skills")]);
+  return readSkill(index, SKILL_NAME);
+}
+
+function usSessionDate(epochMs: number): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" }).format(new Date(epochMs));
+}
+
+const journalSchema = Type.Object({ content: Type.String() });
+
+export function buildJournalTool(
+  symbol: string,
+  journalDir: string,
+  now: () => number,
+): AgentTool<typeof journalSchema> {
+  const base = symbol.split(".")[0].toUpperCase();
+  return {
+    name: "write_journal",
+    label: "Write Journal",
+    description: `按技能 Step 7 写 journal/YYYY-MM-DD-${base}-intraday.md（美东交易日）；同日已存在则追加分节，不覆盖。只提供 markdown 内容。`,
+    parameters: journalSchema,
+    execute: async (_id, params) => {
+      const content = params.content;
+      if (!content.trim()) return textResult("rejected: content is empty");
+      const file = `${usSessionDate(now())}-${base}-intraday.md`;
+      const path = join(journalDir, file);
+      await fs.mkdir(journalDir, { recursive: true });
+      const existing = await fs.readFile(path, "utf8").catch(() => null);
+      const next = existing == null ? content : `${existing.replace(/\n*$/, "")}\n\n---\n\n${content}`;
+      await fs.writeFile(path, next, "utf8");
+      return textResult(`written to journal/${file}${existing == null ? "" : " (appended)"}`);
+    },
+  };
+}
 
 const anchorSchema = Type.Object({
   timeframe: Type.Union([Type.Literal("m5"), Type.Literal("m15"), Type.Literal("h1")]),
@@ -181,6 +218,10 @@ export interface AnalystDeps {
   timeoutMs?: number;
   now?: () => number;
   origin?: AnalystOrigin;
+  repoRoot?: string;
+  journalDir?: string;
+  exec?: ExecFn;
+  skillText?: string;
 }
 
 export interface RunAnalystInput {
@@ -223,6 +264,10 @@ function buildTools(
     buildReassessPack: (symbol: string) => Promise<ReassessPack>;
     fetchNews: (symbol: string) => Promise<NewsItem[]>;
     fetchKline: (symbol: string, period: string, count: number) => Promise<RawBar[]>;
+    repoRoot: string;
+    journalDir: string;
+    exec: ExecFn;
+    now: () => number;
   },
   state: RunState,
   isDone: () => boolean,
@@ -292,7 +337,19 @@ function buildTools(
     },
   };
 
-  return [readDataPack, fetchNewsTool, fetchKlineTool, appendCommentTool, submitPrediction];
+  const skillIndex = loadSkillIndex([join(deps.repoRoot, ".claude", "skills")]);
+
+  return [
+    readDataPack,
+    fetchNewsTool,
+    fetchKlineTool,
+    appendCommentTool,
+    submitPrediction,
+    buildBashTool(deps.exec),
+    buildReadSkillTool(skillIndex),
+    buildReadFileTool(deps.repoRoot),
+    buildJournalTool(symbol, deps.journalDir, deps.now),
+  ];
 }
 
 export async function executeAnalystRun(symbol: string, deps: AnalystDeps): Promise<void> {
@@ -305,6 +362,13 @@ export async function executeAnalystRun(symbol: string, deps: AnalystDeps): Prom
   const state: RunState = { chartId: null, submitted: false };
   let session: ReturnType<typeof createAgentSession> | undefined;
 
+  const repoRoot = deps.repoRoot ?? PROJECT_ROOT;
+  const skillText = deps.skillText ?? loadIntradaySkillText(repoRoot);
+  if (!skillText) {
+    await writeError(`${SKILL_NAME} SKILL.md 读不到，重估中止——纪律缺席时不允许裸跑。`);
+    return;
+  }
+
   try {
     const tools = buildTools(
       symbol,
@@ -314,6 +378,10 @@ export async function executeAnalystRun(symbol: string, deps: AnalystDeps): Prom
         fetchKline: deps.fetchKline ?? ((symbol, period, count) => getProvider().getKline(symbol, period, count)),
         createChart: deps.createChart ?? defaultCreateChart,
         appendComment: append,
+        repoRoot,
+        journalDir: deps.journalDir ?? JOURNAL_DIR,
+        exec: deps.exec ?? createDefaultExec(repoRoot),
+        now: deps.now ?? (() => Date.now()),
       },
       state,
       () => session?.isDone() ?? false,
@@ -324,7 +392,7 @@ export async function executeAnalystRun(symbol: string, deps: AnalystDeps): Prom
       symbol,
       origin: deps.origin,
       model: deps.model,
-      systemPrompt: SYSTEM_PROMPT,
+      systemPrompt: buildAnalystSystemPrompt(skillText),
       tools,
       agentFactory: deps.agentFactory,
     });
@@ -332,7 +400,8 @@ export async function executeAnalystRun(symbol: string, deps: AnalystDeps): Prom
     await session.runTurn(`请重估 ${symbol} 的短线多周期结论。`, timeoutMs);
 
     if (!state.submitted) {
-      await writeError("分析员未提交预测，本次无结论。");
+      const errorMessage = session.agent.state?.errorMessage;
+      await writeError(errorMessage ? `分析员运行失败：${errorMessage}` : "分析员未提交预测，本次无结论。");
     } else {
       emitNotice({
         symbol,

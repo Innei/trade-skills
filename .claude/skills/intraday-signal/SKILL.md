@@ -237,10 +237,7 @@ timeframe data + Step 3's numbers, decide:
    （止损贴得越近算出的股数越多，极端时名义金额会超过账户本身，等于隐性加杠杆）;
    when the risk-based size breaks the cap, cut shares to the cap and say so.
    Report 股数、名义金额、占账户 %。**A plan without a size is not a plan** —
-   this is what separates an opinion from a trade. (Sizing applies to this
-   skill's manual runs only — the in-app auto-reassess analyst has no account
-   data and deliberately gives no size; its output is direction + levels, and
-   sizing stays a human-run step.)
+   this is what separates an opinion from a trade.
 6. **Trade management（入场后）** — write the management leg into
    `entry_plan.note` / the report: at T1 take half off and move the stop to
    breakeven（推保本）; time stop — **~6 bars of the anchor timeframe**
