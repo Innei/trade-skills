@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
-import { ChevronDown } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
 import { MarketTime } from "../../../ui";
 import { Markdown } from "../markdown";
+import type { ChatMode } from "./ChatDock";
 import type { ChatLiveTool, ChatRow, ChatSessionInfo } from "./useChatSession";
 
 const SCROLL_STICK_THRESHOLD = 48;
@@ -13,7 +14,51 @@ interface ChatPanelProps {
   busy: boolean;
   streamText: string;
   liveTools: ChatLiveTool[];
-  onCollapse: () => void;
+  suggestions: string[];
+  mode: ChatMode;
+  onDragStart?: (e: React.PointerEvent) => void;
+  onModeChange: (mode: ChatMode) => void;
+  onPickSuggestion: (question: string) => void;
+}
+
+function ToolRow({ label, running, input, output }: { label: string; running: boolean; input?: string; output?: string }) {
+  const [open, setOpen] = useState(false);
+  const hasDetail = Boolean(input || output);
+
+  return (
+    <div className="chat-tool">
+      <button
+        className="chat-tool-head"
+        onClick={() => setOpen((prev) => !prev)}
+        disabled={!hasDetail}
+        aria-expanded={open}
+      >
+        <span className={`chat-tool-dot${running ? " running" : ""}`} />
+        <span>
+          {running ? "正在" : "已调用 "}
+          {label}
+          {running ? "…" : ""}
+        </span>
+        {hasDetail && <ChevronRight size={12} className={`chat-tool-caret${open ? " open" : ""}`} />}
+      </button>
+      {open && hasDetail && (
+        <div className="chat-tool-detail">
+          {input && (
+            <div>
+              <div className="chat-tool-detail-label">查了什么</div>
+              <pre>{input}</pre>
+            </div>
+          )}
+          {output && (
+            <div>
+              <div className="chat-tool-detail-label">拿回什么</div>
+              <pre>{output}</pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ChatRowView({ row }: { row: ChatRow }) {
@@ -34,12 +79,24 @@ function ChatRowView({ row }: { row: ChatRow }) {
     );
   }
   if (row.kind === "tool") {
-    return <div className="chat-tool-row">已调用 {row.label}</div>;
+    return <ToolRow label={row.label ?? ""} running={false} input={row.input} output={row.output} />;
   }
   return <div className="chat-error-row">{row.text}</div>;
 }
 
-export function ChatPanel({ session, docCreatedAt, rows, busy, streamText, liveTools, onCollapse }: ChatPanelProps) {
+export function ChatPanel({
+  session,
+  docCreatedAt,
+  rows,
+  busy,
+  streamText,
+  liveTools,
+  suggestions,
+  mode,
+  onDragStart,
+  onModeChange,
+  onPickSuggestion,
+}: ChatPanelProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
 
@@ -59,24 +116,50 @@ export function ChatPanel({ session, docCreatedAt, rows, busy, streamText, liveT
 
   return (
     <div className="chat-panel">
-      <div className="chat-panel-head">
+      <div className={`chat-panel-head${onDragStart ? " draggable" : ""}`} onPointerDown={onDragStart}>
         <span className="chat-panel-title">{session?.title ?? "新的追问"}</span>
         <span className="chat-panel-subtitle">
           关于 <MarketTime value={docCreatedAt} format="clock" /> 的分析
         </span>
-        <button className="chat-panel-collapse" onClick={onCollapse} aria-label="收起">
-          <ChevronDown size={14} />
-        </button>
+        <div className="chat-panel-actions">
+          <button
+            onClick={() => onModeChange(mode === "full" ? "float" : "full")}
+            aria-label={mode === "full" ? "退出全屏" : "全屏"}
+            title={mode === "full" ? "退出全屏（Esc）" : "全屏"}
+          >
+            {mode === "full" ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
+          </button>
+          <button onClick={() => onModeChange("dock")} aria-label="收起">
+            <ChevronDown size={14} />
+          </button>
+        </div>
       </div>
       <div className="chat-panel-body" ref={bodyRef} onScroll={onScroll}>
-        {isEmpty && !busy && <div className="chat-empty">还没有对话，在下方输入你的问题</div>}
+        {isEmpty && !busy && (
+          <div className="chat-empty">
+            <div className="chat-empty-text">还没有对话，在下方输入你的问题</div>
+            {suggestions.length > 0 && (
+              <div className="chat-suggestions">
+                {suggestions.map((question) => (
+                  <button key={question} className="chat-suggestion" onClick={() => onPickSuggestion(question)}>
+                    {question}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         {rows.map((row) => (
           <ChatRowView key={row.id} row={row} />
         ))}
         {liveTools.map((tool) => (
-          <div key={tool.id} className="chat-tool-row">
-            {tool.status === "end" ? `已调用 ${tool.label}` : `正在${tool.label}…`}
-          </div>
+          <ToolRow
+            key={tool.id}
+            label={tool.label}
+            running={tool.status === "start"}
+            input={tool.input}
+            output={tool.output}
+          />
         ))}
         {streamText && (
           <div className="chat-row">

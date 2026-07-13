@@ -1,6 +1,7 @@
 import type { ChartDoc } from "../../../../../shared/types.js";
-import { type ChatDeps, chatTurnState, runChatTurn, toDisplayMessages } from "../../ai/chat.js";
+import { abortChatTurn, type ChatDeps, chatTurnState, runChatTurn, toDisplayMessages } from "../../ai/chat.js";
 import { getSessionByChartId, listMessages } from "../../ai/chatStore.js";
+import { buildChatSuggestions, type ChatSuggestionDeps } from "../../ai/chatSuggestions.js";
 import { aiConfig } from "../../ai/models.js";
 import type { ChatApi } from "../../contract/chat.js";
 import { ClientError } from "../../errors.js";
@@ -13,9 +14,14 @@ function isIntradayChart(doc: ChartDoc): boolean {
 }
 
 let testDeps: ChatDeps | null = null;
+let testSuggestionDeps: ChatSuggestionDeps | null = null;
 
 export function setChatDepsForTests(deps: ChatDeps | null): void {
   testDeps = deps;
+}
+
+export function setChatSuggestionDepsForTests(deps: ChatSuggestionDeps | null): void {
+  testSuggestionDeps = deps;
 }
 
 function buildDeps(): ChatDeps {
@@ -51,5 +57,26 @@ export const chatService: ChatApi = {
       return { status: 503, body: { error: "未配置追问模型，请在 /settings 配置" } };
     }
     throw new ClientError(`chart not found: ${input.id}`, "GET /api/charts lists available ids", 404);
+  },
+
+  async abort(input) {
+    const doc = await loadChart(input.id);
+    if (!doc || !isIntradayChart(doc)) {
+      throw new ClientError(`chart not found: ${input.id}`, "GET /api/charts lists available ids", 404);
+    }
+    if (!abortChatTurn(input.id)) {
+      return { status: 409, body: { error: "当前没有正在生成的回答" } };
+    }
+    return { status: 202, body: { aborted: true } };
+  },
+
+  async suggestions(input) {
+    const doc = await loadChart(input.id);
+    if (!doc || !isIntradayChart(doc)) {
+      throw new ClientError(`chart not found: ${input.id}`, "GET /api/charts lists available ids", 404);
+    }
+    const session = await getSessionByChartId(input.id);
+    if (session) return { suggestions: [] };
+    return { suggestions: await buildChatSuggestions(input.id, testSuggestionDeps ?? {}) };
   },
 };
