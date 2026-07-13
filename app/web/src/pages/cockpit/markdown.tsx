@@ -2,17 +2,25 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { openModal } from "../../ui";
 
+type MarkdownVariant = "chat" | "report";
+
 export const MARKDOWN_COMPONENTS: Components = {
   table: ({ children }) => (
-    <div className="note-md-table-wrap">
+    <div className="typeset-scroll">
       <table>{children}</table>
     </div>
   ),
 };
 
-export function Markdown({ children }: { children: string }) {
+export function Markdown({
+  children,
+  variant = "report",
+}: {
+  children: string;
+  variant?: MarkdownVariant;
+}) {
   return (
-    <div className="note-md">
+    <div className={`typeset typeset-${variant}`}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
         {children}
       </ReactMarkdown>

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "motion/react";
 import { Square } from "lucide-react";
 import { Button, Input } from "../../../ui";
 import { ChatPanel } from "./ChatPanel";
@@ -87,9 +88,13 @@ export function ChatDock({ chartId, docCreatedAt }: ChatDockProps) {
   );
 
   const shell = (
-    <div
+    <motion.div
       className={`chat-shell chat-shell--${mode}${dragging ? " dragging" : ""}`}
       style={mode === "float" ? { left: rect.x, top: rect.y, width: rect.w, height: rect.h } : undefined}
+      initial={{ opacity: 0, y: 8, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: 8, scale: 0.97 }}
+      transition={{ duration: 0.2, ease: [0.2, 0.9, 0.3, 1] }}
       role="dialog"
       aria-label="追问面板"
     >
@@ -115,7 +120,7 @@ export function ChatDock({ chartId, docCreatedAt }: ChatDockProps) {
       />
       {composer}
       {hint && <div className="chat-hint">{hint}</div>}
-    </div>
+    </motion.div>
   );
 
   return (
@@ -126,7 +131,11 @@ export function ChatDock({ chartId, docCreatedAt }: ChatDockProps) {
           {hint && <div className="chat-hint">{hint}</div>}
         </>
       )}
-      {mode !== "dock" && layoutEl && createPortal(shell, layoutEl)}
+      {layoutEl &&
+        createPortal(
+          <AnimatePresence>{mode !== "dock" && shell}</AnimatePresence>,
+          layoutEl,
+        )}
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { ScrollArea as BaseScrollArea } from "@base-ui/react/scroll-area";
-import type { ReactNode } from "react";
+import type { Ref, UIEvent, ReactNode } from "react";
 
 type Orientation = "vertical" | "horizontal";
 
@@ -9,12 +9,16 @@ export function ScrollArea({
   viewportClassName,
   contentClassName,
   orientation = "vertical",
+  viewportRef,
+  onScroll,
 }: {
   children: ReactNode;
   className?: string;
   viewportClassName?: string;
   contentClassName?: string;
   orientation?: Orientation;
+  viewportRef?: Ref<HTMLDivElement>;
+  onScroll?: (event: UIEvent<HTMLDivElement>) => void;
 }) {
   return (
     <BaseScrollArea.Root
@@ -22,6 +26,8 @@ export function ScrollArea({
       data-orientation={orientation}
     >
       <BaseScrollArea.Viewport
+        ref={viewportRef}
+        onScroll={onScroll}
         className={`scroll-area-viewport${viewportClassName ? ` ${viewportClassName}` : ""}`}
       >
         <BaseScrollArea.Content

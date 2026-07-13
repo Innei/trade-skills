@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Maximize2, Minimize2 } from "lucide-react";
-import { MarketTime } from "../../../ui";
+import { MarketTime, ScrollArea } from "../../../ui";
 import { Markdown } from "../markdown";
 import type { ChatMode } from "./ChatDock";
 import type { ChatLiveTool, ChatRow, ChatSessionInfo } from "./useChatSession";
@@ -73,7 +73,7 @@ function ChatRowView({ row }: { row: ChatRow }) {
     return (
       <div className="chat-row">
         <div className="chat-bubble chat-bubble--assistant">
-          <Markdown>{row.text ?? ""}</Markdown>
+          <Markdown variant="chat">{row.text ?? ""}</Markdown>
         </div>
       </div>
     );
@@ -134,7 +134,12 @@ export function ChatPanel({
           </button>
         </div>
       </div>
-      <div className="chat-panel-body" ref={bodyRef} onScroll={onScroll}>
+      <ScrollArea
+        className="chat-panel-body"
+        contentClassName="chat-panel-body-content"
+        viewportRef={bodyRef}
+        onScroll={onScroll}
+      >
         {isEmpty && !busy && (
           <div className="chat-empty">
             <div className="chat-empty-text">还没有对话，在下方输入你的问题</div>
@@ -164,12 +169,12 @@ export function ChatPanel({
         {streamText && (
           <div className="chat-row">
             <div className="chat-bubble chat-bubble--assistant">
-              <Markdown>{streamText}</Markdown>
+              <Markdown variant="chat">{streamText}</Markdown>
               <span className="chat-cursor" />
             </div>
           </div>
         )}
-      </div>
+      </ScrollArea>
     </div>
   );
 }

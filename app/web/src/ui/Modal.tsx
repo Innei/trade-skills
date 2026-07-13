@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { X } from "lucide-react";
+import { ScrollArea } from "./ScrollArea";
 
 export function Modal({ title, onClose, children }: { title: ReactNode; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
@@ -23,7 +24,9 @@ export function Modal({ title, onClose, children }: { title: ReactNode; onClose:
             <X size={16} />
           </button>
         </div>
-        <div className="modal-body">{children}</div>
+        <ScrollArea className="modal-body" contentClassName="modal-body-content">
+          {children}
+        </ScrollArea>
       </div>
     </div>
   );

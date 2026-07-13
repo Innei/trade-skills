@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { X } from "lucide-react";
 import { closeModal, getSnapshot, subscribe, type ModalEntry } from "./modalStore";
+import { ScrollArea } from "./ScrollArea";
 
 function ModalFrame({ entry }: { entry: ModalEntry }) {
   const close = () => closeModal(entry.id);
@@ -30,7 +31,9 @@ function ModalFrame({ entry }: { entry: ModalEntry }) {
             <X size={16} />
           </button>
         </div>
-        <div className="modal-body">{body}</div>
+        <ScrollArea className="modal-body" contentClassName="modal-body-content">
+          {body}
+        </ScrollArea>
       </div>
     </div>
   );
