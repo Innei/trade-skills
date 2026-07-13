@@ -22,3 +22,16 @@ export function getDesktopDataRootBridge(
 ): DesktopDataRootBridge | null {
   return (win as { desktop?: DesktopGlobal } | undefined)?.desktop?.dataRoot ?? null;
 }
+
+export function isDataRootResetDisabled(
+  status: DataRootBridgeStatus | null,
+  busy: boolean,
+): boolean {
+  if (busy || !status) return true;
+  if (status.mode === "env") return true;
+  if (status.degraded) return false;
+  if (status.restartPending) return false;
+  if (status.mode === "custom") return false;
+  if (status.configuredPath) return false;
+  return true;
+}

@@ -16,12 +16,12 @@ export function buildAppSectionWithName(
       },
       { type: "separator" },
       {
-        label: "从 repo 导入数据…",
-        click: () => deps.importFromRepo(),
-      },
-      {
         label: "选择数据目录…",
         click: () => deps.selectDataRoot(),
+      },
+      {
+        label: "从 repo 导入数据…",
+        click: () => deps.importFromRepo(),
       },
       {
         label: "设置…",

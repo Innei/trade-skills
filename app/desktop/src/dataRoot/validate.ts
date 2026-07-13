@@ -37,6 +37,10 @@ export function validateDataRootCandidate(path: string, currentRoot: string): Da
     return { ok: false, reason: "not-dir" };
   }
 
+  if (!isWritableDir(path)) {
+    return { ok: false, reason: "not-writable" };
+  }
+
   if (existsSync(join(path, CHART_DATA_REL))) {
     return { ok: true };
   }
@@ -50,10 +54,6 @@ export function validateDataRootCandidate(path: string, currentRoot: string): Da
 
   if (entries.length === 0) {
     return { ok: true };
-  }
-
-  if (!isWritableDir(path)) {
-    return { ok: false, reason: "not-writable" };
   }
 
   return { ok: false, reason: "needs-confirm-scaffold" };

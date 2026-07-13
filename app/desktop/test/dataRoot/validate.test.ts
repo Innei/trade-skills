@@ -35,13 +35,13 @@ describe("validateDataRootCandidate", () => {
     expect(validateDataRootCandidate(file, current)).toEqual({ ok: false, reason: "not-dir" });
   });
 
-  it("accepts a directory that already has journal/charts/data", () => {
+  it("accepts a writable directory that already has journal/charts/data", () => {
     const candidate = join(root, "repo");
     mkdirSync(join(candidate, CHART_DATA_REL), { recursive: true });
     expect(validateDataRootCandidate(candidate, current)).toEqual({ ok: true });
   });
 
-  it("accepts an empty directory", () => {
+  it("accepts a writable empty directory", () => {
     const candidate = join(root, "empty");
     mkdirSync(candidate);
     expect(validateDataRootCandidate(candidate, current)).toEqual({ ok: true });
@@ -57,10 +57,38 @@ describe("validateDataRootCandidate", () => {
     });
   });
 
-  it("rejects when the directory is not writable", () => {
+  it("rejects a non-empty directory that is not writable", () => {
     const candidate = join(root, "readonly");
     mkdirSync(candidate);
     writeFileSync(join(candidate, "keep.txt"), "x");
+    chmodSync(candidate, 0o555);
+    try {
+      expect(validateDataRootCandidate(candidate, current)).toEqual({
+        ok: false,
+        reason: "not-writable",
+      });
+    } finally {
+      chmodSync(candidate, 0o755);
+    }
+  });
+
+  it("rejects an empty directory that is not writable", () => {
+    const candidate = join(root, "empty-readonly");
+    mkdirSync(candidate);
+    chmodSync(candidate, 0o555);
+    try {
+      expect(validateDataRootCandidate(candidate, current)).toEqual({
+        ok: false,
+        reason: "not-writable",
+      });
+    } finally {
+      chmodSync(candidate, 0o755);
+    }
+  });
+
+  it("rejects existing journal/charts/data when the root is not writable", () => {
+    const candidate = join(root, "repo-readonly");
+    mkdirSync(join(candidate, CHART_DATA_REL), { recursive: true });
     chmodSync(candidate, 0o555);
     try {
       expect(validateDataRootCandidate(candidate, current)).toEqual({

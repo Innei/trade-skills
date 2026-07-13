@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Badge, Button } from "../../ui";
 import {
   getDesktopDataRootBridge,
+  isDataRootResetDisabled,
   type DataRootBridgeStatus,
 } from "./desktopDataRoot";
 
@@ -41,8 +42,7 @@ export function DataRootSection() {
   const mode = status?.mode;
   const envLocked = mode === "env";
   const pickDisabled = busy || envLocked;
-  const resetDisabled =
-    busy || envLocked || !status || (mode === "default" && !status.restartPending);
+  const resetDisabled = isDataRootResetDisabled(status, busy);
 
   const run = async (action: "pick" | "reset") => {
     setBusy(true);
