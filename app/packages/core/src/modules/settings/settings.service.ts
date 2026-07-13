@@ -15,6 +15,7 @@ function usageRole(record: AiUsageRecord): "comment" | "analyst" | "deepDive" | 
   switch (record.layer) {
     case "commentator":
     case "event-filter":
+    case "chat-suggest":
       return "comment";
     case "analyst":
       return record.origin === "deep-dive" ? "deepDive" : "analyst";

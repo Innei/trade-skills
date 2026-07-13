@@ -15,4 +15,14 @@ export class ChatIpc extends IpcService implements WrapEnvelope<ChatApi> {
   postMessage(input: Parameters<ChatApi["postMessage"]>[0]) {
     return toEnvelope("chat.postMessage", () => chatService.postMessage(input));
   }
+
+  @IpcMethod()
+  abort(input: Parameters<ChatApi["abort"]>[0]) {
+    return toEnvelope("chat.abort", () => chatService.abort(input));
+  }
+
+  @IpcMethod()
+  suggestions(input: Parameters<ChatApi["suggestions"]>[0]) {
+    return toEnvelope("chat.suggestions", () => chatService.suggestions(input));
+  }
 }

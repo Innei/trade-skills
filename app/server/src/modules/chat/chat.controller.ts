@@ -3,7 +3,10 @@ import { chatService } from "../../../../packages/core/src/modules/chat/chat.ser
 import { ClientError } from "../../../../packages/core/src/errors.js";
 import { jsonResponse } from "../../httpResponse.js";
 
-export { setChatDepsForTests } from "../../../../packages/core/src/modules/chat/chat.service.js";
+export {
+  setChatDepsForTests,
+  setChatSuggestionDepsForTests,
+} from "../../../../packages/core/src/modules/chat/chat.service.js";
 
 @Controller("charts")
 export class ChatController {
@@ -20,5 +23,16 @@ export class ChatController {
     }
     const result = await chatService.postMessage({ id, text });
     return jsonResponse(result.status, result.body);
+  }
+
+  @Post("/:id/chat/abort")
+  async abort(@Param("id") id: string) {
+    const result = await chatService.abort({ id });
+    return jsonResponse(result.status, result.body);
+  }
+
+  @Get("/:id/chat/suggestions")
+  async suggestions(@Param("id") id: string) {
+    return chatService.suggestions({ id });
   }
 }

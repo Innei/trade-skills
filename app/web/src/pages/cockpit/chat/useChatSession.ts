@@ -20,12 +20,16 @@ export interface ChatRow {
   kind: ChatRowKind;
   text?: string;
   label?: string;
+  input?: string;
+  output?: string;
 }
 
 export interface ChatLiveTool {
   id: string;
   label: string;
   status: "start" | "end";
+  input?: string;
+  output?: string;
 }
 
 interface ChatEnvelope {
@@ -37,8 +41,9 @@ interface ChatEnvelope {
 
 type ChatWsEvent =
   | { event: "delta"; text: string }
-  | { event: "tool"; label: string; status: "start" | "end" }
+  | { event: "tool"; label: string; status: "start" | "end"; input?: string; output?: string }
   | { event: "done" }
+  | { event: "aborted" }
   | { event: "error"; message: string };
 
 type ChatWsEnvelope = { type: "init"; busy: boolean; partial: string } | { type: "event"; event: ChatWsEvent };
@@ -60,25 +65,32 @@ export interface ChatSessionState {
   session: ChatSessionInfo | null;
   rows: ChatRow[];
   busy: boolean;
+  aborting: boolean;
   streamText: string;
   liveTools: ChatLiveTool[];
   hint: string | null;
   loaded: boolean;
+  suggestions: string[];
   send: (text: string) => Promise<ChatSendResult>;
+  abort: () => Promise<void>;
+  ensureSuggestions: () => void;
 }
 
 export function useChatSession(chartId: string): ChatSessionState {
   const [session, setSession] = useState<ChatSessionInfo | null>(null);
   const [rows, setRows] = useState<ChatRow[]>([]);
   const [busy, setBusy] = useState(false);
+  const [aborting, setAborting] = useState(false);
   const [streamText, setStreamText] = useState("");
   const [liveTools, setLiveTools] = useState<ChatLiveTool[]>([]);
   const [hint, setHint] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const requestSeqRef = useRef(0);
   const toolSeqRef = useRef(0);
   const errorSeqRef = useRef(0);
   const sendPendingRef = useRef(false);
+  const suggestionsRequestedRef = useRef(false);
 
   const reload = useCallback(
     (markError?: string) => {
@@ -108,13 +120,16 @@ export function useChatSession(chartId: string): ChatSessionState {
 
   useEffect(() => {
     sendPendingRef.current = false;
+    suggestionsRequestedRef.current = false;
     setSession(null);
     setRows([]);
     setBusy(false);
+    setAborting(false);
     setStreamText("");
     setLiveTools([]);
     setHint(null);
     setLoaded(false);
+    setSuggestions([]);
     reload();
   }, [chartId, reload]);
 
@@ -139,24 +154,29 @@ export function useChatSession(chartId: string): ChatSessionState {
         }
         if (evt.event === "tool") {
           if (evt.status === "start") {
-            setLiveTools((prev) => [...prev, { id: `tool-${toolSeqRef.current++}`, label: evt.label, status: "start" }]);
+            setLiveTools((prev) => [
+              ...prev,
+              { id: `tool-${toolSeqRef.current++}`, label: evt.label, status: "start", input: evt.input },
+            ]);
             return;
           }
           setLiveTools((prev) => {
             const idx = prev.map((t) => t.label === evt.label && t.status === "start").lastIndexOf(true);
             if (idx === -1) return prev;
-            return prev.map((t, i) => (i === idx ? { ...t, status: "end" } : t));
+            return prev.map((t, i) => (i === idx ? { ...t, status: "end", output: evt.output } : t));
           });
           return;
         }
-        if (evt.event === "done") {
+        if (evt.event === "done" || evt.event === "aborted") {
           setBusy(false);
+          setAborting(false);
           setStreamText("");
           setLiveTools([]);
           reload();
           return;
         }
         setBusy(false);
+        setAborting(false);
         setStreamText("");
         setLiveTools([]);
         reload(evt.message);
@@ -178,6 +198,7 @@ export function useChatSession(chartId: string): ChatSessionState {
       sendPendingRef.current = true;
       setHint(null);
       setBusy(true);
+      setSuggestions([]);
       setRows((prev) => [...prev, { id: optimisticId, ts: new Date().toISOString(), kind: "user", text: trimmed }]);
       try {
         const result = await client.chat.postMessage({ id: chartId, text: trimmed });
@@ -207,5 +228,42 @@ export function useChatSession(chartId: string): ChatSessionState {
     [chartId],
   );
 
-  return { session, rows, busy, streamText, liveTools, hint, loaded, send };
+  const abort = useCallback(async (): Promise<void> => {
+    setAborting(true);
+    try {
+      await client.chat.abort({ id: chartId });
+    } catch {
+      setAborting(false);
+    }
+  }, [chartId]);
+
+  const ensureSuggestions = useCallback(() => {
+    if (suggestionsRequestedRef.current) return;
+    suggestionsRequestedRef.current = true;
+    const seq = requestSeqRef.current;
+    client.chat
+      .suggestions({ id: chartId })
+      .then((res) => {
+        if (requestSeqRef.current !== seq) return;
+        setSuggestions(res.suggestions);
+      })
+      .catch(() => {
+        setSuggestions([]);
+      });
+  }, [chartId]);
+
+  return {
+    session,
+    rows,
+    busy,
+    aborting,
+    streamText,
+    liveTools,
+    hint,
+    loaded,
+    suggestions,
+    send,
+    abort,
+    ensureSuggestions,
+  };
 }

@@ -16,8 +16,9 @@ vi.mock("../../packages/core/src/env.js", () => ({ CHART_DATA_DIR: ctx.dir }));
 const store = vi.hoisted(() => ({ loadChart: vi.fn(), listCharts: vi.fn() }));
 vi.mock("../../packages/core/src/services/store.js", () => store);
 
-const { setChatDepsForTests } = await import("../src/modules/chat/chat.controller.js");
+const { setChatDepsForTests, setChatSuggestionDepsForTests } = await import("../src/modules/chat/chat.controller.js");
 const { createSession, appendMessages } = await import("../../packages/core/src/ai/chatStore.js");
+const { clearChatSuggestionCache } = await import("../../packages/core/src/ai/chatSuggestions.js");
 
 type ChatDeps = import("../../packages/core/src/ai/chat.js").ChatDeps;
 
@@ -93,6 +94,8 @@ async function post(path: string, payload: unknown): Promise<Response> {
 beforeEach(() => {
   store.loadChart.mockReset();
   setChatDepsForTests(null);
+  setChatSuggestionDepsForTests(null);
+  clearChatSuggestionCache();
 });
 
 describe("GET /:id/chat", () => {
@@ -252,5 +255,93 @@ describe("POST /:id/chat/messages", () => {
     const res = await post("/chart-1/chat/messages", { text: "你好" });
     expect(res.status).toBe(503);
     expect(await res.json()).toEqual({ error: "未配置追问模型，请在 /settings 配置" });
+  });
+});
+
+describe("POST /:id/chat/abort", () => {
+  it("404s when the chart does not exist", async () => {
+    store.loadChart.mockResolvedValue(null);
+    const res = await post("/missing-chart/chat/abort", {});
+    expect(res.status).toBe(404);
+  });
+
+  it("409s when no turn is running", async () => {
+    store.loadChart.mockResolvedValue(fakeDoc({ id: "chart-abort-idle" }));
+    const res = await post("/chart-abort-idle/chat/abort", {});
+    expect(res.status).toBe(409);
+    expect(await res.json()).toEqual({ error: "当前没有正在生成的回答" });
+  });
+
+  it("202s and stops the in-flight turn", async () => {
+    const chartId = "chart-abort-202";
+    store.loadChart.mockResolvedValue(fakeDoc({ id: chartId }));
+
+    let signalStarted: () => void = () => {};
+    const started = new Promise<void>((resolve) => {
+      signalStarted = resolve;
+    });
+    let rejectPrompt: ((err: Error) => void) | undefined;
+
+    setChatDepsForTests(
+      baseDeps({
+        loadChart: async () => fakeDoc({ id: chartId }),
+        agentFactory: () => ({
+          prompt: () =>
+            new Promise((_resolve, reject) => {
+              rejectPrompt = reject;
+              signalStarted();
+            }),
+          abort: () => rejectPrompt?.(new Error("aborted")),
+          state: { messages: [] },
+        }),
+      }),
+    );
+
+    const accepted = await post(`/${chartId}/chat/messages`, { text: "你好" });
+    expect(accepted.status).toBe(202);
+    await started;
+
+    const res = await post(`/${chartId}/chat/abort`, {});
+    expect(res.status).toBe(202);
+    expect(await res.json()).toEqual({ aborted: true });
+  });
+});
+
+describe("GET /:id/chat/suggestions", () => {
+  it("404s when the chart does not exist", async () => {
+    store.loadChart.mockResolvedValue(null);
+    const res = await get("/missing-chart/chat/suggestions");
+    expect(res.status).toBe(404);
+  });
+
+  it("returns generated questions when no chat has started", async () => {
+    const chartId = "chart-suggest";
+    store.loadChart.mockResolvedValue(fakeDoc({ id: chartId }));
+    setChatSuggestionDepsForTests({
+      model: fakeModel,
+      loadChart: async () => fakeDoc({ id: chartId }),
+      listComments: async () => [],
+      agentFactory: (config) => ({
+        prompt: async () => {
+          await config.tools[0].execute("call-1", { questions: ["凭什么偏空", "失效位怎么来的", "量能对比哪几根"] } as never);
+        },
+        abort: () => {},
+        state: { messages: [] },
+      }),
+    });
+
+    const res = await get(`/${chartId}/chat/suggestions`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ suggestions: ["凭什么偏空", "失效位怎么来的", "量能对比哪几根"] });
+  });
+
+  it("returns nothing once a chat session exists", async () => {
+    const chartId = "chart-suggest-existing";
+    store.loadChart.mockResolvedValue(fakeDoc({ id: chartId }));
+    await createSession({ chartId, symbol: "MU.US", title: "已经聊过" });
+
+    const res = await get(`/${chartId}/chat/suggestions`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ suggestions: [] });
   });
 });

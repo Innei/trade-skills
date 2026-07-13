@@ -14,9 +14,8 @@ const ctx = vi.hoisted(() => {
 
 vi.mock("../src/env.js", () => ({ CHART_DATA_DIR: ctx.dir }));
 
-const { runChatTurn, onChatEvent, chatTurnState, toDisplayMessages, buildChatSystemPrompt } = await import(
-  "../src/ai/chat.js"
-);
+const { runChatTurn, onChatEvent, chatTurnState, toDisplayMessages, buildChatSystemPrompt, abortChatTurn } =
+  await import("../src/ai/chat.js");
 const { getSessionByChartId, listMessages } = await import("../src/ai/chatStore.js");
 
 type ChatEvent = Parameters<Parameters<typeof onChatEvent>[1]>[0];
@@ -410,6 +409,64 @@ describe("runChatTurn error surfacing", () => {
   });
 });
 
+describe("abortChatTurn", () => {
+  it("keeps the partial answer, broadcasts aborted instead of error, and clears the turn", async () => {
+    const chartId = "abort-1";
+    const events: ChatEvent[] = [];
+    const unsub = onChatEvent(chartId, (e) => events.push(e));
+
+    let rejectPrompt: ((err: Error) => void) | undefined;
+    let abortAccepted = false;
+
+    const factory: AiAgentFactory = (config) => {
+      let listener: ((event: AgentEvent) => void) | undefined;
+      const messages: AgentMessage[] = [...(config.messages ?? [])];
+      return {
+        prompt: () =>
+          new Promise((_resolve, reject) => {
+            rejectPrompt = reject;
+            listener?.(messageStartEvent());
+            listener?.(messageUpdateEvent("半截话"));
+            queueMicrotask(() => {
+              abortAccepted = abortChatTurn(chartId);
+            });
+          }),
+        abort: () => rejectPrompt?.(new Error("aborted")),
+        subscribe: (l) => {
+          listener = l;
+          return () => {
+            listener = undefined;
+          };
+        },
+        state: { messages },
+      };
+    };
+
+    const result = await runChatTurn(chartId, "问", baseDeps({ agentFactory: factory }));
+    expect(result.started).toBe(true);
+    if (result.started) await result.done;
+    unsub();
+
+    expect(abortAccepted).toBe(true);
+    expect(events.at(-1)).toEqual({ event: "aborted" });
+    expect(events.some((e) => e.event === "error")).toBe(false);
+
+    const session = await getSessionByChartId(chartId);
+    expect(session).not.toBeNull();
+    const rows = await listMessages(session!.id);
+    expect(toDisplayMessages(rows)).toEqual([
+      { id: expect.any(String), ts: expect.any(String), kind: "user", text: "问" },
+      { id: expect.any(String), ts: expect.any(String), kind: "assistant", text: "半截话" },
+    ]);
+
+    expect(chatTurnState(chartId).busy).toBe(false);
+  });
+
+  it("returns false when no turn is running", () => {
+    expect(abortChatTurn("nothing-running")).toBe(false);
+  });
+});
+
 describe("runChatTurn event translation", () => {
   it("translates message_update deltas and tool_execution_start/end, tracking the partial buffer", async () => {
     const chartId = "translate-1";
@@ -426,8 +483,14 @@ describe("runChatTurn event translation", () => {
           listener?.(messageUpdateEvent("Hi"));
           listener?.(messageUpdateEvent("Hi there"));
           observedPartial = chatTurnState(chartId).partial;
-          listener?.({ type: "tool_execution_start", toolCallId: "c1", toolName: "fetch_news", args: {} });
-          listener?.({ type: "tool_execution_end", toolCallId: "c1", toolName: "fetch_news", result: {}, isError: false });
+          listener?.({ type: "tool_execution_start", toolCallId: "c1", toolName: "fetch_news", args: { limit: 5 } });
+          listener?.({
+            type: "tool_execution_end",
+            toolCallId: "c1",
+            toolName: "fetch_news",
+            result: { content: [{ type: "text", text: "两条新闻" }] },
+            isError: false,
+          });
           messages.push({ role: "user", content: "问", timestamp: 0 }, assistantMessage("Hi there"));
         },
         abort: () => {},
@@ -449,8 +512,8 @@ describe("runChatTurn event translation", () => {
     expect(events).toEqual([
       { event: "delta", text: "Hi" },
       { event: "delta", text: " there" },
-      { event: "tool", label: "Fetch News", status: "start" },
-      { event: "tool", label: "Fetch News", status: "end" },
+      { event: "tool", label: "Fetch News", status: "start", input: '{"limit":5}' },
+      { event: "tool", label: "Fetch News", status: "end", output: "两条新闻" },
       { event: "done" },
     ]);
     expect(observedPartial).toBe("Hi there");
@@ -497,7 +560,7 @@ describe("runChatTurn event translation", () => {
     unsub();
 
     expect(events).toEqual([
-      { event: "tool", label: "unmapped_tool", status: "start" },
+      { event: "tool", label: "unmapped_tool", status: "start", input: "{}" },
       { event: "tool", label: "unmapped_tool", status: "end" },
       { event: "done" },
     ]);
@@ -552,7 +615,7 @@ describe("chatTurnState", () => {
 });
 
 describe("toDisplayMessages", () => {
-  it("maps user text and assistant text/toolCall blocks to display rows, and skips toolResult rows", () => {
+  it("maps user text and assistant text/toolCall blocks to display rows, folding toolResult content into the tool row", () => {
     const rows: ChatMessageRow[] = [
       { id: "r1", sessionId: "s1", ts: "t1", role: "user", payload: { role: "user", content: "你好", timestamp: 0 } },
       {
@@ -564,7 +627,7 @@ describe("toDisplayMessages", () => {
           role: "assistant",
           content: [
             { type: "text", text: "先看数据" },
-            { type: "toolCall", id: "c1", name: "fetch_news", arguments: {} },
+            { type: "toolCall", id: "c1", name: "fetch_news", arguments: { limit: 5 } },
           ],
           api: "anthropic-messages",
           provider: "anthropic",
@@ -593,8 +656,46 @@ describe("toDisplayMessages", () => {
     expect(toDisplayMessages(rows)).toEqual([
       { id: "r1", ts: "t1", kind: "user", text: "你好" },
       { id: "r2", ts: "t2", kind: "assistant", text: "先看数据" },
-      { id: "r2:1", ts: "t2", kind: "tool", label: "fetch_news" },
+      { id: "r2:1", ts: "t2", kind: "tool", label: "fetch_news", input: '{"limit":5}', output: "..." },
     ]);
+  });
+
+  it("truncates oversized tool payloads", () => {
+    const rows: ChatMessageRow[] = [
+      {
+        id: "r1",
+        sessionId: "s1",
+        ts: "t1",
+        role: "assistant",
+        payload: {
+          role: "assistant",
+          content: [{ type: "toolCall", id: "c1", name: "kline", arguments: {} }],
+          api: "anthropic-messages",
+          provider: "anthropic",
+          model: "x",
+          usage: ZERO_USAGE,
+          stopReason: "toolUse",
+          timestamp: 0,
+        },
+      },
+      {
+        id: "r2",
+        sessionId: "s1",
+        ts: "t2",
+        role: "toolResult",
+        payload: {
+          role: "toolResult",
+          toolCallId: "c1",
+          toolName: "kline",
+          content: [{ type: "text", text: "x".repeat(5000) }],
+          isError: false,
+          timestamp: 0,
+        },
+      },
+    ];
+
+    const [tool] = toDisplayMessages(rows);
+    expect(tool.output).toBe(`${"x".repeat(4000)}…（已截断）`);
   });
 });
 

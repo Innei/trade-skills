@@ -21,11 +21,13 @@ import { createRunLock } from "./runLock.js";
 const DEFAULT_TIMEOUT_MS = 180_000;
 const COMMENT_CAP = 20;
 const RELEVANT_COMMENT_SOURCES = new Set(["analyst", "system"]);
+const TOOL_TEXT_CAP = 4000;
 
 export type ChatEvent =
   | { event: "delta"; text: string }
-  | { event: "tool"; label: string; status: "start" | "end" }
+  | { event: "tool"; label: string; status: "start" | "end"; input?: string; output?: string }
   | { event: "done" }
+  | { event: "aborted" }
   | { event: "error"; message: string };
 
 export interface ChatDisplayMessage {
@@ -34,6 +36,8 @@ export interface ChatDisplayMessage {
   kind: "user" | "assistant" | "tool";
   text?: string;
   label?: string;
+  input?: string;
+  output?: string;
 }
 
 export interface ChatDeps {
@@ -55,6 +59,8 @@ export type ChatStartResult =
 interface TurnState {
   busy: boolean;
   partial: string;
+  aborted: boolean;
+  abort: (() => void) | null;
 }
 
 const chatRunLock = createRunLock();
@@ -93,8 +99,41 @@ export function chatTurnState(chartId: string): { busy: boolean; partial: string
   return state ? { busy: state.busy, partial: state.partial } : { busy: false, partial: "" };
 }
 
+export function abortChatTurn(chartId: string): boolean {
+  const state = turnStates.get(chartId);
+  if (!state?.busy || !state.abort) return false;
+  state.aborted = true;
+  state.abort();
+  return true;
+}
+
+function truncate(text: string): string {
+  return text.length > TOOL_TEXT_CAP ? `${text.slice(0, TOOL_TEXT_CAP)}…（已截断）` : text;
+}
+
+function stringifyToolPayload(value: unknown): string | undefined {
+  if (value == null) return undefined;
+  if (typeof value === "string") return value ? truncate(value) : undefined;
+  try {
+    return truncate(JSON.stringify(value));
+  } catch {
+    return undefined;
+  }
+}
+
 function textOf(block: { type: string; text?: string }): string {
   return block.type === "text" && typeof block.text === "string" ? block.text : "";
+}
+
+function toolResultText(message: Extract<AgentMessage, { role: "toolResult" }>): string {
+  return message.content.map(textOf).join("");
+}
+
+function agentToolResultText(result: unknown): string | undefined {
+  if (typeof result !== "object" || result === null) return undefined;
+  const content = (result as { content?: unknown }).content;
+  if (!Array.isArray(content)) return undefined;
+  return content.map((block) => textOf(block as { type: string; text?: string })).join("");
 }
 
 function concatAssistantText(message: AgentMessage): string {
@@ -103,6 +142,12 @@ function concatAssistantText(message: AgentMessage): string {
 }
 
 export function toDisplayMessages(rows: ChatMessageRow[]): ChatDisplayMessage[] {
+  const outputs = new Map<string, string>();
+  for (const row of rows) {
+    const message = row.payload;
+    if (message.role === "toolResult") outputs.set(message.toolCallId, toolResultText(message));
+  }
+
   const out: ChatDisplayMessage[] = [];
   for (const row of rows) {
     const message = row.payload;
@@ -117,7 +162,14 @@ export function toDisplayMessages(rows: ChatMessageRow[]): ChatDisplayMessage[] 
         if (block.type === "text") {
           out.push({ id, ts: row.ts, kind: "assistant", text: block.text });
         } else if (block.type === "toolCall") {
-          out.push({ id, ts: row.ts, kind: "tool", label: block.name });
+          out.push({
+            id,
+            ts: row.ts,
+            kind: "tool",
+            label: block.name,
+            input: stringifyToolPayload(block.arguments),
+            output: stringifyToolPayload(outputs.get(block.id)),
+          });
         }
       });
     }
@@ -195,11 +247,21 @@ function translateEvent(
     return;
   }
   if (event.type === "tool_execution_start") {
-    emit({ event: "tool", label: toolLabels.get(event.toolName) ?? event.toolName, status: "start" });
+    emit({
+      event: "tool",
+      label: toolLabels.get(event.toolName) ?? event.toolName,
+      status: "start",
+      input: stringifyToolPayload(event.args),
+    });
     return;
   }
   if (event.type === "tool_execution_end") {
-    emit({ event: "tool", label: toolLabels.get(event.toolName) ?? event.toolName, status: "end" });
+    emit({
+      event: "tool",
+      label: toolLabels.get(event.toolName) ?? event.toolName,
+      status: "end",
+      output: stringifyToolPayload(agentToolResultText(event.result)),
+    });
   }
 }
 
@@ -322,9 +384,28 @@ async function executeChatTurn(
       onEvent: (event) => translateEvent(event, translatorCtx, toolLabels, state, (e) => broadcast(chartId, e)),
     });
 
+    state.abort = () => agentSession.agent.abort();
+
+    const settleAborted = async (): Promise<void> => {
+      const abortedNowMs = deps.now ? deps.now() : Date.now();
+      await persistFailureIncrement(
+        chatSession.id,
+        agentSession.agent,
+        history.length,
+        state.partial,
+        model,
+        abortedNowMs,
+      );
+      broadcast(chartId, { event: "aborted" });
+    };
+
     try {
       await agentSession.runTurn(text, timeoutMs);
       translatorCtx.settled = true;
+      if (state.aborted) {
+        await settleAborted();
+        return;
+      }
       const increment = await persistIncrement(chatSession.id, agentSession.agent, history.length);
       const errorMessage = agentSession.agent.state?.errorMessage;
       if (errorMessage || !hasAssistantText(increment)) {
@@ -334,6 +415,10 @@ async function executeChatTurn(
       }
     } catch (err) {
       translatorCtx.settled = true;
+      if (state.aborted) {
+        await settleAborted();
+        return;
+      }
       const failureNowMs = deps.now ? deps.now() : Date.now();
       await persistFailureIncrement(
         chatSession.id,
@@ -384,7 +469,7 @@ export async function runChatTurn(chartId: string, text: string, deps: ChatDeps)
 
   const symbol = doc.symbol;
   const model = deps.model;
-  const state: TurnState = { busy: true, partial: "" };
+  const state: TurnState = { busy: true, partial: "", aborted: false, abort: null };
   turnStates.set(chartId, state);
 
   const done = executeChatTurn(chartId, text, doc, symbol, model, deps, state).finally(() => {
