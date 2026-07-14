@@ -24,6 +24,7 @@ node_modules/
 !/.claude/skills/release/
 !/.claude/skills/sec-edgar/
 !/.claude/skills/stock-deep-dive/
+!/.claude/skills/trade-gate/
 !/.claude/skills/trump-truth-monitor/
 
 journal/
