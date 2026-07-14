@@ -3,33 +3,60 @@ import { join } from "node:path";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { Type } from "typebox";
 import { skillSearchDirs } from "../env.js";
-import { loadSkillIndex, skillIndexPrompt } from "../services/skills.js";
+import { loadSkillIndex, readSkill, skillIndexPrompt } from "../services/skills.js";
 import { buildBashTool, buildReadFileTool, buildReadSkillTool, type ExecFn, type ExecResult } from "./agentTools.js";
 import { textResult } from "./dataTools.js";
 
 export type { ExecFn, ExecResult };
 
-export function buildSystemPrompt(repoRoot: string): string {
+export const DEEP_DIVE_SKILL = "stock-deep-dive";
+
+export function loadDeepDiveSkillText(repoRoot: string): string | null {
+  return readSkill(loadSkillIndex(skillSearchDirs(repoRoot)), DEEP_DIVE_SKILL);
+}
+
+/**
+ * The six-lens flow is preloaded in full rather than left to the model to fetch via read_skill.
+ * Asking the model to load its own discipline means a run that silently skips read_skill still
+ * counts as a success — the discipline becomes a request instead of a guarantee.
+ *
+ * Both texts are injected, not read here, so this stays a pure function; the runner owns the
+ * fail-closed check.
+ */
+export function buildSystemPrompt(repoRoot: string, deepDiveSkill: string, disciplineText = ""): string {
   const index = loadSkillIndex(skillSearchDirs(repoRoot));
-  return [
+
+  const own = [
     "You are an equity research agent maintaining per-stock six-lens notes in this repo.",
-    "Available skills:",
+    `The full ${DEEP_DIVE_SKILL} skill is appended below — follow its flow and anti-patterns verbatim.`,
+    "Available skills (load any of these with read_skill when the flow calls for them):",
     skillIndexPrompt(index),
     "Tool usage rules:",
-    "- Use read_skill to load a skill's full instructions before following its flow.",
     "- Use bash to run the longbridge CLI and python scripts under .claude/skills; NEVER write files via bash (no redirection, tee, rm, mv, cp).",
     "- Use read_file to inspect repo-relative files (e.g. an existing stocks/{SYMBOL}.md note).",
     "- write_note is the ONLY way to persist your findings; it always writes stocks/{SYMBOL}.md for the symbol you were asked to research.",
+    "- A run that never calls write_note is a FAILED run. Do not finish without calling it.",
     "Note-writing rules:",
     "- Update the existing note incrementally; do not discard prior sections unless they are stale.",
-    "- Write the note content in modern vernacular Chinese (中文白话).",
     "- Keep tickers and CLI/API names (e.g. NVDA, longbridge) in English.",
+    "",
+    "---",
+    "",
+    deepDiveSkill,
   ].join("\n");
+
+  return disciplineText ? [disciplineText, "", "---", "", own].join("\n") : own;
 }
 
 const writeNoteSchema = Type.Object({ content: Type.String() });
 
-export function buildTools(repoRoot: string, symbol: string, exec: ExecFn, stocksDir?: string): AgentTool[] {
+export function buildTools(
+  repoRoot: string,
+  symbol: string,
+  exec: ExecFn,
+  stocksDir?: string,
+  onNoteWritten?: () => void,
+): AgentTool[] {
   const skillIndex = loadSkillIndex(skillSearchDirs(repoRoot));
   const notesDir = stocksDir ?? join(repoRoot, "stocks");
 
@@ -44,6 +71,7 @@ export function buildTools(repoRoot: string, symbol: string, exec: ExecFn, stock
       const path = join(notesDir, `${symbol}.md`);
       await fs.mkdir(notesDir, { recursive: true });
       await fs.writeFile(path, content, "utf8");
+      onNoteWritten?.();
       return textResult(`written to stocks/${symbol}.md`);
     },
   };

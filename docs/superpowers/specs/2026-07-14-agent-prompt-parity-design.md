@@ -1,0 +1,197 @@
+# app 内 AI 与 Claude Code 的行为对齐
+
+**日期**：2026-07-14
+**状态**：设计已批准，待写实施计划
+**范围**：`app/packages/core/src/ai/` 的六个 agent + `.claude/skills/` + 根 `CLAUDE.md`
+
+---
+
+## 1. 要解决什么
+
+这个仓库的"纪律"有两个消费方：
+
+1. **Claude Code** 直接在仓库里跑 —— 读根 `CLAUDE.md` + `.claude/skills/*/SKILL.md` + `journal/lessons.md`
+2. **app 内的 AI** —— `app/packages/core/src/ai/` 里的六个 agent
+
+**问题：没有任何一条路径把根 `CLAUDE.md` 送到 app agent 面前。** 仓库级的不变量（GAAP 陷阱、不自动附和、一手信源、单位歧义、少用行话）只活在 Claude Code 的上下文里。app 里的 AI 看不见。
+
+结果是**同一个仓库、同一套纪律，两个消费方的行为不一致**。
+
+---
+
+## 2. 现状核查（已验证）
+
+### 2.1 已经做对的三件事（设计建立在这些之上，不推翻）
+
+1. **`ai/analyst.ts` 把 `intraday-signal/SKILL.md` 全文拼进 system prompt** —— 纪律的源头是 skill 文件，不是 prompt 里手抄一份。方向正确。
+2. **`services/predictionRules.ts` 对 `submit_prediction` 做硬校验** —— 锚点缺失、情景概率不等于 100（容忍 ±10）、neutral 却带入场计划、盈亏比 < 1:1 等，一律拒绝。
+3. **analyst fail-closed** —— SKILL.md 读不到就中止（「纪律缺席时不允许裸跑」）。
+
+### 2.2 已确认的缺陷
+
+| # | 缺陷 | 证据 |
+|---|---|---|
+| **D1** | **`readActiveLessons()` 恒返回空数组** | `services/lessons.ts:11` 查找 `## 现行教训` 小节；`journal/lessons.md` 只有一级标题 `# 复盘教训清单`，无任何 `##`。**今天写的全部教训，一条都没送到 analyst 和 chat。** |
+| **D2** | **skill 与 CLAUDE.md 已经发生实质漂移** | `capital-rotation/SKILL.md:12` 写 `Units: 万 USD … convert to 亿`；`CLAUDE.md:100` 明令 `do not silently convert`。**SKILL.md 让做的正是 CLAUDE.md 禁止的。** |
+| **D3** | **同一处漂移的第二例（语言）** | `capital-rotation/SKILL.md:122` 写 `default 文言 for this user`；`CLAUDE.md` 写「对话回复也用中文白话，不用文言」。**直接打架。** |
+| **D4** | **校验失败并非"强制重试"** | `analyst.ts:289` 拒绝后只返回一个不终止的工具结果，模型可以直接放弃，最终记为「未提交预测」。只有 commentator（`commentator.ts:186`）有真正的外层重试。 |
+| **D5** | **deepDive 的纪律只是"请求"，不是门** | `stock-deep-dive/SKILL.md` 里确实有 GAAP / QoQ / 一手信源，但 deepDive 只是被 prompt *要求* 去 `read_skill`。它可以从不调用 `read_skill`、甚至从不调用 `write_note`，仍被标记为成功（`deepDive.ts:82`）。 |
+| **D6** | **chat 完全没有反自动附和条款** | `ai/chat.ts` 的 system prompt 里一个字都没有。而 chat 正是用户会说「是不是突破了」「是不是完蛋了」的地方。 |
+| **D7** | **`MAX_LESSONS = 12` 只限条数不限字数** | `lessons.ts:5`。当前每条教训都很长，即使修好 D1，注入体积也不可控。 |
+
+---
+
+## 3. 设计
+
+### 3.1 核心原则
+
+> **"六个全对齐" ≠ "同一份全文塞进六个"。**
+> **对齐 = 六个都由同一个组装器决定拿什么；源头只有一份。**
+
+**按 agent 的能力形态分组，不按规则的重要性分层。** 一条规则适不适用，取决于这个 agent 有没有对应的输入、工具和输出去执行它，而不取决于这条规则多重要。
+
+### 3.2 三组
+
+| 组 | agent | 注入什么 |
+|---|---|---|
+| **判断者** | `analyst` · `deepDive` · `chat` | **共享纪律全文**（不切片）+ 各自的领域 skill 全文。**缺失即中止**（fail-closed，比照 analyst 现有行为） |
+| **观察者** | `commentator` | **紧凑的观察者契约**：只描述输入里能观察到的变化 · 不臆测原因 · 标注快照时间 · 数据不足就升级。**不注入 GAAP / QoQ / 韩国等与它无关的规则** |
+| **机械件** | `chatSuggestions` · `eventFilter` | **不注入共享纪律。** 靠 TypeBox schema 和代码约束。（`chatSuggestions` 现有的"攻击分析最虚的地方"本身就是反谄媚装置，保留） |
+
+**为什么 commentator 不拿全文**：它每 60 秒被调度器扫一次（有触发或 5 分钟心跳时才真跑），拿 GAAP 陷阱是纯噪音和纯成本。
+**为什么 eventFilter 什么都不拿**：它只从列表里挑序号，共享纪律对它没有任何可执行的含义。
+
+### 3.3 单一源头 + 真导入（解决漂移）
+
+```
+              .claude/skills/trading-discipline/SKILL.md
+                    唯一共享纪律 · 每条规则带稳定 ID
+                                │
+          ┌─────────────────────┼─────────────────────┐
+          ▼                     ▼                     ▼
+     CLAUDE.md            promptPolicy.ts       Electron 打包
+   @import 该文件        按能力形态统一注入      随发版快照
+                              │
+                  analyst · deepDive · chat
+
+  journal/lessons.md ──按标的/主题/字符预算筛选──> 需要动态经验的 agent
+```
+
+三条具体做法：
+
+1. **新建 `.claude/skills/trading-discipline/SKILL.md`** —— 唯一的共享纪律文本，**每条规则带稳定 ID**（如 `TD-SOURCE-01`、`TD-GAAP-01`）。
+2. **`CLAUDE.md` 删掉重复的纪律段落，改为真正的导入**：`@.claude/skills/trading-discipline/SKILL.md`。（全局 `~/.claude/CLAUDE.md` 里的 `@RTK.md` 就是这个机制，有先例。）
+3. **领域 skill 只引用规则 ID，不复制规则正文**。D2/D3 那两处冲突正是"复制正文"产生的。
+
+### 3.4 集中式组装器
+
+新建 **`app/packages/core/src/ai/promptPolicy.ts`**。
+
+**每个 agent 声明自己的能力形态，由组装器统一注入。禁止六个文件各自调 `readSkill` 拼 prompt。**
+
+理由：文件单一源头解决了"内容漂移"，但**解决不了"接线漂移"** —— 某个 agent 忘了加载、或选错了组，依然会不一致。组装器把这个决定收敛到一处，可以写测试。
+
+### 3.5 反自动附和：独立核验协议
+
+**不能只写"不要附和用户"** —— 那会把模型推向另一个错误：为了显得独立而故意抬杠。
+
+**prompt 层**（写进 `trading-discipline/SKILL.md`，注入判断者）：
+
+> 用户的判断是一项**待检验假设**，不是证据。
+> 当用户声称「突破 / 冲高 / 回调 / 见底 / 企稳 / 主力砸盘 / 崩了」等：
+> 1. 先准确复述待检验的**具体**判断
+> 2. **先检查最可能推翻它的数据**，再检查支持它的数据
+> 3. 涉及当前走势时，**必须重新拉取实时数据**，不得沿用对话里的旧价格
+> 4. 输出 **supported / partial / contradicted / insufficient** 四态之一
+> 5. 数据支持时**明确同意**；数据冲突时**明确纠正**；**证据不足时不得站队**
+> 6. 用户提供新证据后**重新计算**，不维护自己此前的结论
+
+**四态输出是关键**：它同时防住"自动附和"和"为反对而反对"。`insufficient` 这一态尤其重要 —— 它给了模型一个"不站队"的合法出口，否则模型会被逼着在证据不足时二选一。
+
+**代码层**（这才是保证）：
+
+- 新增 `verify_directional_read` 工具 —— 由**代码**计算并返回：现价、当日盘中高、**盘前高**、前一日高、最近 K 线保持时长、数据时间戳，以及机械判定结果。
+- `submit_chat_answer` 结构化提交，**只接受本轮产生的 `verification_id` 和真实工具结果里的 `evidence_ids`**。
+  - 用户说"突破"但没查盘前高 → **拒绝**
+  - 工具机械判定为 `contradicted`，模型却提交 `supported` → **拒绝**
+- 拒绝后由外层**明确再跑一次**；第二次仍不合格则**失败即中止**，而不是输出未经核验的回答。（这条同时修掉 D4 在 chat 侧的等价问题。）
+
+**⚠️ 输出缓冲（必须做，否则上面全白搭）**
+
+`ai/chat.ts:231` 目前**即时广播模型的文字 delta**。文字已经显示在用户屏幕上了，**事后校验毫无意义**。
+
+**决定：只在高风险回合缓冲。**
+- **高风险回合的判定**：用户消息中检测到方向性断言（突破 / 冲高 / 回调 / 见底 / 企稳 / 砸盘 / 崩 / 见顶 / 完蛋 / 反转 …）。
+- **检测宁可误判为高风险，也不放过**（召回优先于精确）—— 误判的代价只是少一次流式体验，漏判的代价是一个未经核验的错误结论已经显示给用户。
+- 高风险回合：缓冲文字，`submit_chat_answer` 校验通过后再整体显示。
+- 其余回合：保持现有流式体验。
+
+### 3.6 fail-closed 的边界
+
+- **判断者（analyst / deepDive / chat）**：共享纪律文件读不到 → **中止**。
+- **观察者 / 机械件**：不适用（它们本来就不注入共享纪律）。
+- **deepDive 额外**（修 D5）：改为**预加载** `stock-deep-dive/SKILL.md` 全文（不再依赖模型自觉去 `read_skill`）；**`write_note` 成功调用才算本次运行成功**。
+
+### 3.7 lessons 的处理（修 D1 + D7）
+
+- **修 `readActiveLessons()`**，使其与 `journal/lessons.md` 的真实格式匹配。
+- **按字符预算筛选，不是简单取前 12 条**（D7）。筛选维度：相关标的、主题、时效。
+- **`lessons.md` 不搬进静态 skill。** 它是每天在变的活文件；静态纪律随发版走，动态教训必须走用户数据目录。
+
+### 3.8 一个必须接受的现实
+
+**改了 skill，已安装的 Electron 不会立刻生效** —— 加载器里 `TRADE_SKILLS_DIR`（= `Resources/skills`）优先级高于仓库目录，得发新版。
+
+- **稳定纪律随发版更新** —— 合理，可接受。
+- **每日 lessons 必须走用户数据目录** —— 否则用户今天写的教训要等下次发版才生效，这是不可接受的。
+
+---
+
+## 4. 不在本轮范围内（单独开一轮）
+
+**把数据不变量下沉到数据结构。** 改动面最大（要动 `FlowRow`、`datapack.ts`、可能还有 chart），不应和前面的工作混在一起。
+
+原则是对的，下一轮做：
+
+| 现在靠 prompt 提醒 | 应该靠代码保证 |
+|---|---|
+| 「资金流单位有歧义，别乱换算」 | `FlowRow` 增加 `unit` / `unit_status` / `source` 字段；**单位未知时代码层面禁止换算** |
+| 「YoY 要配 QoQ」 | 代码直接算好 QoQ 一起给模型 |
+| 「说清是哪种分化」 | 分档标签由代码计算 |
+
+> **prompt 是提醒，代码是保证。能变成保证的，就不该留在提醒里。**
+
+---
+
+## 5. 实施顺序
+
+1. **修 `readActiveLessons()`**（D1）—— 唯一一个"今天就在漏"的缺陷，最便宜、最值钱
+2. 建 `trading-discipline/SKILL.md`；`CLAUDE.md` 改为 `@import`
+3. **修掉 `capital-rotation/SKILL.md` 的两处冲突**（D2 / D3）—— 单位换算、文言
+4. 建 `promptPolicy.ts` 集中组装器；判断者缺纪律文件即中止
+5. deepDive 改为预加载 skill 全文 + `write_note` 成功才算成功（D5）
+6. chat 加核验工具 + 结构化提交 + **高风险回合输出缓冲**（D6）
+7. *（下一轮）* 单位 / QoQ / 分档标签下沉到数据结构
+
+---
+
+## 6. 怎么验收
+
+- **测试**：`promptPolicy` 的组装结果按 agent 断言（判断者拿到共享纪律全文；commentator 拿不到 GAAP 相关规则；eventFilter 拿不到共享纪律）。
+- **回归**：`readActiveLessons()` 对真实的 `journal/lessons.md` 返回非空且受字符预算约束。
+- **漂移守卫**：加一个测试，扫描 `.claude/skills/*/SKILL.md`，**若出现共享纪律规则的正文副本而非 ID 引用，则失败**。这是防止 D2/D3 复发的唯一可靠手段。
+- **人工**：在 chat 里说一句「是不是突破了」，确认模型重新拉了实时数据、检查了盘前高、并给出四态之一，而不是顺着话头附和。
+
+---
+
+## 7. 未决 / 风险
+
+- **高风险回合的检测用关键词还是轻量分类器？** 本轮先用关键词（宁可误判为高风险）。若误判率高到影响体验，再换分类器。
+- **规则 ID 的粒度**没定。太细则维护成本高，太粗则引用没有意义。建议起步时按"一条可独立违反的纪律 = 一个 ID"。
+- **`@import` 在 app 侧不生效** —— `@` 语法是 Claude Code 的机制，app 的组装器必须自己读 skill 文件。这是两个消费方的路径差异，不是缺陷，但要在代码注释里写明，避免有人以为 app 也会跟着 `@` 走。
+
+---
+
+## 8. 出处
+
+设计经 Codex（gpt-5.6-sol, reasoning=max）独立评审，D1–D5 由其发现并经本地复核确认。原始分层方案（按规则重要性分 L1/L2/L3）被否决，改为按 agent 能力形态分组。

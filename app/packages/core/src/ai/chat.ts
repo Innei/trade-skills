@@ -1,5 +1,7 @@
 import type { AgentEvent, AgentMessage, AgentTool } from "@earendil-works/pi-agent-core";
+import { Type } from "typebox";
 import type { ChartDoc, CockpitComment, IntradayPrediction, NewsItem, RawBar } from "../../../../shared/types.js";
+import { PROJECT_ROOT } from "../env.js";
 import { getProvider } from "../services/marketdata/registry.js";
 import { easternDate } from "../services/session.js";
 import { loadChart as defaultLoadChart } from "../services/store.js";
@@ -13,15 +15,33 @@ import {
   titleFromText,
 } from "./chatStore.js";
 import { listComments as defaultListComments } from "./comments.js";
-import { buildDataPackTool, buildKlineTool, buildNewsTool } from "./dataTools.js";
+import { buildDataPackTool, buildKlineTool, buildNewsTool, textResult } from "./dataTools.js";
 import { buildReassessPack as defaultBuildReassessPack, type ReassessPack } from "./datapack.js";
 import type { AiModel } from "./models.js";
+import { DisciplineMissingError, loadSharedDiscipline } from "./promptPolicy.js";
 import { createRunLock } from "./runLock.js";
+import {
+  type DirectionalVerification,
+  isDirectionalClaim,
+  rejectAnswer,
+  verifyDirectionalRead,
+} from "./verifyRead.js";
 
 const DEFAULT_TIMEOUT_MS = 180_000;
 const COMMENT_CAP = 20;
 const RELEVANT_COMMENT_SOURCES = new Set(["analyst", "system"]);
 const TOOL_TEXT_CAP = 4000;
+
+const GATED_TURN_INSTRUCTION = [
+  "【本轮触发走势核验】用户对走势下了判断。按 TD-VERIFY-01 执行：",
+  "1. 先调用 verify_directional_read 重新拉取实时数据（不得沿用对话里的旧价格）。",
+  "2. 先看最可能推翻用户判断的证据，再看支持它的。",
+  "3. 通过 submit_chat_answer 提交，带上本轮的 verification_id，claim_status 四选一。",
+  "本轮不要直接输出文字回答——只有 submit_chat_answer 里的 answer 会呈现给用户。",
+].join("\n");
+
+const GATED_RETRY_INSTRUCTION =
+  "你还没有成功提交 submit_chat_answer。现在立即调用 verify_directional_read（若尚未调用）并提交 submit_chat_answer，不要再输出任何文字。";
 
 export type ChatEvent =
   | { event: "delta"; text: string }
@@ -50,6 +70,8 @@ export interface ChatDeps {
   agentFactory?: AiAgentFactory;
   timeoutMs?: number;
   now?: () => number;
+  repoRoot?: string;
+  disciplineText?: string;
 }
 
 export type ChatStartResult =
@@ -189,7 +211,11 @@ function etClock(ts: string): string {
   return Number.isFinite(ms) ? clockFormatter.format(new Date(ms)) : ts;
 }
 
-export function buildChatSystemPrompt(doc: ChartDoc, analysisDayComments: CockpitComment[]): string {
+export function buildChatSystemPrompt(
+  doc: ChartDoc,
+  analysisDayComments: CockpitComment[],
+  disciplineText = "",
+): string {
   const prediction = (doc.input.prediction as IntradayPrediction | undefined) ?? null;
   const predictionText = prediction ? JSON.stringify(prediction) : "该分析未附带预测结论";
 
@@ -198,7 +224,7 @@ export function buildChatSystemPrompt(doc: ChartDoc, analysisDayComments: Cockpi
     .slice(-COMMENT_CAP)
     .map((c) => `${etClock(c.ts)} ${c.text}`);
 
-  return [
+  const own = [
     "你是短线技术分析员的对话模式，用户在一份已归档的日内分析上向你追问。",
     "",
     `标的：${doc.symbol}`,
@@ -208,16 +234,28 @@ export function buildChatSystemPrompt(doc: ChartDoc, analysisDayComments: Cockpi
     "",
     "对话纪律：",
     "- 已归档的预测是冻结记录：不要修改、不要重新提交结论；用户要新结论就让他点「重新分析」。",
-    "- 回答里引用任何数字都要注明口径：是分析时点的快照，还是刚用工具拉的实时数据。",
     "- 需要最新行情/消息就调用工具，不要凭记忆猜；拿不到数据就直说。",
     "- 不给仓位建议（股数/金额）。",
-    "- 全程中文白话，只做美股。",
+    "- 用户对走势下判断时（突破/回调/见底/砸盘…），走上面的 TD-VERIFY-01 独立核验协议：先拉实时数据、",
+    "  先找反证、对比现价与盘前高，最后给出 supported / partial / contradicted / insufficient 之一。",
+    "  证据不足就说 insufficient，不要站队，也不要为了显得独立而抬杠。",
   ].join("\n");
+
+  // Chat is where the user pushes back on a call, so it is a judgment agent: the caller loads the
+  // shared discipline and fails closed without it. Injected rather than read here so this stays a
+  // pure function.
+  return disciplineText ? [disciplineText, "", "---", "", own].join("\n") : own;
 }
 
 interface TranslatorCtx {
   emittedLen: number;
   settled: boolean;
+  /**
+   * On a directional-claim turn the model's free text is suppressed until submit_chat_answer has
+   * passed the mechanical gate. Streaming it live would defeat the gate entirely — the words are
+   * already on the user's screen by the time a post-hoc check could reject them.
+   */
+  buffered: boolean;
 }
 
 function translateEvent(
@@ -242,7 +280,7 @@ function translateEvent(
       const delta = full.slice(ctx.emittedLen);
       ctx.emittedLen = full.length;
       state.partial = full;
-      emit({ event: "delta", text: delta });
+      if (!ctx.buffered) emit({ event: "delta", text: delta });
     }
     return;
   }
@@ -265,19 +303,88 @@ function translateEvent(
   }
 }
 
+const claimStatusSchema = Type.Union([
+  Type.Literal("supported"),
+  Type.Literal("partial"),
+  Type.Literal("contradicted"),
+  Type.Literal("insufficient"),
+]);
+
+const submitChatAnswerSchema = Type.Object({
+  claim_status: claimStatusSchema,
+  verification_id: Type.Optional(Type.String()),
+  answer: Type.String(),
+});
+
+const noArgsSchema = Type.Object({});
+
+/** Per-turn verification ledger. A submitted answer may only cite an id minted in this turn. */
+interface VerifyCtx {
+  minted: Map<string, DirectionalVerification>;
+  answer: string | null;
+  seq: number;
+}
+
+function buildVerifyTools(
+  symbol: string,
+  ctx: VerifyCtx,
+  deps: { buildPack: (symbol: string) => Promise<ReassessPack>; now: () => number },
+): AgentTool[] {
+  const verifyTool: AgentTool<typeof noArgsSchema> = {
+    name: "verify_directional_read",
+    label: "Verify Directional Read",
+    description:
+      "核验用户对走势的判断。重新拉取实时数据，由服务端算出现价、今日正常盘高/低、盘前高、前一日高/收，" +
+      "并给出机械判定（现价是否真的过了盘前高）。用户说突破/见底/砸盘时必须先调用它。",
+    parameters: noArgsSchema,
+    execute: async () => {
+      const pack = await deps.buildPack(symbol);
+      ctx.seq += 1;
+      const id = `v${ctx.seq}`;
+      const verification = verifyDirectionalRead(pack, id, new Date(deps.now()));
+      ctx.minted.set(id, verification);
+      return textResult(JSON.stringify(verification));
+    },
+  };
+
+  const submitTool: AgentTool<typeof submitChatAnswerSchema> = {
+    name: "submit_chat_answer",
+    label: "Submit Answer",
+    description:
+      "提交本轮回答。用户对走势下了判断时必须走这个工具，并带上本轮 verify_directional_read 返回的 verification_id。" +
+      "claim_status 四选一：supported / partial / contradicted / insufficient。证据不足就填 insufficient，不要站队。",
+    parameters: submitChatAnswerSchema,
+    execute: async (_id, params) => {
+      const rejection = rejectAnswer(params, ctx.minted);
+      if (rejection) return textResult(rejection);
+      if (!params.answer.trim()) return textResult("rejected: answer 不能为空。");
+      ctx.answer = params.answer;
+      return textResult("accepted");
+    },
+  };
+
+  return [verifyTool, submitTool];
+}
+
 function buildTools(
   symbol: string,
   deps: {
     buildPack: (symbol: string) => Promise<ReassessPack>;
     fetchKline: (symbol: string, period: string, count: number) => Promise<RawBar[]>;
     fetchNews: (symbol: string) => Promise<NewsItem[]>;
+    now: () => number;
   },
+  verifyCtx: VerifyCtx | null,
 ): AgentTool[] {
-  return [
+  const base = [
     buildDataPackTool(symbol, { buildPack: deps.buildPack }),
     buildKlineTool(symbol, deps.fetchKline),
     buildNewsTool(symbol, deps.fetchNews),
   ];
+  // The verification pair only exists on turns where the user actually made a directional claim.
+  // Handing it to every turn would train the model to route ordinary questions through a gate
+  // that has nothing to check.
+  return verifyCtx ? [...base, ...buildVerifyTools(symbol, verifyCtx, deps)] : base;
 }
 
 async function persistIncrement(
@@ -304,7 +411,12 @@ const ZERO_USAGE = {
   cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
 };
 
-function synthesizePartialAssistantMessage(model: AiModel, text: string, timestamp: number): AgentMessage {
+function synthesizePartialAssistantMessage(
+  model: AiModel,
+  text: string,
+  timestamp: number,
+  stopReason: "aborted" | "stop" = "aborted",
+): AgentMessage {
   return {
     role: "assistant",
     content: [{ type: "text", text }],
@@ -312,7 +424,7 @@ function synthesizePartialAssistantMessage(model: AiModel, text: string, timesta
     provider: model.provider,
     model: model.id,
     usage: ZERO_USAGE,
-    stopReason: "aborted",
+    stopReason,
     timestamp,
   };
 }
@@ -366,12 +478,26 @@ async function executeChatTurn(
     await appendMessages(chatSession.id, [userMessage]);
 
     const analysisDayComments = await listCommentsFn(symbol, easternDate(new Date(doc.created_at)));
-    const systemPrompt = buildChatSystemPrompt(doc, analysisDayComments);
+    const disciplineText = deps.disciplineText ?? loadSharedDiscipline(deps.repoRoot ?? PROJECT_ROOT);
+    if (!disciplineText) throw new DisciplineMissingError();
+    const systemPrompt = buildChatSystemPrompt(doc, analysisDayComments, disciplineText);
 
-    const tools = buildTools(symbol, { buildPack: buildPackFn, fetchKline: fetchKlineFn, fetchNews: fetchNewsFn });
+    const gated = isDirectionalClaim(text);
+    const verifyCtx: VerifyCtx | null = gated ? { minted: new Map(), answer: null, seq: 0 } : null;
+
+    const tools = buildTools(
+      symbol,
+      {
+        buildPack: buildPackFn,
+        fetchKline: fetchKlineFn,
+        fetchNews: fetchNewsFn,
+        now: () => (deps.now ? deps.now() : Date.now()),
+      },
+      verifyCtx,
+    );
     const toolLabels = new Map(tools.map((tool) => [tool.name, tool.label]));
 
-    const translatorCtx: TranslatorCtx = { emittedLen: 0, settled: false };
+    const translatorCtx: TranslatorCtx = { emittedLen: 0, settled: false, buffered: gated };
 
     const agentSession = createAgentSession({
       layer: "chat",
@@ -400,7 +526,14 @@ async function executeChatTurn(
     };
 
     try {
-      await agentSession.runTurn(text, timeoutMs);
+      await agentSession.runTurn(gated ? `${text}\n\n${GATED_TURN_INSTRUCTION}` : text, timeoutMs);
+
+      // One explicit retry, mirroring the commentator: a rejected submit only returns a tool
+      // result, so without an outer nudge the model is free to give up and ship nothing.
+      if (verifyCtx && !verifyCtx.answer && !state.aborted && !agentSession.agent.state?.errorMessage) {
+        await agentSession.runTurn(GATED_RETRY_INSTRUCTION, timeoutMs);
+      }
+
       translatorCtx.settled = true;
       if (state.aborted) {
         await settleAborted();
@@ -408,6 +541,26 @@ async function executeChatTurn(
       }
       const increment = await persistIncrement(chatSession.id, agentSession.agent, history.length);
       const errorMessage = agentSession.agent.state?.errorMessage;
+
+      if (verifyCtx) {
+        if (errorMessage) {
+          broadcast(chartId, { event: "error", message: errorMessage });
+          return;
+        }
+        if (!verifyCtx.answer) {
+          // Fail closed. An unverified answer is worse than no answer.
+          broadcast(chartId, { event: "error", message: "回答未通过走势核验，已拦截。请重试或改用「重新分析」。" });
+          return;
+        }
+        const answerMs = deps.now ? deps.now() : Date.now();
+        await appendMessages(chatSession.id, [
+          synthesizePartialAssistantMessage(model, verifyCtx.answer, answerMs, "stop"),
+        ]);
+        broadcast(chartId, { event: "delta", text: verifyCtx.answer });
+        broadcast(chartId, { event: "done" });
+        return;
+      }
+
       if (errorMessage || !hasAssistantText(increment)) {
         broadcast(chartId, { event: "error", message: errorMessage ?? "模型未产出回答" });
       } else {

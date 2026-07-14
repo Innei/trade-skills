@@ -52,6 +52,7 @@ interface Harness {
 }
 
 const FAKE_SKILL = "# intraday-signal\n假技能全文。";
+const FAKE_DISCIPLINE = "# trading-discipline\n假纪律全文。";
 
 function harness(
   script: (tools: Tools) => Promise<void>,
@@ -62,6 +63,7 @@ function harness(
     hang?: boolean;
     onAbort?: () => void;
     skillText?: string | null;
+    disciplineText?: string | null;
   } = {},
 ): Harness {
   const comments: CockpitComment[] = [];
@@ -108,6 +110,11 @@ function harness(
       return { stdout: "ok", stderr: "" };
     },
     ...("skillText" in opts ? (opts.skillText == null ? {} : { skillText: opts.skillText }) : { skillText: FAKE_SKILL }),
+    ...("disciplineText" in opts
+      ? opts.disciplineText == null
+        ? {}
+        : { disciplineText: opts.disciplineText }
+      : { disciplineText: FAKE_DISCIPLINE }),
   };
 
   return { deps, comments, createCalls, klineCalls, bashCalls, systemPrompts };
@@ -143,7 +150,10 @@ describe("analyst tools", () => {
   });
 
   it("fetch_kline clamps period alias and count ceiling", async () => {
+    let ran = false;
     const { deps, klineCalls } = harness(async (tools) => {
+      if (ran) return;
+      ran = true;
       await tool(tools, "fetch_kline").execute("c1", { period: "m5", count: 9999 });
       await tool(tools, "fetch_kline").execute("c2", { period: "h1", count: 10 });
       await tool(tools, "fetch_kline").execute("c3", { period: "day" });
@@ -178,8 +188,11 @@ describe("analyst tools", () => {
   });
 
   it("append_comment persists an analyst comment carrying the current chartId", async () => {
+    let ran = false;
     const { deps, comments } = harness(
       async (tools) => {
+        if (ran) return;
+        ran = true;
         await tool(tools, "read_data_pack").execute("c1", {});
         await tool(tools, "append_comment").execute("c2", { level: "warn", text: "量能背离" });
       },
@@ -214,6 +227,29 @@ describe("analyst tools", () => {
     expect(comments).toHaveLength(1);
     expect(comments[0].source).toBe("system");
     expect(comments[0].level).toBe("error");
+  });
+
+  it("retries once with an explicit nudge, then succeeds without an error comment", async () => {
+    let turns = 0;
+    const { deps, comments } = harness(async (tools) => {
+      turns += 1;
+      if (turns === 2) await tool(tools, "submit_prediction").execute("c1", validPrediction);
+    });
+    await executeAnalystRun("MU.US", deps);
+    expect(turns).toBe(2);
+    expect(comments.filter((c) => c.level === "error")).toHaveLength(0);
+    expect(comments.filter((c) => c.source === "analyst")).toHaveLength(1);
+  });
+
+  it("does not retry when the agent stopped on an error", async () => {
+    let turns = 0;
+    const { deps, comments } = harness(async () => {
+      turns += 1;
+      throw new Error("provider down");
+    });
+    await executeAnalystRun("MU.US", deps);
+    expect(turns).toBe(1);
+    expect(comments.filter((c) => c.level === "error")).toHaveLength(1);
   });
 
   it("aborts and writes an error comment past the timeout", async () => {
@@ -252,10 +288,30 @@ describe("skill-based system prompt", () => {
     expect(comments[0].text).toContain("SKILL.md");
   });
 
+  it("puts the shared discipline ahead of the adapter and the skill", async () => {
+    const { deps, systemPrompts } = harness(async () => {});
+    await executeAnalystRun("MU.US", deps);
+    const prompt = systemPrompts[0];
+    expect(prompt.indexOf("假纪律全文")).toBeLessThan(prompt.indexOf("in-app 环境映射"));
+    expect(prompt.indexOf("in-app 环境映射")).toBeLessThan(prompt.indexOf("假技能全文"));
+  });
+
+  it("aborts with an error comment when the shared discipline is missing", async () => {
+    const { deps, comments, systemPrompts } = harness(async () => {}, { disciplineText: null });
+    await executeAnalystRun("MU.US", deps);
+    expect(systemPrompts).toHaveLength(0);
+    expect(comments).toHaveLength(1);
+    expect(comments[0].level).toBe("error");
+    expect(comments[0].text).toContain("trading-discipline");
+  });
+
   it("bash runs through the injected exec and rejects write commands", async () => {
     let out: string | undefined;
     let rejected: string | undefined;
+    let ran = false;
     const { deps, bashCalls } = harness(async (tools) => {
+      if (ran) return;
+      ran = true;
       const ok = await tool(tools, "bash").execute("c1", { command: "longbridge quote SPY.US" });
       out = (ok.content[0] as { text: string }).text;
       const bad = await tool(tools, "bash").execute("c2", { command: "echo hi > /tmp/x" });

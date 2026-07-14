@@ -43,6 +43,10 @@ export function preMarketRange(bars: RawBar[], now: Date): PriceRange | null {
   return rangeOf(todaySessionBars(bars, now, "pre"));
 }
 
+export function regularRange(bars: RawBar[], now: Date): PriceRange | null {
+  return rangeOf(todaySessionBars(bars, now, "regular"));
+}
+
 export function openingRange(bars: RawBar[], now: Date): PriceRange | null {
   const regular = todaySessionBars(bars, now, "regular");
   if (regular.length <= OPENING_RANGE_BARS) return null;

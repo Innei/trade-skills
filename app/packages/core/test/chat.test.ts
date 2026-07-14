@@ -12,7 +12,9 @@ const ctx = vi.hoisted(() => {
   return { dir };
 });
 
-vi.mock("../src/env.js", () => ({ CHART_DATA_DIR: ctx.dir }));
+vi.mock("../src/env.js", () => ({ CHART_DATA_DIR: ctx.dir, PROJECT_ROOT: ctx.dir }));
+
+const FAKE_DISCIPLINE = "# trading-discipline\n假纪律全文。";
 
 const { runChatTurn, onChatEvent, chatTurnState, toDisplayMessages, buildChatSystemPrompt, abortChatTurn } =
   await import("../src/ai/chat.js");
@@ -84,6 +86,7 @@ function baseDeps(overrides: Partial<ChatDeps> = {}): ChatDeps {
     fetchKline: async () => [],
     fetchNews: async () => [],
     now: () => 0,
+    disciplineText: FAKE_DISCIPLINE,
     ...overrides,
   };
 }
