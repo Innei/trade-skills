@@ -39,14 +39,7 @@ export function RoleModelsCard({
         credentials={credentials}
         onDraftChange={(next) => onDraftChange("primary", next)}
       />
-      <div className="settings-roles-scroll">
-        <div className="settings-role-table-head" aria-hidden="true">
-          <span>用途</span>
-          <span>分配方式</span>
-          <span>当前生效模型</span>
-          <span>今日用量</span>
-          <span />
-        </div>
+      <div className="settings-role-list">
         {ROLES.map((role) => (
           <RoleRow
             key={role}

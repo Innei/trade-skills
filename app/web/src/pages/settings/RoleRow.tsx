@@ -131,32 +131,38 @@ export function RoleRow({
 
   return (
     <div className={"settings-assignment-row settings-assignment-row--" + draft.mode} id={"settings-role-" + role}>
-      <div className="settings-role-grid">
-        <span className="settings-role-name">{ROLE_LABEL[role]}</span>
-        <RoleModeControl role={role} value={draft.mode} onChange={setMode} />
-        <span className={"settings-role-effective settings-role-effective--" + view.tone}>
-          {view.effectiveLabel}
-          {draft.mode === "custom" && !editing ? (
-            <button className="settings-role-edit" type="button" onClick={() => setEditing(true)}>
-              修改
-            </button>
-          ) : null}
-        </span>
-        <span className="settings-role-usage">{view.usageLabel}</span>
-        <span
-          className={failure ? "settings-role-status settings-role-status--rollback" : "settings-role-status"}
-          aria-live="polite"
-        >
-          {queue.flushing() ? (
-            <Spinner aria-label="保存中" />
-          ) : failure ? (
-            <>
-              <TriangleAlert size={12} className="icon" /> 未保存
-            </>
-          ) : (
-            <Check size={12} className="icon" aria-label="已保存" />
-          )}
-        </span>
+      <div className="settings-role-summary">
+        <div className="settings-role-copy">
+          <div className="settings-role-heading">
+            <span className="settings-role-name">{ROLE_LABEL[role]}</span>
+            <span className="settings-role-usage">{view.usageLabel}</span>
+          </div>
+          <div className={"settings-role-effective settings-role-effective--" + view.tone}>
+            {view.effectiveLabel}
+            {draft.mode === "custom" && !editing ? (
+              <button className="settings-role-edit" type="button" onClick={() => setEditing(true)}>
+                修改
+              </button>
+            ) : null}
+          </div>
+        </div>
+        <div className="settings-role-actions">
+          <RoleModeControl role={role} value={draft.mode} onChange={setMode} />
+          <span
+            className={failure ? "settings-role-status settings-role-status--rollback" : "settings-role-status"}
+            aria-live="polite"
+          >
+            {queue.flushing() ? (
+              <Spinner aria-label="保存中" />
+            ) : failure ? (
+              <>
+                <TriangleAlert size={12} className="icon" /> 未保存
+              </>
+            ) : (
+              <Check size={12} className="icon" aria-label="已保存" />
+            )}
+          </span>
+        </div>
       </div>
 
       {draft.mode === "custom" && editing && (

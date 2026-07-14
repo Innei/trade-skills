@@ -1224,27 +1224,23 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 }
 .settings-primary-clear:hover { color: var(--down); }
 
-.settings-roles-scroll { overflow-x: auto; }
-.settings-role-table-head, .settings-role-grid {
-  display: grid; grid-template-columns: 88px 210px minmax(170px, 1fr) 108px 66px;
-  align-items: center; column-gap: 8px;
-}
-.settings-role-table-head {
-  min-width: 720px; min-height: 29px; padding: 0 11px;
-  border-bottom: 1px solid var(--border); color: var(--text-muted); font-size: var(--fs-xs);
-}
-.settings-role-table-head span:nth-child(4) { text-align: right; }
+.settings-role-list { min-width: 0; }
 .settings-assignment-row {
-  min-width: 720px; border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 .settings-assignment-row:last-child { border-bottom: none; }
-.settings-role-grid { min-height: 47px; padding: 0 11px; }
+.settings-role-summary {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center; gap: 14px; min-height: 67px; padding: 10px 11px;
+}
+.settings-role-copy { min-width: 0; }
+.settings-role-heading { display: flex; align-items: baseline; gap: 10px; }
 .settings-assignment-row--disabled .settings-role-name { color: var(--text-secondary); }
 .settings-role-mode {
-  height: 26px; grid-template-columns: 1.35fr 1fr 0.75fr;
+  width: 210px; height: 26px; grid-template-columns: 1.35fr 1fr 0.75fr;
 }
 .settings-role-effective {
-  overflow: hidden; color: var(--text-secondary); font-size: var(--fs-sm);
+  overflow: hidden; margin-top: 4px; color: var(--text-secondary); font-size: var(--fs-sm);
   text-overflow: ellipsis; white-space: nowrap;
 }
 .settings-role-effective--muted { color: var(--text-muted); }
@@ -1252,15 +1248,18 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 .settings-role-effective--error { color: var(--down); }
 .settings-role-usage {
   color: var(--text-muted); font-family: var(--font-mono); font-size: var(--fs-xs);
-  font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.settings-role-actions {
+  display: flex; align-items: center; gap: 9px;
 }
 .settings-role-status {
-  display: inline-flex; min-width: 0; align-items: center; justify-content: flex-end;
+  display: inline-flex; min-width: 16px; align-items: center; justify-content: flex-end;
   gap: 5px; color: var(--text-muted); font-size: var(--fs-xs);
 }
 .settings-role-status--rollback { color: var(--down); }
 .settings-role-editor {
-  margin: 0 11px 11px 99px; padding-left: 12px;
+  margin: 0 11px 11px; padding: 1px 0 1px 12px;
   border-left: 2px solid var(--border-strong);
 }
 .settings-role-edit {
@@ -1279,7 +1278,7 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 }
 .settings-save-error {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  margin: 0 11px 10px 107px; padding: 6px 8px;
+  margin: 0 11px 10px; padding: 6px 8px;
   border-left: 2px solid var(--down); background: var(--bg-element);
   color: var(--down); font-size: var(--fs-sm);
 }
@@ -1405,6 +1404,9 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 @media (max-width: 560px) {
   .settings-page { padding-inline: 12px; }
   .settings-statusline { flex-wrap: wrap; }
+  .settings-role-summary { grid-template-columns: 1fr; gap: 9px; }
+  .settings-role-actions { justify-content: space-between; }
+  .settings-role-mode { width: min(100%, 260px); }
   .settings-provider-editor { align-items: stretch; flex-direction: column; }
   .settings-provider-editor .btn { justify-content: center; }
   .settings-provider-add { grid-template-columns: 1fr; }
