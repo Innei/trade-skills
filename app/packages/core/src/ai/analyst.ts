@@ -12,6 +12,7 @@ import { validatePrediction } from "../services/predictionRules.js";
 import { loadSkillIndex, readSkill } from "../services/skills.js";
 import { createChart } from "../services/store.js";
 import { AgentTimeoutError, type AiAgentFactory, createAgentSession } from "./agentSession.js";
+import { DisciplineMissingError, loadSharedDiscipline } from "./promptPolicy.js";
 import {
   buildBashTool,
   buildReadFileTool,
@@ -42,8 +43,12 @@ const ADAPTER_PROMPT = [
   "全程中文白话，只做美股，不要臆造数据，拿不到就说明。",
 ].join("\n");
 
-export function buildAnalystSystemPrompt(skillText: string): string {
-  return [ADAPTER_PROMPT, "", "---", "", skillText].join("\n");
+const RETRY_PROMPT =
+  "你上一条回复没有成功调用 submit_prediction。现在立即调用 submit_prediction 恰好一次提交结论；若被校验打回，修正后重交。拿不准方向就按技能规则提交 neutral。";
+
+export function buildAnalystSystemPrompt(skillText: string, disciplineText = ""): string {
+  const parts = disciplineText ? [disciplineText, "", "---", ""] : [];
+  return [...parts, ADAPTER_PROMPT, "", "---", "", skillText].join("\n");
 }
 
 function loadIntradaySkillText(repoRoot: string): string | null {
@@ -151,6 +156,7 @@ export interface AnalystDeps {
   journalDir?: string;
   exec?: ExecFn;
   skillText?: string;
+  disciplineText?: string;
 }
 
 export interface RunAnalystInput {
@@ -354,6 +360,12 @@ export async function executeAnalystRun(symbol: string, deps: AnalystDeps): Prom
     return;
   }
 
+  const disciplineText = deps.disciplineText ?? loadSharedDiscipline(repoRoot);
+  if (!disciplineText) {
+    await writeError(new DisciplineMissingError().message);
+    return;
+  }
+
   try {
     const tools = buildTools(
       symbol,
@@ -378,13 +390,19 @@ export async function executeAnalystRun(symbol: string, deps: AnalystDeps): Prom
       symbol,
       origin: deps.origin,
       model: deps.model,
-      systemPrompt: buildAnalystSystemPrompt(skillText),
+      systemPrompt: buildAnalystSystemPrompt(skillText, disciplineText),
       tools,
       agentFactory: deps.agentFactory,
     });
 
     reportProgress("researching", "正在规划分析步骤并读取市场信息");
     await session.runTurn(`请重估 ${symbol} 的短线多周期结论。`, timeoutMs);
+
+    // One explicit retry, mirroring chat/commentator: a rejected submit only returns a tool
+    // result, so without an outer nudge the model is free to give up and ship nothing.
+    if (!state.submitted && !session.agent.state?.errorMessage) {
+      await session.runTurn(RETRY_PROMPT, timeoutMs);
+    }
 
     if (!state.submitted) {
       const errorMessage = session.agent.state?.errorMessage;

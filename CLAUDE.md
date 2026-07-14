@@ -88,18 +88,14 @@ Shared conventions (enforced by `.claude/skills/_shared/`):
 
 ## Cross-cutting invariants (the reason the skills exist)
 
-These mistakes recur; the skills encode guards against them. Apply them even when working outside a skill:
+**The invariants live in ONE place — `trading-discipline` — imported below. Do not restate them here or copy their text into any other skill.** Domain skills cite rule IDs (`TD-SOURCE-01`, `TD-GAAP-01`, …) and never duplicate the prose. Duplication drifts: on 2026-07-14 `capital-rotation/SKILL.md` was instructing a unit conversion that this file explicitly forbade.
 
-- **Anchor every number on a primary source.** Press release / 8-K / real OHLCV are primary. Longbridge `topics/*` URLs are community posts, truncated `…` headlines are leads — verify before quoting as company guidance.
-- **State GAAP vs non-GAAP.** Longbridge `financial-report --kind IS` EPS is **GAAP diluted**; the Street and consensus quote **non-GAAP**. A wildly-off EPS usually means you read the GAAP field.
-- **Compute QoQ alongside YoY every time.** YoY % compresses off a rising base even as absolute revenue accelerates — don't call that a slowdown.
-- **Name the split.** Never write vague "市场分化 / weak / strong". Use the explicit distribution labels (机构派发 / 主力—散户背离 / 全档抛压 / 主力吸筹 / 全档吸金) and pullback tiers (1 震荡 → 4 风险传染).
-- **Don't auto-agree with a directional read.** When the user says "突破 / 冲高 / 回调", re-pull the live quote and check cash high vs **pre-market high** before confirming; disagree with evidence if data contradicts.
-- **Scenarios, not point predictions.** Forward calls use Bull/Base/Bear with explicit % summing to 100 and trigger conditions, revised with timestamps.
+@.claude/skills/trading-discipline/SKILL.md
+
+The same file is injected into the in-app agents (`analyst` / `deepDive` / `chat`) by `app/packages/core/src/ai/promptPolicy.ts`, so Claude Code and the app run on identical discipline. `@` import is a Claude Code mechanism only — the app reads the skill file directly.
 
 ### Known data gotchas
 
-- **Capital-flow units are ambiguous.** `capital-rotation` treats `longbridge capital` output as **万 USD**; the session-report template infers **千USD / $k**. Longbridge does not label units. Record the raw number and your inferred unit; do not silently convert.
 - `.SOX.US` is unavailable on Longbridge — use `SMH` / `SOXX` ETF proxies.
 - Filename date = **US session date**, not Asia local date. Re-running the same day **appends** a timestamped section; never overwrite.
 - GDELT is a rolling recent-window stream, not a historical archive. The Trump RSS mirror only exposes ~5 days (~100 posts); older posts survive only if `archive.py` captured them.

@@ -1,9 +1,10 @@
 import { PROJECT_ROOT } from "../env.js";
 import { type AiAgentFactory, createAgentSession } from "./agentSession.js";
 import { createDefaultExec, type ExecFn, type ExecResult } from "./agentTools.js";
-import { buildSystemPrompt, buildTools } from "./deepDiveTools.js";
+import { buildSystemPrompt, buildTools, DEEP_DIVE_SKILL, loadDeepDiveSkillText } from "./deepDiveTools.js";
 import { aiConfig, type AiModel } from "./models.js";
 import { emitNotice } from "./notices.js";
+import { DisciplineMissingError, loadSharedDiscipline } from "./promptPolicy.js";
 
 const DEFAULT_TIMEOUT_MS = 15 * 60_000;
 
@@ -25,6 +26,8 @@ export interface DeepDiveDeps {
   exec?: ExecFn;
   timeoutMs?: number;
   now?: () => number;
+  skillText?: string;
+  disciplineText?: string;
 }
 
 let state: DeepDiveState = { running: false };
@@ -67,8 +70,19 @@ async function executeDeepDiveRun(symbol: string, deps: DeepDiveDeps): Promise<v
 
   try {
     if (!deps.model) throw new Error("model not resolved");
-    const tools = buildTools(repoRoot, symbol, exec, deps.stocksDir);
-    const systemPrompt = buildSystemPrompt(repoRoot);
+
+    const skillText = deps.skillText ?? loadDeepDiveSkillText(repoRoot);
+    if (!skillText) {
+      throw new Error(`${DEEP_DIVE_SKILL} SKILL.md 读不到，深度研究中止——纪律缺席时不允许裸跑。`);
+    }
+    const disciplineText = deps.disciplineText ?? loadSharedDiscipline(repoRoot);
+    if (!disciplineText) throw new DisciplineMissingError();
+
+    let noteWritten = false;
+    const tools = buildTools(repoRoot, symbol, exec, deps.stocksDir, () => {
+      noteWritten = true;
+    });
+    const systemPrompt = buildSystemPrompt(repoRoot, skillText, disciplineText);
     const session = createAgentSession({
       layer: "analyst",
       symbol,
@@ -83,6 +97,10 @@ async function executeDeepDiveRun(symbol: string, deps: DeepDiveDeps): Promise<v
       `Run the stock-deep-dive skill flow for ${symbol}, then write the updated note.`,
       timeoutMs,
     );
+
+    if (!noteWritten) {
+      throw new Error("agent finished without calling write_note — no findings were persisted.");
+    }
 
     const after = await captureGitStatus(exec);
     const dirtyWarning = unexpectedDirty(before, after, symbol);

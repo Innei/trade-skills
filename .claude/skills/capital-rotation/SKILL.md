@@ -9,7 +9,7 @@ Scans capital flow across standard US cohorts in one session, identifies rotatio
 
 > **Scope**: US-only. Do NOT query HK / CN / SG markets (user preference).
 > **Sources**: Longbridge `capital`, `market-temp`. Cite as `长桥证券`.
-> **Units**: 万 USD. Show raw numbers from API; convert to 亿 for headline readability.
+> **Units**: ambiguous — see **TD-UNIT-01** in `trading-discipline`. Longbridge does not label the unit. Record the raw API number and the unit you inferred; **do NOT silently convert** (no 亿).
 
 ## When to use
 
@@ -119,7 +119,7 @@ The `--flow` last-row `inflow` field is the cumulative net for the session in �
 5. 3 insights — each with a number and 1-2 sentence claim
 6. Tomorrow watch — 4-6 bullets, each with explicit symbol + condition
 
-Tone: match user language (default 文言 for this user, see `~/.claude/CLAUDE.md`).
+Tone: 中文白话, no jargon — see **TD-LANG-01 / TD-LANG-02** in `trading-discipline`.
 
 ## Anti-patterns
 

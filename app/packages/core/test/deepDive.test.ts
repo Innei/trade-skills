@@ -26,6 +26,9 @@ interface Harness {
   notifications: { title: string; message: string }[];
 }
 
+const FAKE_SKILL = "# stock-deep-dive\n假技能全文。";
+const FAKE_DISCIPLINE = "# trading-discipline\n假纪律全文。";
+
 function harness(
   script: (tools: Tools) => Promise<void>,
   opts: {
@@ -34,11 +37,15 @@ function harness(
     timeoutMs?: number;
     exec?: DeepDiveDeps["exec"];
     now?: () => number;
+    skillText?: string | null;
+    disciplineText?: string | null;
+    systemPrompts?: string[];
   } = {},
 ): Harness {
   const notifications: { title: string; message: string }[] = [];
 
-  const agentFactory: AiAgentFactory = ({ tools }) => {
+  const agentFactory: AiAgentFactory = ({ tools, systemPrompt }) => {
+    opts.systemPrompts?.push(systemPrompt);
     const agent: AiAgentHandle = {
       prompt: opts.hang ? () => new Promise<void>(() => {}) : () => script(tools),
       abort: () => opts.onAbort?.(),
@@ -56,9 +63,20 @@ function harness(
     timeoutMs: opts.timeoutMs,
     exec: opts.exec,
     now: opts.now,
+    ...("skillText" in opts ? (opts.skillText == null ? {} : { skillText: opts.skillText }) : { skillText: FAKE_SKILL }),
+    ...("disciplineText" in opts
+      ? opts.disciplineText == null
+        ? {}
+        : { disciplineText: opts.disciplineText }
+      : { disciplineText: FAKE_DISCIPLINE }),
   };
 
   return { deps, notifications };
+}
+
+/** write_note is now a success gate — a run that never calls it fails. */
+async function writeNote(tools: Tools, content = "note"): Promise<void> {
+  await tool(tools, "write_note").execute("c1", { content });
 }
 
 beforeEach(async () => {
@@ -89,6 +107,49 @@ describe("startDeepDive gating", () => {
 });
 
 describe("startDeepDive success/failure paths", () => {
+  it("fails the run when the agent never calls write_note", async () => {
+    const { deps } = harness(async () => {
+      // agent does its research and then just... stops. Previously this counted as success.
+    });
+
+    startDeepDive("MU", deps);
+    await vi.waitFor(() => expect(deepDiveState().running).toBe(false));
+
+    expect(deepDiveState().lastResult?.ok).toBe(false);
+    expect(deepDiveState().lastResult?.error).toContain("write_note");
+  });
+
+  it("fails the run when the shared discipline is unreachable", async () => {
+    const { deps } = harness(async (tools) => writeNote(tools), { disciplineText: null });
+
+    startDeepDive("MU", deps);
+    await vi.waitFor(() => expect(deepDiveState().running).toBe(false));
+
+    expect(deepDiveState().lastResult?.ok).toBe(false);
+    expect(deepDiveState().lastResult?.error).toContain("trading-discipline");
+  });
+
+  it("fails the run when the deep-dive skill is unreachable", async () => {
+    const { deps } = harness(async (tools) => writeNote(tools), { skillText: null });
+
+    startDeepDive("MU", deps);
+    await vi.waitFor(() => expect(deepDiveState().running).toBe(false));
+
+    expect(deepDiveState().lastResult?.ok).toBe(false);
+    expect(deepDiveState().lastResult?.error).toContain("stock-deep-dive");
+  });
+
+  it("preloads the discipline ahead of the deep-dive skill in the system prompt", async () => {
+    const systemPrompts: string[] = [];
+    const { deps } = harness(async (tools) => writeNote(tools), { systemPrompts });
+
+    startDeepDive("MU", deps);
+    await vi.waitFor(() => expect(deepDiveState().running).toBe(false));
+
+    expect(systemPrompts).toHaveLength(1);
+    expect(systemPrompts[0].indexOf("假纪律全文")).toBeLessThan(systemPrompts[0].indexOf("假技能全文"));
+  });
+
   it("updates state and notifies on success", async () => {
     const { deps, notifications } = harness(async (tools) => {
       await tool(tools, "write_note").execute("c1", { content: "# MU notes" });

@@ -6,6 +6,7 @@ import { AgentTimeoutError, type AiAgentFactory, createAgentSession } from "./ag
 import { appendComment as defaultAppendComment } from "./comments.js";
 import { buildCommentUpdate, type CommentPack } from "./datapack.js";
 import type { AiModel } from "./models.js";
+import { OBSERVER_CONTRACT } from "./promptPolicy.js";
 import { createRunLock } from "./runLock.js";
 import type { Trigger } from "./triggers.js";
 
@@ -19,7 +20,14 @@ const SESSION_MAX_SENT_CHARS = 120_000;
 
 const RETRY_PROMPT = "你上一条回复没有调用 submit_comment。现在立即调用 submit_comment 恰好一次给出结论，不要再输出任何文字。";
 
+// Observer, not judge: it narrates observable change on a scheduler tick. It gets the compact
+// observer contract, not the full shared discipline — the GAAP trap and QoQ rules are pure cost
+// to an agent that never reads a financial statement.
 const SYSTEM_PROMPT = [
+  OBSERVER_CONTRACT,
+  "",
+  "---",
+  "",
   "你是盘中点评员。会话开始时你会收到一份 JSON 快照，包含：实时报价、5 分钟 K 线与 MACD、资金流、已归档的日内预测摘要、最近几条点评，以及本次触发原因。",
   "之后同一交易日内每次触发，你只会收到一份增量更新（最新报价、新增 K 线、资金流尾部等），此前的快照和你写过的点评都在本对话上文里，直接沿用。",
   "请据此判断当前盘中状态，并调用 submit_comment 恰好一次给出结论。",
