@@ -170,6 +170,63 @@ describe("subscribeChart candlestick-push wiring", () => {
     unsub();
   });
 
+  it("backfills a gap when a live push arrives before the poller's full series", async () => {
+    store.loadChart.mockResolvedValue(
+      makeDoc({
+        id: `${TODAY}-nvda-intraday-push-first`,
+        input: {
+          symbol: "NVDA.US",
+          timeframes: {
+            m5: [
+              { time: new Date(1_000).toISOString(), open: 1, high: 1, low: 1, close: 1, volume: 1 },
+              { time: new Date(2_000).toISOString(), open: 2, high: 2, low: 2, close: 2, volume: 1 },
+            ],
+            m15: [],
+            h1: [],
+          },
+        },
+      }),
+    );
+    let finishPoll: (value: unknown) => void = () => {};
+    build.buildChart.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishPoll = resolve;
+        }),
+    );
+
+    const unsub = await subscribeChart(`${TODAY}-nvda-intraday-push-first`, () => {});
+    const m5cb = callbacksByPeriod.get("5m")!;
+    m5cb({ symbol: "NVDA.US", period: "5m", ts: 4_000, open: 4, high: 4, low: 4, close: 4, volume: 1 });
+
+    finishPoll({
+      input: {
+        timeframes: {
+          m5: [
+            { time: new Date(1_000).toISOString(), open: 10, high: 10, low: 10, close: 10, volume: 10 },
+            { time: new Date(2_000).toISOString(), open: 20, high: 20, low: 20, close: 20, volume: 20 },
+            { time: new Date(3_000).toISOString(), open: 3, high: 3, low: 3, close: 3, volume: 3 },
+            { time: new Date(4_000).toISOString(), open: 4, high: 4, low: 4, close: 4, volume: 4 },
+          ],
+          m15: [],
+          h1: [],
+        },
+      },
+      built: { kind: "intraday", polled: true },
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(0);
+
+    const mergedInputs = build.rebuild.mock.calls.map(([, input]) => input.timeframes.m5);
+    expect(mergedInputs).toContainEqual([
+      { time: new Date(1_000).toISOString(), open: 1, high: 1, low: 1, close: 1, volume: 1 },
+      { time: new Date(2_000).toISOString(), open: 20, high: 20, low: 20, close: 20, volume: 20 },
+      { time: new Date(3_000).toISOString(), open: 3, high: 3, low: 3, close: 3, volume: 3 },
+      { time: new Date(4_000).toISOString(), open: 4, high: 4, low: 4, close: 4, volume: 4 },
+    ]);
+    unsub();
+  });
+
   it("respects the requested view count instead of the persisted full-length series on rebuild", async () => {
     store.loadChart.mockResolvedValue(
       makeDoc({

@@ -9,7 +9,7 @@ import { classifySession, isCurrentSessionId } from "../services/session.js";
 import { predictionStale } from "../services/staleness.js";
 import { loadChart } from "../services/store.js";
 import { normalizeSymbol } from "../services/symbol.utils.js";
-import { mergeCandleBar, mergeFreshBars, type PushBar } from "./candleMerge.js";
+import { mergeCandleBar, mergeFreshBars, type FrozenBarRange, type PushBar } from "./candleMerge.js";
 import { createPoller, type PollerHandle } from "./poller.js";
 import { isPushFresh, pollIntervalMs } from "./pushFallback.js";
 
@@ -49,6 +49,7 @@ interface LatestDoc {
 interface CandleState {
   viewCount: number | undefined;
   timeframes: Partial<Record<TimeframeKey, RawBar[]>>;
+  frozenRanges: Partial<Record<TimeframeKey, FrozenBarRange>>;
   lastPushAt: number | null;
   lastRebuildAt: number;
   pushMode: boolean;
@@ -58,6 +59,20 @@ interface CandleState {
 }
 
 const candleStates = new Map<string, CandleState>();
+
+function frozenRangesOf(
+  timeframes: Partial<Record<TimeframeKey, RawBar[]>>,
+): Partial<Record<TimeframeKey, FrozenBarRange>> {
+  const ranges: Partial<Record<TimeframeKey, FrozenBarRange>> = {};
+  for (const tf of TIMEFRAME_ORDER) {
+    const bars = timeframes[tf];
+    if (!bars?.length) continue;
+    const start = Date.parse(bars[0].time);
+    const end = Date.parse(bars[bars.length - 1].time);
+    if (Number.isFinite(start) && Number.isFinite(end)) ranges[tf] = { start, end };
+  }
+  return ranges;
+}
 
 // Leading-edge throttle: an idle chart rebuilds immediately on the first push,
 // then at most every DEBOUNCE_MS while pushes keep streaming in.
@@ -132,9 +147,13 @@ function setupCandleState(key: string, id: string, viewCount: number | undefined
   if (candleStates.has(key)) return;
   const symbol = (doc.input as Record<string, unknown>).symbol;
   if (typeof symbol !== "string" || !symbol) return;
+  const timeframes = {
+    ...((doc.input as Record<string, unknown>).timeframes as Partial<Record<TimeframeKey, RawBar[]>>),
+  };
   const state: CandleState = {
     viewCount,
-    timeframes: { ...((doc.input as Record<string, unknown>).timeframes as Partial<Record<TimeframeKey, RawBar[]>>) },
+    timeframes,
+    frozenRanges: frozenRangesOf(timeframes),
     lastPushAt: null,
     lastRebuildAt: 0,
     pushMode: false,
@@ -151,9 +170,11 @@ function setupCandleState(key: string, id: string, viewCount: number | undefined
 
 function setupPreviewCandleState(key: string, symbol: string, input: Record<string, unknown>, title: string): void {
   if (candleStates.has(key)) return;
+  const timeframes = { ...(input.timeframes as Partial<Record<TimeframeKey, RawBar[]>>) };
   const state: CandleState = {
     viewCount: undefined,
-    timeframes: { ...(input.timeframes as Partial<Record<TimeframeKey, RawBar[]>>) },
+    timeframes,
+    frozenRanges: frozenRangesOf(timeframes),
     lastPushAt: null,
     lastRebuildAt: 0,
     pushMode: false,
@@ -197,15 +218,21 @@ export async function subscribeChart(id: string, push: (envelope: string) => voi
         const result = await buildChart(viewCount === undefined ? body : { ...body, count: viewCount });
         if (latest.type === "intraday") {
           // Safety net converges WITHOUT clobbering the frozen analysis snapshot:
-          // fold the full refetch into state.timeframes tail-only (mergeFreshBars
-          // pins bars older than the current tail), then rebuild from the merged
-          // state so push and poller share one series and history stays put.
+          // fold the full refetch into state.timeframes while pinning the original
+          // snapshot range. The immutable range lets a later poll fill any gap
+          // behind an already-appended live bar and retain requested older history.
           const state = candleStates.get(key);
           if (state) {
             const freshTf = (result.input.timeframes ?? {}) as Partial<Record<TimeframeKey, RawBar[]>>;
             for (const tf of TIMEFRAME_ORDER) {
               const incoming = freshTf[tf];
-              if (incoming) state.timeframes[tf] = mergeFreshBars(state.timeframes[tf] ?? [], incoming);
+              if (incoming) {
+                state.timeframes[tf] = mergeFreshBars(
+                  state.timeframes[tf] ?? [],
+                  incoming,
+                  state.frozenRanges[tf],
+                );
+              }
             }
             return await buildFromState(state, { title: latest.title, input: latest.input as Record<string, unknown>, prediction: predictionFields(latest) });
           }
@@ -246,7 +273,13 @@ export async function subscribePreview(symbol: string, push: (envelope: string) 
           const freshTf = (fresh.input.timeframes ?? {}) as Partial<Record<TimeframeKey, RawBar[]>>;
           for (const tf of TIMEFRAME_ORDER) {
             const incoming = freshTf[tf];
-            if (incoming) state.timeframes[tf] = mergeFreshBars(state.timeframes[tf] ?? [], incoming);
+            if (incoming) {
+              state.timeframes[tf] = mergeFreshBars(
+                state.timeframes[tf] ?? [],
+                incoming,
+                state.frozenRanges[tf],
+              );
+            }
           }
         }
         return await buildFromState(state, latest);
