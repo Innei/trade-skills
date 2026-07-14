@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { mergeCandleBar } from "../src/realtime/candleMerge.js";
+import { mergeCandleBar, mergeFreshBars } from "../src/realtime/candleMerge.js";
+
+const rawBar = (ts: number, close: number) => ({
+  time: new Date(ts).toISOString(),
+  open: close,
+  high: close,
+  low: close,
+  close,
+  volume: 1,
+});
 
 describe("mergeCandleBar", () => {
   it("appends to an empty series", () => {
@@ -31,5 +40,31 @@ describe("mergeCandleBar", () => {
     ];
     const bars = mergeCandleBar(seed, { ts: 1000, open: 9, high: 9, low: 9, close: 9, volume: 9 });
     expect(bars).toBe(seed);
+  });
+});
+
+describe("mergeFreshBars", () => {
+  it("keeps historical values pinned while refreshing the frozen tail and appending newer bars", () => {
+    const merged = mergeFreshBars(
+      [rawBar(1_000, 1), rawBar(2_000, 2)],
+      [rawBar(1_000, 10), rawBar(2_000, 20), rawBar(3_000, 3)],
+    );
+
+    expect(merged).toEqual([rawBar(1_000, 1), rawBar(2_000, 20), rawBar(3_000, 3)]);
+  });
+
+  it("uses the original snapshot range to insert bars behind an already-appended live tail", () => {
+    const merged = mergeFreshBars(
+      [rawBar(1_000, 1), rawBar(2_000, 2), rawBar(4_000, 4)],
+      [rawBar(1_000, 10), rawBar(2_000, 20), rawBar(3_000, 3), rawBar(4_000, 40)],
+      { start: 1_000, end: 2_000 },
+    );
+
+    expect(merged).toEqual([
+      rawBar(1_000, 1),
+      rawBar(2_000, 20),
+      rawBar(3_000, 3),
+      rawBar(4_000, 40),
+    ]);
   });
 });

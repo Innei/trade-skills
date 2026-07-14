@@ -9,6 +9,11 @@ export interface PushBar {
   volume: number;
 }
 
+export interface FrozenBarRange {
+  start: number;
+  end: number;
+}
+
 export function mergeCandleBar(bars: RawBar[], bar: PushBar): RawBar[] {
   const rawBar: RawBar = {
     time: new Date(bar.ts).toISOString(),
@@ -25,22 +30,29 @@ export function mergeCandleBar(bars: RawBar[], bar: PushBar): RawBar[] {
   return bars;
 }
 
-// Poller safety-net merge: fold a freshly-refetched full series into the frozen
-// analysis snapshot WITHOUT rewriting history. Bars older than the frozen tail
-// keep their analysis-time values (the snapshot stays pinned); only the tail bar
-// and genuinely newer bars are updated/appended — so a stalled push self-heals
-// on new data without the full-refetch clobbering the original candles. Also
-// reused by the historical-chart "load subsequent bars" forward view.
-export function mergeFreshBars(frozen: RawBar[], fresh: RawBar[]): RawBar[] {
-  if (frozen.length === 0) return fresh;
-  const frozenTail = Date.parse(frozen[frozen.length - 1].time);
-  let out = frozen;
+// Fold a freshly-refetched series into the current view without rewriting the
+// analysis snapshot. A caller may pass the original snapshot range so it stays
+// stable after live pushes extend the current tail: older requested history is
+// prepended, snapshot-time values before the tail stay pinned, and every missing
+// bar at/after the snapshot tail can still be inserted. Without an explicit
+// range this retains the historical forward-view behavior of only refreshing
+// the current tail and appending newer bars.
+export function mergeFreshBars(current: RawBar[], fresh: RawBar[], frozenRange?: FrozenBarRange): RawBar[] {
+  if (current.length === 0) return fresh;
+  const currentTail = Date.parse(current[current.length - 1].time);
+  const frozen = frozenRange ?? { start: Number.NEGATIVE_INFINITY, end: currentTail };
+  const byTime = new Map<number, RawBar>();
+  for (const bar of current) {
+    const ts = Date.parse(bar.time);
+    if (Number.isFinite(ts)) byTime.set(ts, bar);
+  }
   for (const bar of fresh) {
     const ts = Date.parse(bar.time);
-    if (ts < frozenTail) continue;
-    const lastTs = Date.parse(out[out.length - 1].time);
-    if (ts === lastTs) out = [...out.slice(0, -1), bar];
-    else if (ts > lastTs) out = [...out, bar];
+    if (!Number.isFinite(ts)) continue;
+    if (ts >= frozen.start && ts < frozen.end) continue;
+    byTime.set(ts, bar);
   }
-  return out;
+  return [...byTime.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([, bar]) => bar);
 }
