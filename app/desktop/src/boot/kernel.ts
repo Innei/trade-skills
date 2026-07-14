@@ -7,6 +7,7 @@ import { IS_DEV } from "./env.js";
 export async function bootKernel() {
   const { initServerRuntime } = await import("../../../server/src/runtimeInit.js");
   const { createKernel } = await import("../../../server/src/bootstrap.js");
+  const { startAiScheduler } = await import("../../../packages/core/src/ai/scheduler.js");
   const { attachRealtimeBridge } = await import("../realtime/bridge.js");
   const { CHART_DATA_DIR } = await import("../../../packages/core/src/env.js");
 
@@ -27,6 +28,7 @@ export async function bootKernel() {
     },
   });
   const kernel = await createKernel();
+  if (startAiScheduler()) console.log("[desktop] ai scheduler started");
   const apiApp = kernel.app.getInstance();
   attachRealtimeBridge();
   registerCredentialsIpc(ipcMain, createCredentialsBridgeHandlers());

@@ -1,16 +1,14 @@
 import { useEffect, useState } from "react";
-import type { CockpitComment, Notice } from "../../../../shared/types";
+import type { CockpitComment } from "../../../../shared/types";
 import { marketDate } from "../../../../shared/time";
 import { useQuery } from "../../apiHooks";
 import { client } from "../../client";
-import { maybeNotify, requestNotificationPermissionOnce } from "../../lib/notifications";
 import { subscribeChannel } from "../../wsHub";
 
 interface CommentEnvelope {
-  type: "init" | "comment" | "notice";
+  type: "init" | "comment";
   comments?: CockpitComment[];
   comment?: CockpitComment;
-  notice?: Notice;
 }
 
 const commentKey = (comment: CockpitComment): string => `${comment.ts}\u0000${comment.text}`;
@@ -38,10 +36,6 @@ export function useCockpitComments(
   );
 
   useEffect(() => {
-    requestNotificationPermissionOnce();
-  }, []);
-
-  useEffect(() => {
     setComments([]);
     setStreamLoaded(false);
   }, [symbol, date]);
@@ -62,9 +56,6 @@ export function useCockpitComments(
         } else if (env.type === "comment" && env.comment) {
           const c = env.comment;
           setComments((prev) => mergeComments(prev, [c]));
-          maybeNotify({ type: "comment", live: true, symbol: c.symbol, level: c.level, text: c.text });
-        } else if (env.type === "notice" && env.notice) {
-          maybeNotify({ type: "notice", live: true, notice: env.notice });
         }
       },
       () => {},

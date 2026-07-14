@@ -10,14 +10,18 @@ const store = vi.hoisted(() => ({
   deleteChart: vi.fn(),
 }));
 
+const follows = vi.hoisted(() => ({
+  listFollowedSymbols: vi.fn<() => string[]>(),
+}));
+
 vi.mock("../src/services/store.js", () => store);
+vi.mock("../src/ai/follows.js", () => follows);
 
 const { createAiScheduler, discoverIntradayTargets } = await import("../src/ai/scheduler.js");
 import type { SchedulerDeps } from "../src/ai/scheduler.js";
 import type { CommentPack } from "../src/ai/datapack.js";
 import type { AiModel } from "../src/ai/models.js";
 import type { Trigger } from "../src/ai/triggers.js";
-import { acquireLease, releaseLease, resetLeases } from "../src/ai/leases.js";
 
 const fakeModel = { provider: "anthropic", id: "haiku" } as unknown as AiModel;
 
@@ -54,6 +58,7 @@ function harness(overrides: Partial<SchedulerDeps> = {}): { deps: SchedulerDeps;
     buildCommentPack: async (symbol) => makePack(symbol),
     detectTriggers: () => [],
     shouldHeartbeat: () => false,
+    latestCommentatorRunAt: async () => null,
     runCommentator: async ({ symbol, trigger }) => {
       rec.commentatorCalls.push({ symbol, trigger });
       return { escalate: false };
@@ -75,8 +80,9 @@ function harness(overrides: Partial<SchedulerDeps> = {}): { deps: SchedulerDeps;
 }
 
 beforeEach(() => {
-  resetLeases();
   store.listCharts.mockReset();
+  follows.listFollowedSymbols.mockReset();
+  follows.listFollowedSymbols.mockReturnValue([]);
 });
 
 describe("aiScheduler tick", () => {
@@ -250,6 +256,40 @@ describe("aiScheduler tick", () => {
     await createAiScheduler(deps).tick();
     expect(rec.commentatorCalls.map((c) => c.symbol)).toEqual(["MU.US"]);
     errSpy.mockRestore();
+  });
+});
+
+describe("aiScheduler resume follow", () => {
+  const heartbeatDue = (lastRunAt: number | null, now: number) =>
+    lastRunAt == null || now - lastRunAt >= 5 * 60_000;
+
+  it("immediately runs a heartbeat when the last successful follow-up is expired", async () => {
+    const now = 1_000_000;
+    const { deps, rec } = harness({
+      now: () => now,
+      latestCommentatorRunAt: async () => now - 5 * 60_000,
+      shouldHeartbeat: heartbeatDue,
+    });
+
+    await expect(createAiScheduler(deps).resumeFollow("MU.US")).resolves.toBe(true);
+    expect(rec.commentatorCalls).toHaveLength(1);
+    expect(rec.commentatorCalls[0].trigger.kind).toBe("heartbeat");
+    expect(rec.commentatorCalls[0].trigger.detail).toContain("重新开启 AI 跟进");
+  });
+
+  it("does not duplicate a follow-up while the last successful run is still fresh", async () => {
+    const now = 1_000_000;
+    const buildCommentPack = vi.fn(async (symbol: string) => makePack(symbol));
+    const { deps, rec } = harness({
+      now: () => now,
+      latestCommentatorRunAt: async () => now - 5 * 60_000 + 1,
+      shouldHeartbeat: heartbeatDue,
+      buildCommentPack,
+    });
+
+    await expect(createAiScheduler(deps).resumeFollow("MU.US")).resolves.toBe(false);
+    expect(buildCommentPack).not.toHaveBeenCalled();
+    expect(rec.commentatorCalls).toHaveLength(0);
   });
 });
 
@@ -454,67 +494,48 @@ function chartMeta(symbol: string, createdAt: string): ChartMeta {
   };
 }
 
-describe("discoverIntradayTargets lease filtering", () => {
-  const NOW = new Date("2026-07-02T18:00:00Z").getTime();
-
-  it("monitors a symbol with today's chart and an active lease", async () => {
-    store.listCharts.mockResolvedValue([chartMeta("MU.US", "2026-07-02T15:00:00Z")]);
-    acquireLease("MU.US");
-    expect(await discoverIntradayTargets(() => NOW, 0)).toEqual(["MU.US"]);
+describe("discoverIntradayTargets persistent follow filtering", () => {
+  it("monitors a followed symbol even when its latest chart is from an earlier date", async () => {
+    store.listCharts.mockResolvedValue([chartMeta("MU.US", "2026-06-20T15:00:00Z")]);
+    follows.listFollowedSymbols.mockReturnValue(["MU.US"]);
+    expect(await discoverIntradayTargets()).toEqual(["MU.US"]);
   });
 
-  it("excludes a symbol with today's chart but no lease", async () => {
+  it("excludes a chart whose symbol is not followed", async () => {
     store.listCharts.mockResolvedValue([chartMeta("MU.US", "2026-07-02T15:00:00Z")]);
-    expect(await discoverIntradayTargets(() => NOW, 0)).toEqual([]);
+    expect(await discoverIntradayTargets()).toEqual([]);
   });
 
-  it("excludes a symbol with an active lease but no chart", async () => {
+  it("excludes a followed symbol that has no intraday chart", async () => {
     store.listCharts.mockResolvedValue([]);
-    acquireLease("MU.US");
-    expect(await discoverIntradayTargets(() => NOW, 0)).toEqual([]);
+    follows.listFollowedSymbols.mockReturnValue(["MU.US"]);
+    expect(await discoverIntradayTargets()).toEqual([]);
   });
 
-  it("still monitors a symbol whose lease is within the 90s grace period", async () => {
+  it("normalizes and deduplicates persisted symbols", async () => {
     store.listCharts.mockResolvedValue([chartMeta("MU.US", "2026-07-02T15:00:00Z")]);
-    acquireLease("MU.US");
-    releaseLease("MU.US", NOW - 1_000);
-    expect(await discoverIntradayTargets(() => NOW, 0)).toEqual(["MU.US"]);
-  });
-
-  it("excludes a symbol whose lease grace period has expired", async () => {
-    store.listCharts.mockResolvedValue([chartMeta("MU.US", "2026-07-02T15:00:00Z")]);
-    acquireLease("MU.US");
-    releaseLease("MU.US", NOW - 91_000);
-    expect(await discoverIntradayTargets(() => NOW, 0)).toEqual([]);
-  });
-
-  it("applies the same lease filter to the pre-market lookback window", async () => {
-    const staleChart = chartMeta("MU.US", "2026-06-30T15:00:00Z");
-    store.listCharts.mockResolvedValue([staleChart]);
-    expect(await discoverIntradayTargets(() => NOW, 3)).toEqual([]);
-
-    acquireLease("MU.US");
-    expect(await discoverIntradayTargets(() => NOW, 3)).toEqual(["MU.US"]);
+    follows.listFollowedSymbols.mockReturnValue(["mu.us", "MU.US"]);
+    expect(await discoverIntradayTargets()).toEqual(["MU.US"]);
   });
 });
 
-describe("aiScheduler tick lease wiring", () => {
-  it("regular tick only invokes handleSymbol for leased symbols returned by discoverTargets", async () => {
+describe("aiScheduler persistent follow wiring", () => {
+  it("regular tick invokes the commentator for a persistently followed symbol", async () => {
     const { deps, rec } = harness({
-      discoverTargets: () => discoverIntradayTargets(() => 1_000_000, 0),
+      discoverTargets: () => discoverIntradayTargets(),
       detectTriggers: () => [{ kind: "macd_cross", detail: "x" }],
     });
     store.listCharts.mockResolvedValue([chartMeta("MU.US", "2026-07-02T15:00:00Z")]);
-    acquireLease("MU.US");
+    follows.listFollowedSymbols.mockReturnValue(["MU.US"]);
     await createAiScheduler(deps).tick();
     expect(rec.commentatorCalls.map((c) => c.symbol)).toEqual(["MU.US"]);
   });
 
-  it("pre-market tick only invokes handlePreSymbol for leased symbols returned by discoverPreTargets", async () => {
+  it("pre-market tick remains quiet after persistent following is stopped", async () => {
     const { deps, rec } = harness({
       sessionKind: () => "pre",
       now: () => 1_000_000,
-      discoverPreTargets: () => discoverIntradayTargets(() => 1_000_000, 3),
+      discoverPreTargets: () => discoverIntradayTargets(),
       buildCommentPack: async (symbol) =>
         makePack(symbol, {
           quote: { last: 105 } as CommentPack["quote"],
@@ -526,7 +547,7 @@ describe("aiScheduler tick lease wiring", () => {
     expect(rec.comments).toHaveLength(0);
   });
 
-  it("post-market recap still runs with no leases held anywhere", async () => {
+  it("post-market recap still runs with no followed symbols", async () => {
     const { deps, rec } = harness({ sessionKind: () => "post", now: () => 1_000_000 });
     await createAiScheduler(deps).tick();
     expect(rec.recaps).toHaveLength(1);

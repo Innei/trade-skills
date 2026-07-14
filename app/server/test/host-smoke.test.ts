@@ -8,6 +8,7 @@ import { CHART_DATA_DIR, PORT, WEB_DIST } from "../../packages/core/src/env.js";
 vi.mock("../../packages/core/src/ai/comments.js", () => ({
   onComment: vi.fn(() => () => {}),
   listComments: vi.fn(async () => []),
+  appendComment: vi.fn(),
 }));
 vi.mock("../../packages/core/src/ai/chat.js", () => ({
   onChatEvent: vi.fn(),

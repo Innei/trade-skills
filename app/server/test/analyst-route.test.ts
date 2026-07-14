@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const models = vi.hoisted(() => ({ aiConfig: vi.fn() }));
-const analyst = vi.hoisted(() => ({ runAnalyst: vi.fn(), analystRunStatus: vi.fn() }));
+const analyst = vi.hoisted(() => ({ runAnalyst: vi.fn(), analystRunStatus: vi.fn(), escalationOnCooldown: vi.fn() }));
 
 vi.mock("../../packages/core/src/ai/models.js", () => models);
 vi.mock("../../packages/core/src/ai/analyst.js", () => analyst);

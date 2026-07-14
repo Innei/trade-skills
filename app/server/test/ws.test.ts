@@ -4,10 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
 import type { Connection } from "../../packages/core/src/realtime/connection.js";
 
-vi.mock("../../packages/core/src/ai/comments.js", () => ({
+const comments = vi.hoisted(() => ({
   onComment: vi.fn(() => () => {}),
+  onAnyComment: vi.fn((_listener: (comment: unknown) => void) => () => {}),
   listComments: vi.fn(async () => []),
 }));
+
+vi.mock("../../packages/core/src/ai/comments.js", () => comments);
 vi.mock("../../packages/core/src/ai/chat.js", () => ({
   onChatEvent: vi.fn(),
   chatTurnState: vi.fn(),
@@ -21,7 +24,6 @@ vi.mock("../../packages/core/src/realtime/quotes.js", () => ({ subscribeQuotes: 
 
 const { parseWsMessage, handleConnection } = await import("../../packages/core/src/realtime/channelProtocol.js");
 const { attachWs } = await import("../src/realtime/wsHost.js");
-const { activeLeaseSymbols, hasActiveLease, LEASE_GRACE_MS, resetLeases } = await import("../../packages/core/src/ai/leases.js");
 const { emitNotice } = await import("../../packages/core/src/ai/notices.js");
 const { subscribeBoard } = (await import("../../packages/core/src/realtime/board.js")) as unknown as {
   subscribeBoard: ReturnType<typeof vi.fn>;
@@ -91,6 +93,11 @@ describe("parseWsMessage", () => {
       key: "k3",
       kind: "comments",
       symbol: "mu",
+    });
+    expect(parseWsMessage({ op: "sub", key: "k4", kind: "notifications" })).toEqual({
+      op: "sub",
+      key: "k4",
+      kind: "notifications",
     });
   });
 
@@ -196,66 +203,40 @@ describe("chat channel", () => {
   });
 });
 
-describe("comments lease wiring", () => {
+describe("global notifications channel", () => {
   beforeEach(() => {
-    resetLeases();
+    comments.onAnyComment.mockReset();
+    comments.onAnyComment.mockImplementation((_listener) => () => {});
   });
 
-  it("acquires a lease when subscribing to a symbol's comments channel", async () => {
+  it("forwards alert comments without opening a symbol comments channel", async () => {
+    let listener: ((comment: unknown) => void) | undefined;
+    comments.onAnyComment.mockImplementation((next: (comment: unknown) => void) => {
+      listener = next;
+      return () => {};
+    });
     const socket = makeSocket();
-    socket.emitMessage(JSON.stringify({ op: "sub", key: "c1", kind: "comments", symbol: "mu" }));
-    await waitFor(() => hasActiveLease("MU.US"));
-    expect(hasActiveLease("MU.US")).toBe(true);
+    socket.emitMessage(JSON.stringify({ op: "sub", key: "n1", kind: "notifications" }));
+    await waitFor(() => Boolean(listener));
+
+    listener?.({
+      ts: "2026-07-07T15:00:00.000Z",
+      symbol: "MU.US",
+      level: "alert",
+      text: "触及止损",
+      source: "commentator",
+    });
+
+    await waitFor(() => socket.sent.some((raw) => raw.includes('"type":"comment"')));
+    const payload = JSON.parse(socket.sent.find((raw) => raw.includes('"type":"comment"'))!);
+    expect(payload.key).toBe("n1");
+    expect(payload.payload.comment.text).toBe("触及止损");
   });
 
-  it("releases the lease on explicit unsubscribe (grace window, then expiry)", async () => {
+  it("forwards analysis notices without opening a chart", async () => {
     const socket = makeSocket();
-    socket.emitMessage(JSON.stringify({ op: "sub", key: "c1", kind: "comments", symbol: "mu" }));
-    await waitFor(() => hasActiveLease("MU.US"));
-    socket.emitMessage(JSON.stringify({ op: "unsub", key: "c1" }));
-    expect(hasActiveLease("MU.US")).toBe(true);
-    expect(hasActiveLease("MU.US", Date.now() + LEASE_GRACE_MS + 1)).toBe(false);
-  });
-
-  it("releases the lease exactly once on socket close with an active subscription", async () => {
-    const socket = makeSocket();
-    socket.emitMessage(JSON.stringify({ op: "sub", key: "c1", kind: "comments", symbol: "mu" }));
-    await waitFor(() => hasActiveLease("MU.US"));
-    socket.emitClose();
-    expect(hasActiveLease("MU.US", Date.now() + LEASE_GRACE_MS + 1)).toBe(false);
-  });
-
-  it("does not double-release when explicit unsubscribe is followed by socket close", async () => {
-    const socket = makeSocket();
-    socket.emitMessage(JSON.stringify({ op: "sub", key: "c1", kind: "comments", symbol: "mu" }));
-    await waitFor(() => hasActiveLease("MU.US"));
-
-    const t0 = Date.now();
-    socket.emitMessage(JSON.stringify({ op: "unsub", key: "c1" }));
-    await new Promise((r) => setTimeout(r, 20));
-    socket.emitClose();
-
-    expect(hasActiveLease("MU.US", t0 + LEASE_GRACE_MS - 5)).toBe(true);
-    expect(hasActiveLease("MU.US", t0 + LEASE_GRACE_MS + 50)).toBe(false);
-  });
-
-  it("does not create a lease for a non-comments channel subscribe", async () => {
-    const socket = makeSocket();
-    socket.emitMessage(JSON.stringify({ op: "sub", key: "b1", kind: "board" }));
-    await new Promise((r) => setTimeout(r, 20));
-    expect(activeLeaseSymbols()).toEqual([]);
-  });
-});
-
-describe("comments channel notice forwarding", () => {
-  beforeEach(() => {
-    resetLeases();
-  });
-
-  it("delivers a notice envelope for the subscribed symbol", async () => {
-    const socket = makeSocket();
-    socket.emitMessage(JSON.stringify({ op: "sub", key: "c1", kind: "comments", symbol: "mu" }));
-    await waitFor(() => hasActiveLease("MU.US"));
+    socket.emitMessage(JSON.stringify({ op: "sub", key: "n2", kind: "notifications" }));
+    await waitFor(() => comments.onAnyComment.mock.calls.length > 0);
 
     emitNotice({
       symbol: "MU.US",
@@ -267,27 +248,8 @@ describe("comments channel notice forwarding", () => {
 
     await waitFor(() => socket.sent.some((raw) => raw.includes('"type":"notice"')));
     const payload = JSON.parse(socket.sent.find((raw) => raw.includes('"type":"notice"'))!);
-    expect(payload.key).toBe("c1");
+    expect(payload.key).toBe("n2");
     expect(payload.payload.notice.title).toBe("MU.US AI 分析完成");
-  });
-
-  it("stops delivering notices after unsubscribe and still releases the lease exactly once", async () => {
-    const socket = makeSocket();
-    socket.emitMessage(JSON.stringify({ op: "sub", key: "c1", kind: "comments", symbol: "mu" }));
-    await waitFor(() => hasActiveLease("MU.US"));
-
-    socket.emitMessage(JSON.stringify({ op: "unsub", key: "c1" }));
-    expect(hasActiveLease("MU.US", Date.now() + LEASE_GRACE_MS + 1)).toBe(false);
-
-    emitNotice({
-      symbol: "MU.US",
-      kind: "analysis_done",
-      title: "should not arrive",
-      body: "done",
-      at: "2026-07-07T15:00:00.000Z",
-    });
-    await new Promise((r) => setTimeout(r, 20));
-    expect(socket.sent.some((raw) => raw.includes('"type":"notice"'))).toBe(false);
   });
 });
 

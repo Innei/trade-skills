@@ -4,7 +4,9 @@ import type { IntradayPrediction, RawBar, SymbolAnalysisRow } from "../../../../
 import { analystRunStatus, runAnalyst } from "../../ai/analyst.js";
 import { listCommentDates, listComments } from "../../ai/comments.js";
 import { deepDiveState, startDeepDive } from "../../ai/deepDive.js";
+import { setSymbolFollowing, symbolFollowState } from "../../ai/follows.js";
 import { aiConfig } from "../../ai/models.js";
+import { requestImmediateFollow } from "../../ai/scheduler.js";
 import { chartUrl } from "../../chartUrl.js";
 import type { SymbolsApi } from "../../contract/symbols.js";
 import { JOURNAL_DIR, STOCKS_DIR } from "../../env.js";
@@ -119,6 +121,21 @@ export const symbolsService: SymbolsApi = {
   async commentDates(input) {
     const sym = normalizeSymbol(input.sym);
     return listCommentDates(sym);
+  },
+
+  async followStatus(input) {
+    return symbolFollowState(input.sym);
+  },
+
+  async startFollow(input) {
+    const previous = symbolFollowState(input.sym);
+    const state = setSymbolFollowing(input.sym, true);
+    if (!previous.following) requestImmediateFollow(state.symbol);
+    return state;
+  },
+
+  async stopFollow(input) {
+    return setSymbolFollowing(input.sym, false);
   },
 
   async journal(input) {

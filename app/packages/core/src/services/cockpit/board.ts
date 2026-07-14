@@ -8,6 +8,7 @@ import type {
   OverviewRow,
 } from "../../../../../shared/types.js";
 import { listComments } from "../../ai/comments.js";
+import { listFollowedSymbols } from "../../ai/follows.js";
 import { getProvider } from "../marketdata/registry.js";
 import { classifySession, easternDate } from "../session.js";
 import { predictionStale } from "../staleness.js";
@@ -32,6 +33,7 @@ export function boardRow(
   doc: ChartDoc | null,
   quote: { last: number; pct: number; session: string } | null,
   comments: CockpitComment[],
+  following: boolean,
   chartUrl: (doc: ChartUrlDoc) => string,
 ): OverviewRow {
   const prediction = (doc?.input.prediction as IntradayPrediction | null | undefined) ?? null;
@@ -53,6 +55,7 @@ export function boardRow(
     stop_distance_pct: distancePct(plan?.stop, last),
     target1_distance_pct: distancePct(plan?.target1, last),
     prediction_stale: doc ? predictionStale(doc, new Date()) : false,
+    ai_following: following,
     latest_comment: latest ? { ts: latest.ts, level: latest.level, text: latest.text } : null,
     alert_count: comments.reduce((n, c) => (c.level === "alert" ? n + 1 : n), 0),
   };
@@ -69,6 +72,7 @@ export async function buildOverviewBoard(chartUrl: (doc: ChartUrlDoc) => string)
   if (!symbols.length) {
     return { date: today, session, rows: [] };
   }
+  const followedSymbols = new Set(listFollowedSymbols());
 
   const nowMs = Date.now();
   const [quotesRes, docs, commentsList] = await Promise.all([
@@ -86,7 +90,14 @@ export async function buildOverviewBoard(chartUrl: (doc: ChartUrlDoc) => string)
   );
 
   const rows = [...bySymbol.values()].map((meta, i) =>
-    boardRow(meta, docs[i], quoteBySymbol.get(meta.symbol!) ?? null, commentsList[i], chartUrl),
+    boardRow(
+      meta,
+      docs[i],
+      quoteBySymbol.get(meta.symbol!) ?? null,
+      commentsList[i],
+      followedSymbols.has(meta.symbol!),
+      chartUrl,
+    ),
   );
   return { date: today, session, rows };
 }

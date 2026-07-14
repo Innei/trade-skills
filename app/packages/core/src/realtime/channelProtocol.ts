@@ -1,8 +1,7 @@
 import type { CockpitComment } from "../../../../shared/types.js";
 import { chatTurnState, onChatEvent } from "../ai/chat.js";
-import { listComments, onComment } from "../ai/comments.js";
-import { acquireLease, releaseLease } from "../ai/leases.js";
-import { onNotice } from "../ai/notices.js";
+import { listComments, onAnyComment, onComment } from "../ai/comments.js";
+import { onAnyNotice } from "../ai/notices.js";
 import { type AnnotationsChangedEvent, loadAnnotations, onAnnotationsChanged } from "../services/annotations.js";
 import { clampViewCount } from "../services/history.js";
 import { easternDate } from "../services/session.js";
@@ -22,7 +21,6 @@ async function attachComments(symbol: string, push: (envelope: string) => void):
     if (ready) push(JSON.stringify({ type: "comment", comment }));
     else buffered.push(comment);
   });
-  const unsubNotice = onNotice(symbol, (notice) => push(JSON.stringify({ type: "notice", notice })));
   const comments = await listComments(symbol, easternDate());
   push(JSON.stringify({ type: "init", comments }));
   const seen = new Set(comments.map((c) => `${c.ts} ${c.text}`));
@@ -31,6 +29,12 @@ async function attachComments(symbol: string, push: (envelope: string) => void):
     push(JSON.stringify({ type: "comment", comment }));
   }
   ready = true;
+  return unsubComment;
+}
+
+function attachNotifications(push: (envelope: string) => void): () => void {
+  const unsubComment = onAnyComment((comment) => push(JSON.stringify({ type: "comment", comment })));
+  const unsubNotice = onAnyNotice((notice) => push(JSON.stringify({ type: "notice", notice })));
   return () => {
     unsubComment();
     unsubNotice();
@@ -46,6 +50,7 @@ export interface WsSub {
     | "quotes"
     | "chart"
     | "comments"
+    | "notifications"
     | "analyses"
     | "position"
     | "benchmark"
@@ -84,6 +89,9 @@ export function parseWsMessage(raw: unknown): WsClientMessage | null {
   if (msg.kind === "comments") {
     if (typeof msg.symbol !== "string" || !msg.symbol) return null;
     return { op: "sub", key: msg.key, kind: "comments", symbol: msg.symbol };
+  }
+  if (msg.kind === "notifications") {
+    return { op: "sub", key: msg.key, kind: "notifications" };
   }
   if (msg.kind === "analyses") {
     if (typeof msg.symbol !== "string" || !msg.symbol) return null;
@@ -154,17 +162,9 @@ async function attachChannel(msg: WsSub, push: (envelope: string) => void): Prom
   }
   if (msg.kind === "comments") {
     const symbol = normalizeSymbol(msg.symbol as string);
-    const unsub = await attachComments(symbol, push);
-    acquireLease(symbol);
-    let released = false;
-    return () => {
-      if (!released) {
-        released = true;
-        releaseLease(symbol);
-      }
-      unsub();
-    };
+    return attachComments(symbol, push);
   }
+  if (msg.kind === "notifications") return attachNotifications(push);
   if (msg.kind === "analyses") return subscribeAnalyses(normalizeSymbol(msg.symbol as string), push);
   if (msg.kind === "position") return subscribePosition(normalizeSymbol(msg.symbol as string), push);
   if (msg.kind === "benchmark") return subscribeBenchmark(normalizeSymbol(msg.symbol as string), push);

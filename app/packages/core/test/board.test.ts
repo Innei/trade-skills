@@ -18,6 +18,10 @@ const comments = vi.hoisted(() => ({
   listComments: vi.fn(),
 }));
 
+const follows = vi.hoisted(() => ({
+  listFollowedSymbols: vi.fn(),
+}));
+
 const stream = vi.hoisted(() => {
   const listeners = new Set<(cell: QuoteCell) => void>();
   return {
@@ -36,6 +40,7 @@ vi.mock("../src/services/marketdata/registry.js", () => ({ getProvider: () => pr
 vi.mock("../src/services/marketdata/longbridgeStream.js", () => ({ getLongbridgeStream: () => stream }));
 vi.mock("../src/services/store.js", () => store);
 vi.mock("../src/ai/comments.js", () => comments);
+vi.mock("../src/ai/follows.js", () => follows);
 
 const { subscribeBoard } = await import("../src/realtime/board.js");
 const { easternDate } = await import("../src/services/session.js");
@@ -71,6 +76,7 @@ describe("subscribeBoard", () => {
     store.listCharts.mockReset().mockResolvedValue([meta()]);
     store.loadChart.mockReset().mockResolvedValue(doc());
     comments.listComments.mockReset().mockResolvedValue([]);
+    follows.listFollowedSymbols.mockReset().mockReturnValue(["MU.US"]);
     provider.getQuotes.mockReset().mockResolvedValue([
       { symbol: "MU.US", last: "110", prev_close: "108", change_percentage: "1.8" },
     ]);
@@ -87,6 +93,18 @@ describe("subscribeBoard", () => {
     const data = events.find((e: any) => e.type === "data") as any;
     expect(data.data.rows).toHaveLength(1);
     expect(data.data.rows[0].symbol).toBe("MU.US");
+    expect(data.data.rows[0].ai_following).toBe(true);
+    unsub();
+  });
+
+  it("marks a board row as stopped when its symbol is not persisted for AI follow-up", async () => {
+    follows.listFollowedSymbols.mockReturnValue([]);
+    const events: unknown[] = [];
+    const unsub = subscribeBoard((env) => events.push(JSON.parse(env)));
+    await vi.advanceTimersByTimeAsync(0);
+
+    const data = events.find((e: any) => e.type === "data") as any;
+    expect(data.data.rows[0].ai_following).toBe(false);
     unsub();
   });
 

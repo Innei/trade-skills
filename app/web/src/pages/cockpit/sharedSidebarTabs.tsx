@@ -70,7 +70,15 @@ export function buildSharedSidebarTabs(params: {
           AI 点评{unread > 0 && <Badge tone="down" className="unread-badge">{unread}</Badge>}
         </>
       ),
-      content: <AiTab symbol={sym} comments={comments} error={commentsError} loaded={commentsLoaded} />,
+      content: (
+        <AiTab
+          symbol={sym}
+          comments={comments}
+          error={commentsError}
+          loaded={commentsLoaded}
+          analysisRevision={analysesRows[0]?.id ?? latestId ?? undefined}
+        />
+      ),
     },
   ];
 }

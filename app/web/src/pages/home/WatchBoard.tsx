@@ -1,16 +1,62 @@
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Check, RadioTower } from "lucide-react";
 import type { OverviewBoard, OverviewRow } from "../../../../shared/types";
 import { errorMessage } from "../../api";
 import { client } from "../../client";
 import { fmt, signed } from "../../format";
-import { Badge, Button, Card, Dot, Empty, ErrorBox, MarketTime, Num } from "../../ui";
+import { Badge, Button, Card, Dot, Empty, ErrorBox, MarketTime, Num, Switch } from "../../ui";
+import { useSymbolFollow } from "../../useSymbolFollow";
 import { directionTone } from "../../charts/intraday/directionLabels";
 
 const DIRECTION_LABEL: Record<string, string> = { long: "做多", short: "做空", neutral: "观望" };
 
 function pctCell(value: number | null): string {
   return value == null ? "—" : `${signed(value)}%`;
+}
+
+function FollowToggle({
+  symbol,
+  initialFollowing,
+  compact = false,
+}: {
+  symbol: string;
+  initialFollowing: boolean;
+  compact?: boolean;
+}) {
+  const { following, busy, statusError, change } = useSymbolFollow({ symbol, initialFollowing });
+  const active = following ?? initialFollowing;
+  const className = [
+    "symbol-card-follow",
+    active && "symbol-card-follow--active",
+    statusError && "symbol-card-follow--error",
+    compact && "symbol-card-follow--compact",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const onControlClick = (event: React.MouseEvent<HTMLSpanElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if ((event.target as Element).closest(".ui-switch") || busy) return;
+    void change(!active);
+  };
+
+  return (
+    <span
+      className={className}
+      title={statusError ?? (active ? "AI 评论员正在后台持续跟进" : "AI 评论员未在后台跟进")}
+      onClick={onControlClick}
+    >
+      <RadioTower aria-hidden="true" size={compact ? 12 : 11} />
+      <span className={compact ? "sr-only" : undefined}>AI 跟进</span>
+      <Switch
+        ariaLabel={`持续跟进 ${symbol} 的 AI 点评`}
+        checked={active}
+        disabled={busy}
+        onCheckedChange={(checked) => void change(checked)}
+      />
+    </span>
+  );
 }
 
 function ReassessButton({ symbol }: { symbol: string }) {
@@ -73,6 +119,7 @@ function SymbolCard({ row }: { row: OverviewRow }) {
             {row.pct != null && <>{" "}<Num value={row.pct} diff suffix="%" /></>}
           </span>
         )}
+        <FollowToggle symbol={row.symbol} initialFollowing={row.ai_following} />
         {row.prediction_stale && <Dot tone="accent" title="预测已过期" />}
         {row.alert_count > 0 && <Badge tone="down" className="unread-badge">{row.alert_count}</Badge>}
       </div>
@@ -117,6 +164,7 @@ export function WatchBoard({
               </Badge>
             )}
             {row.pct != null && <Num value={row.pct} diff suffix="%" />}
+            <FollowToggle symbol={row.symbol} initialFollowing={row.ai_following} compact />
           </Card>
         ))}
       </div>

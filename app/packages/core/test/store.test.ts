@@ -23,6 +23,7 @@ const {
   deleteChart,
 } = await import("../src/services/store.js");
 const { subscribeAnalyses } = await import("../src/realtime/analyses.js");
+const { symbolFollowState } = await import("../src/ai/follows.js");
 
 function buildResult(overrides: Partial<BuildResult> = {}): BuildResult {
   return {
@@ -164,6 +165,7 @@ describe("chart store", () => {
       expect(created.schema_version).toBe(2);
       expect(created.created_at).toBe(created.updated_at);
       expect(await loadChart(created.id)).toMatchObject({ id: created.id, symbol: "MU.US" });
+      expect(symbolFollowState("MU.US").following).toBe(true);
       expect(received).toEqual([
         { type: "analysis-created", symbol: "MU.US", chartId: created.id, chartType: "intraday" },
       ]);

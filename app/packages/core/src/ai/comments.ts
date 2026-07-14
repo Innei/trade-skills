@@ -8,6 +8,7 @@ import { easternDate } from "../services/session.js";
 type Listener = (comment: CockpitComment) => void;
 
 const listeners = new Map<string, Set<Listener>>();
+const anyListeners = new Set<Listener>();
 
 export function onComment(symbol: string, listener: Listener): () => void {
   let set = listeners.get(symbol);
@@ -24,10 +25,14 @@ export function onComment(symbol: string, listener: Listener): () => void {
   };
 }
 
+export function onAnyComment(listener: Listener): () => void {
+  anyListeners.add(listener);
+  return () => anyListeners.delete(listener);
+}
+
 function broadcast(comment: CockpitComment): void {
   const set = listeners.get(comment.symbol);
-  if (!set) return;
-  for (const listener of [...set]) {
+  for (const listener of [...(set ?? []), ...anyListeners]) {
     try {
       listener(comment);
     } catch {
@@ -75,6 +80,24 @@ export async function listAllCommentDates(limit = 30, db: Db = getDb()): Promise
     .orderBy(desc(comments.easternDate))
     .limit(limit);
   return rows.map((r) => r.date);
+}
+
+export async function latestCommentatorRunAt(symbol: string, date: string, db: Db = getDb()): Promise<number | null> {
+  const [row] = await db
+    .select({ ts: comments.ts })
+    .from(comments)
+    .where(
+      and(
+        eq(comments.symbol, symbol),
+        eq(comments.easternDate, date),
+        eq(comments.source, "commentator"),
+      ),
+    )
+    .orderBy(desc(comments.ts), desc(comments.id))
+    .limit(1);
+  if (!row) return null;
+  const parsed = Date.parse(row.ts);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 export async function appendComment(comment: CockpitComment, db: Db = getDb()): Promise<void> {

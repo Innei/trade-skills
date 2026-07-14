@@ -1,4 +1,4 @@
-import { Controller, ContextParam, Get, Param, Post, Query } from "@tsuki-hono/common";
+import { Controller, ContextParam, Delete, Get, Param, Post, Query } from "@tsuki-hono/common";
 import type { Context } from "hono";
 import { symbolsService } from "../../../../packages/core/src/modules/symbols/symbols.service.js";
 import { ClientError } from "../../../../packages/core/src/errors.js";
@@ -44,6 +44,24 @@ export class SymbolsController {
   @Get("/:sym/comment-dates")
   async getCommentDates(@Param("sym") sym: string) {
     const data = await symbolsService.commentDates({ sym });
+    return { ok: true, data };
+  }
+
+  @Get("/:sym/follow")
+  async getFollowStatus(@Param("sym") sym: string) {
+    const data = await symbolsService.followStatus({ sym });
+    return { ok: true, data };
+  }
+
+  @Post("/:sym/follow")
+  async startFollow(@Param("sym") sym: string) {
+    const data = await symbolsService.startFollow({ sym });
+    return { ok: true, data };
+  }
+
+  @Delete("/:sym/follow")
+  async stopFollow(@Param("sym") sym: string) {
+    const data = await symbolsService.stopFollow({ sym });
     return { ok: true, data };
   }
 

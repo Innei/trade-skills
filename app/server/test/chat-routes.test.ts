@@ -11,7 +11,7 @@ const ctx = vi.hoisted(() => {
   return { dir };
 });
 
-vi.mock("../../packages/core/src/env.js", () => ({ CHART_DATA_DIR: ctx.dir }));
+vi.mock("../../packages/core/src/env.js", async (importOriginal) => ({ ...(await importOriginal<object>()), CHART_DATA_DIR: ctx.dir }));
 
 const store = vi.hoisted(() => ({ loadChart: vi.fn(), listCharts: vi.fn() }));
 vi.mock("../../packages/core/src/services/store.js", () => store);

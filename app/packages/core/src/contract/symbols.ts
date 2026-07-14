@@ -41,6 +41,12 @@ export type ReassessStatus =
 
 export type DeepDiveStartResult = { started: true } | { started: false; reason: "busy" | "disabled" };
 
+export interface SymbolFollowStatus {
+  symbol: string;
+  following: boolean;
+  startedAt: string | null;
+}
+
 export interface LatestChart extends ChartDoc {
   url: string;
   prediction_stale: boolean;
@@ -54,6 +60,9 @@ export interface SymbolsApi {
   relvol(input: { sym: string }): Promise<RelativeVolume | null>;
   comments(input: { sym: string; date?: string }): Promise<CockpitComment[]>;
   commentDates(input: { sym: string }): Promise<string[]>;
+  followStatus(input: { sym: string }): Promise<SymbolFollowStatus>;
+  startFollow(input: { sym: string }): Promise<SymbolFollowStatus>;
+  stopFollow(input: { sym: string }): Promise<SymbolFollowStatus>;
   journal(input: { sym: string }): Promise<JournalListRow[]>;
   journalEntry(input: { sym: string; name: string }): Promise<JournalEntry>;
   reassess(input: { sym: string }): Promise<ReassessResult>;
@@ -72,6 +81,9 @@ export const symbolsRoutes = defineRoutes<SymbolsApi>("symbols", {
   relvol: { method: "GET", path: "/:sym/relvol" },
   comments: { method: "GET", path: "/:sym/comments" },
   commentDates: { method: "GET", path: "/:sym/comment-dates" },
+  followStatus: { method: "GET", path: "/:sym/follow" },
+  startFollow: { method: "POST", path: "/:sym/follow" },
+  stopFollow: { method: "DELETE", path: "/:sym/follow" },
   journal: { method: "GET", path: "/:sym/journal" },
   journalEntry: { method: "GET", path: "/:sym/journal/:name" },
   reassess: { method: "POST", path: "/:sym/reassess" },

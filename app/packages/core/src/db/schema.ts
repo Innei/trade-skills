@@ -108,3 +108,8 @@ export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
 });
+
+export const symbolFollows = sqliteTable("symbol_follows", {
+  symbol: text("symbol").primaryKey(),
+  startedAt: text("started_at").notNull(),
+});

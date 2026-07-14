@@ -2,13 +2,13 @@ import { Library, Settings } from "lucide-react";
 import { AppSkeleton } from "./AppSkeleton";
 import { DesktopShell } from "./desktop/DesktopShell";
 import { Onboarding } from "./onboarding/Onboarding";
-import { CommandPalette } from "./palette/CommandPalette";
 import { useCredentialsGate } from "./onboarding/useCredentialsGate";
 import { Router } from "./PageRouter";
 import { RestrictedBanner } from "./RestrictedBanner";
 import { isDesktopRealtime } from "./portTransport";
 import { routePathname, useRoute } from "./router";
 import { ContextMenuHost, ModalHost } from "./ui";
+import { RoutedGlobalNotifications } from "./GlobalNotifications";
 
 function GlobalTopbar() {
   const route = useRoute();
@@ -49,9 +49,9 @@ export function App() {
   return (
     <>
       <RestrictedBanner />
+      <RoutedGlobalNotifications />
       <GlobalTopbar />
       <Router />
-      <CommandPalette />
       <ModalHost />
       <ContextMenuHost />
     </>

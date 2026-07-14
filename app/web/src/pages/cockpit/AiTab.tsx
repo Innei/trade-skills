@@ -6,6 +6,7 @@ import { client } from "../../client";
 import { Badge, Button, MarketTime, Select, Spinner } from "../../ui";
 import { AnalysisRunDetails } from "./AnalysisRunDetails";
 import { buildFeed, type FeedRow } from "./aiFeed";
+import { FollowAction } from "./FollowAction";
 import { symbolUrl } from "./analysisMode";
 import { useAnalystRun } from "./useAnalystRun";
 
@@ -62,12 +63,14 @@ export function AiTab({
   error,
   readOnly = false,
   loaded = true,
+  analysisRevision,
 }: {
   symbol: string;
   comments: CockpitComment[];
   error: string | null;
   readOnly?: boolean;
   loaded?: boolean;
+  analysisRevision?: string;
 }) {
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const run = useAnalystRun(symbol, !readOnly);
@@ -119,6 +122,7 @@ export function AiTab({
               {run.checking ? "正在确认分析状态…" : run.running ? "重估进行中…" : "重新分析"}
             </Button>
             {run.hint && <span className="ai-hint">{run.hint}</span>}
+            {analysisRevision && <FollowAction symbol={symbol} revision={analysisRevision} />}
             {pastDates.length > 0 && (
               <Select
                 className="ai-date-select"

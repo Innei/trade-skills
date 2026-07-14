@@ -11,7 +11,7 @@ const ctx = vi.hoisted(() => {
 
 vi.mock("../src/env.js", () => ({ CHART_DATA_DIR: ctx.dir }));
 
-const { appendComment, listComments, onComment } = await import("../src/ai/comments.js");
+const { appendComment, latestCommentatorRunAt, listComments, onAnyComment, onComment } = await import("../src/ai/comments.js");
 
 function comment(overrides: Partial<CockpitComment> = {}): CockpitComment {
   return {
@@ -67,9 +67,30 @@ describe("comments storage", () => {
     const list = await listComments("SMH.US", "2026-07-02");
     expect(list.map((c) => c.text).sort()).toEqual([...texts].sort());
   });
+
+  it("returns the latest successful commentator time and ignores later system comments", async () => {
+    await appendComment(comment({ symbol: "FRESH.US", ts: "2026-07-02T15:00:00.000Z" }));
+    await appendComment(
+      comment({ symbol: "FRESH.US", ts: "2026-07-02T15:05:00.000Z", source: "system", level: "error" }),
+    );
+    await appendComment(comment({ symbol: "FRESH.US", ts: "2026-07-02T15:10:00.000Z" }));
+
+    expect(await latestCommentatorRunAt("FRESH.US", "2026-07-02")).toBe(
+      Date.parse("2026-07-02T15:10:00.000Z"),
+    );
+    expect(await latestCommentatorRunAt("FRESH.US", "2026-07-03")).toBeNull();
+  });
 });
 
 describe("comment event bus", () => {
+  it("broadcasts to an application-wide listener without a symbol subscription", async () => {
+    const received: CockpitComment[] = [];
+    const unsub = onAnyComment((c) => received.push(c));
+    await appendComment(comment({ symbol: "GLOBAL.US", text: "background alert", level: "alert" }));
+    expect(received.map((c) => c.symbol)).toEqual(["GLOBAL.US"]);
+    unsub();
+  });
+
   it("broadcasts appended comments to the matching symbol", async () => {
     const received: CockpitComment[] = [];
     const unsub = onComment("BUS1.US", (c) => received.push(c));

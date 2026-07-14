@@ -3,20 +3,25 @@ import type { OverviewBoard, PortfolioSummary } from "../../../shared/types";
 import { useQuery } from "../apiHooks";
 import { client } from "../client";
 import { listRecentSymbols } from "../recentCharts";
-import { navigate } from "../router";
 import { Input } from "../ui";
 import { buildPaletteCommands, type PaletteCommand } from "./commands";
 import { usePalette } from "./usePalette";
 
 const optionId = (commandId: string) => `palette-option-${commandId.replace(/[^a-zA-Z0-9_-]/g, "_")}`;
 
-export function CommandPalette() {
+export function CommandPalette({ onOpenRoute }: { onOpenRoute: (route: string) => void }) {
   const { open, close } = usePalette();
   if (!open) return null;
-  return <PalettePanel onClose={close} />;
+  return <PalettePanel onClose={close} onOpenRoute={onOpenRoute} />;
 }
 
-function PalettePanel({ onClose }: { onClose: () => void }) {
+function PalettePanel({
+  onClose,
+  onOpenRoute,
+}: {
+  onClose: () => void;
+  onOpenRoute: (route: string) => void;
+}) {
   const { data: board } = useQuery<OverviewBoard>("overview.board", () => client.overview.board());
   const { data: portfolio } = useQuery<PortfolioSummary>("positions.list", () => client.positions.list());
   const [query, setQuery] = useState("");
@@ -37,7 +42,7 @@ function PalettePanel({ onClose }: { onClose: () => void }) {
 
   const run = (cmd: PaletteCommand) => {
     onClose();
-    navigate(cmd.route);
+    onOpenRoute(cmd.route);
   };
 
   const moveDown = () => setIndex((i) => Math.min(i + 1, commands.length - 1));

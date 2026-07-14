@@ -12,6 +12,7 @@ export interface TabsController {
   closeTabById(id: string): void;
   closeOtherTabs(id: string): void;
   closeTabsToRight(id: string): void;
+  openTab(route: string): void;
   openHomeTab(): void;
   focusOrOpenResearch(): void;
   focusOrOpenSettings(): void;
@@ -64,9 +65,11 @@ export function useTabsController(): TabsController {
     setSnapshot((prev) => tabsStore.closeTabsToRight(withCurrentScrollCaptured(prev), id));
   }, []);
 
-  const openHomeTab = useCallback(() => {
-    setSnapshot((prev) => tabsStore.openTab(withCurrentScrollCaptured(prev), "/"));
+  const openTab = useCallback((route: string) => {
+    setSnapshot((prev) => tabsStore.openTab(withCurrentScrollCaptured(prev), route));
   }, []);
+
+  const openHomeTab = useCallback(() => openTab("/"), [openTab]);
 
   const focusOrOpenSettings = useCallback(() => {
     setSnapshot((prev) => tabsStore.focusOrOpenRoute(withCurrentScrollCaptured(prev), "/settings"));
@@ -114,6 +117,7 @@ export function useTabsController(): TabsController {
     closeTabById,
     closeOtherTabs,
     closeTabsToRight,
+    openTab,
     openHomeTab,
     focusOrOpenResearch,
     focusOrOpenSettings,

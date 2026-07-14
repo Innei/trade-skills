@@ -732,6 +732,7 @@ export interface OverviewRow {
   stop_distance_pct: number | null;
   target1_distance_pct: number | null;
   prediction_stale: boolean;
+  ai_following: boolean;
   latest_comment: { ts: string; level: CommentLevel; text: string } | null;
   alert_count: number;
 }

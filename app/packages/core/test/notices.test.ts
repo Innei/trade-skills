@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Notice } from "../../../shared/types.js";
-import { emitNotice, onNotice } from "../src/ai/notices.js";
+import { emitNotice, onAnyNotice, onNotice } from "../src/ai/notices.js";
 
 function notice(overrides: Partial<Notice> = {}): Notice {
   return {
@@ -14,6 +14,14 @@ function notice(overrides: Partial<Notice> = {}): Notice {
 }
 
 describe("notice hub", () => {
+  it("delivers notices to an application-wide listener", () => {
+    const received: Notice[] = [];
+    const unsub = onAnyNotice((n) => received.push(n));
+    emitNotice(notice({ symbol: "GLOBAL.US", title: "background done" }));
+    expect(received.map((n) => n.title)).toEqual(["background done"]);
+    unsub();
+  });
+
   it("delivers an emitted notice to a listener for the same symbol", () => {
     const received: Notice[] = [];
     const unsub = onNotice("NOT1.US", (n) => received.push(n));

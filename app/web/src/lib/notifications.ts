@@ -7,6 +7,7 @@ export type NotifyEnvelope =
 export interface NotifyContext {
   hidden: boolean;
   permission: NotificationPermission | "unsupported";
+  activeSymbol?: string | null;
 }
 
 export interface NotifyContent {
@@ -17,7 +18,9 @@ export interface NotifyContent {
 export function decideNotification(env: NotifyEnvelope, ctx: NotifyContext): NotifyContent | null {
   if (!env.live) return null;
   if (ctx.permission !== "granted") return null;
-  if (!ctx.hidden) return null;
+  const symbol = env.type === "comment" ? env.symbol : env.notice.symbol;
+  const activeSymbol = ctx.activeSymbol?.trim().toUpperCase();
+  if (!ctx.hidden && (ctx.activeSymbol === undefined || activeSymbol === symbol.trim().toUpperCase())) return null;
   if (env.type === "comment") {
     if (env.level !== "alert") return null;
     return { title: `${env.symbol} 盘中警报`, body: env.text };
@@ -43,14 +46,15 @@ export function notify(content: NotifyContent): void {
   };
 }
 
-export function currentNotifyContext(): NotifyContext {
+export function currentNotifyContext(activeSymbol?: string | null): NotifyContext {
   return {
     hidden: document.hidden || document.visibilityState !== "visible",
     permission: typeof Notification === "undefined" ? "unsupported" : Notification.permission,
+    activeSymbol,
   };
 }
 
-export function maybeNotify(env: NotifyEnvelope): void {
-  const content = decideNotification(env, currentNotifyContext());
+export function maybeNotify(env: NotifyEnvelope, activeSymbol?: string | null): void {
+  const content = decideNotification(env, currentNotifyContext(activeSymbol));
   if (content) notify(content);
 }

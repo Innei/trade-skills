@@ -18,6 +18,7 @@ const store = vi.hoisted(() => ({
 const comments = vi.hoisted(() => ({
   listComments: vi.fn(),
   listAllCommentDates: vi.fn(),
+  appendComment: vi.fn(),
 }));
 
 const usage = vi.hoisted(() => ({

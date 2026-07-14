@@ -2,11 +2,14 @@ import type { CockpitComment, SessionKind } from "../../../../shared/types.js";
 import { classifySession, easternDate } from "../services/session.js";
 import { listCharts } from "../services/store.js";
 import { runAnalyst as defaultRunAnalyst, escalationOnCooldown as defaultEscalationOnCooldown } from "./analyst.js";
-import { appendComment as defaultAppendComment } from "./comments.js";
+import {
+  appendComment as defaultAppendComment,
+  latestCommentatorRunAt as defaultLatestCommentatorRunAt,
+} from "./comments.js";
 import { runCommentator as defaultRunCommentator } from "./commentator.js";
 import { buildCommentPack as defaultBuildCommentPack, type CommentPack } from "./datapack.js";
-import { hasActiveLease } from "./leases.js";
-import { aiConfig as defaultAiConfig, type AiConfig } from "./models.js";
+import { listFollowedSymbols } from "./follows.js";
+import { aiConfig as defaultAiConfig, type AiConfig, type AiModel } from "./models.js";
 import { runDailyRecap } from "./recap.js";
 import {
   detectTriggers as defaultDetectTriggers,
@@ -18,11 +21,14 @@ import {
 
 const TICK_MS = 60_000;
 const PRE_TICK_MS = 5 * 60_000;
-const PRE_TARGET_LOOKBACK_DAYS = 3;
 const PREMARKET_GAP_PCT = 2;
 const PREMARKET_GAP_WARN_PCT = 3;
 
 const HEARTBEAT_TRIGGER: Trigger = { kind: "heartbeat" as Trigger["kind"], detail: "定时心跳巡检，无显式触发" };
+const RESUME_TRIGGER: Trigger = {
+  kind: "heartbeat" as Trigger["kind"],
+  detail: "重新开启 AI 跟进，最后点评已过期，立即巡检",
+};
 
 export interface SchedulerDeps {
   now: () => number;
@@ -33,6 +39,7 @@ export interface SchedulerDeps {
   buildCommentPack: (symbol: string) => Promise<CommentPack>;
   detectTriggers: (input: TriggerInput) => Trigger[];
   shouldHeartbeat: (lastRunAt: number | null, now: number) => boolean;
+  latestCommentatorRunAt: (symbol: string, date: string) => Promise<number | null>;
   runCommentator: typeof defaultRunCommentator;
   runAnalyst: typeof defaultRunAnalyst;
   escalationOnCooldown: (symbol: string, now: number) => boolean;
@@ -40,26 +47,31 @@ export interface SchedulerDeps {
   runRecap: (date: string) => Promise<unknown>;
 }
 
-export async function discoverIntradayTargets(now: () => number, lookbackDays: number): Promise<string[]> {
-  const nowMs = now();
-  const cutoff = easternDate(new Date(nowMs - lookbackDays * 86_400_000));
-  const metas = await listCharts({ type: "intraday" });
-  const symbols = new Set<string>();
-  for (const meta of metas) {
-    if (meta.symbol && easternDate(new Date(meta.created_at)) >= cutoff) symbols.add(meta.symbol);
-  }
-  return [...symbols].filter((symbol) => hasActiveLease(symbol, nowMs));
+export async function discoverIntradayTargets(
+  followedSymbols: () => string[] | Promise<string[]> = listFollowedSymbols,
+): Promise<string[]> {
+  const [metas, followed] = await Promise.all([
+    listCharts({ type: "intraday" }),
+    Promise.resolve(followedSymbols()),
+  ]);
+  const chartSymbols = new Set(
+    metas.flatMap((meta) => (meta.symbol ? [meta.symbol.trim().toUpperCase()] : [])),
+  );
+  return [...new Set(followed.map((symbol) => symbol.trim().toUpperCase()))].filter((symbol) =>
+    chartSymbols.has(symbol),
+  );
 }
 
 export const defaultSchedulerDeps: SchedulerDeps = {
   now: () => Date.now(),
   aiConfig: defaultAiConfig,
   sessionKind: (nowMs) => classifySession(Math.floor(nowMs / 1000)),
-  discoverTargets: () => discoverIntradayTargets(() => Date.now(), 0),
-  discoverPreTargets: () => discoverIntradayTargets(() => Date.now(), PRE_TARGET_LOOKBACK_DAYS),
+  discoverTargets: () => discoverIntradayTargets(),
+  discoverPreTargets: () => discoverIntradayTargets(),
   buildCommentPack: (symbol) => defaultBuildCommentPack(symbol),
   detectTriggers: defaultDetectTriggers,
   shouldHeartbeat: defaultShouldHeartbeat,
+  latestCommentatorRunAt: (symbol, date) => defaultLatestCommentatorRunAt(symbol, date),
   runCommentator: defaultRunCommentator,
   runAnalyst: defaultRunAnalyst,
   escalationOnCooldown: defaultEscalationOnCooldown,
@@ -133,16 +145,27 @@ async function handleSymbol(
   const trigger = triggers.length > 0 ? combineTriggers(triggers) : HEARTBEAT_TRIGGER;
   lastCommentatorRunAt.set(symbol, nowMs);
 
+  await runTriggeredCommentator(symbol, pack, trigger, config.commentModel, config.analystModel, deps);
+}
+
+async function runTriggeredCommentator(
+  symbol: string,
+  pack: CommentPack,
+  trigger: Trigger,
+  commentModel: AiModel,
+  analystModel: AiModel | null,
+  deps: SchedulerDeps,
+): Promise<void> {
   const { escalate } = await deps.runCommentator({
     symbol,
     pack,
     trigger,
-    deps: { model: config.commentModel },
+    deps: { model: commentModel },
   });
 
-  if (!escalate || !config.analystModel) return;
+  if (!escalate || !analystModel) return;
   if (deps.escalationOnCooldown(symbol, deps.now())) return;
-  deps.runAnalyst({ symbol, origin: "escalation", deps: { model: config.analystModel } });
+  deps.runAnalyst({ symbol, origin: "escalation", deps: { model: analystModel } });
 }
 
 async function handlePreSymbol(symbol: string, deps: SchedulerDeps, gapNoted: Set<string>): Promise<void> {
@@ -236,6 +259,7 @@ export interface AiScheduler {
   start(): boolean;
   stop(): void;
   tick(): Promise<void>;
+  resumeFollow(symbol: string): Promise<boolean>;
 }
 
 export function createAiScheduler(deps: SchedulerDeps = defaultSchedulerDeps): AiScheduler {
@@ -260,6 +284,40 @@ export function createAiScheduler(deps: SchedulerDeps = defaultSchedulerDeps): A
     }
   };
 
+  const resumeFollow = async (symbol: string): Promise<boolean> => {
+    const nowMs = deps.now();
+    if (deps.sessionKind(nowMs) !== "regular") return false;
+
+    const config = deps.aiConfig();
+    if (!config.commentModel) return false;
+
+    const normalized = symbol.trim().toUpperCase();
+    const targets = await deps.discoverTargets();
+    if (!targets.includes(normalized)) return false;
+
+    const persistedRunAt = await deps.latestCommentatorRunAt(normalized, easternDate(new Date(nowMs)));
+    const memoryRunAt = state.lastCommentatorRunAt.get(normalized) ?? null;
+    const lastRunAt =
+      persistedRunAt == null
+        ? memoryRunAt
+        : memoryRunAt == null
+          ? persistedRunAt
+          : Math.max(persistedRunAt, memoryRunAt);
+    if (!deps.shouldHeartbeat(lastRunAt, nowMs)) return false;
+
+    state.lastCommentatorRunAt.set(normalized, nowMs);
+    const pack = await deps.buildCommentPack(normalized);
+    await runTriggeredCommentator(
+      normalized,
+      pack,
+      RESUME_TRIGGER,
+      config.commentModel,
+      config.analystModel,
+      deps,
+    );
+    return true;
+  };
+
   return {
     start() {
       if (timer) return true;
@@ -273,6 +331,7 @@ export function createAiScheduler(deps: SchedulerDeps = defaultSchedulerDeps): A
       }
     },
     tick,
+    resumeFollow,
   };
 }
 
@@ -286,4 +345,11 @@ export function startAiScheduler(deps: SchedulerDeps = defaultSchedulerDeps): bo
 export function stopAiScheduler(): void {
   singleton?.stop();
   singleton = null;
+}
+
+export function requestImmediateFollow(symbol: string): void {
+  if (!singleton) return;
+  void singleton.resumeFollow(symbol).catch((err) => {
+    console.error(`[ai-scheduler] immediate follow ${symbol}:`, err instanceof Error ? err.message : String(err));
+  });
 }

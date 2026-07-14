@@ -42,6 +42,21 @@ export class SymbolsIpc extends IpcService implements WrapEnvelope<SymbolsApi> {
   }
 
   @IpcMethod()
+  followStatus(input: Parameters<SymbolsApi["followStatus"]>[0]) {
+    return toEnvelope("symbols.followStatus", () => symbolsService.followStatus(input));
+  }
+
+  @IpcMethod()
+  startFollow(input: Parameters<SymbolsApi["startFollow"]>[0]) {
+    return toEnvelope("symbols.startFollow", () => symbolsService.startFollow(input));
+  }
+
+  @IpcMethod()
+  stopFollow(input: Parameters<SymbolsApi["stopFollow"]>[0]) {
+    return toEnvelope("symbols.stopFollow", () => symbolsService.stopFollow(input));
+  }
+
+  @IpcMethod()
   journal(input: Parameters<SymbolsApi["journal"]>[0]) {
     return toEnvelope("symbols.journal", () => symbolsService.journal(input));
   }

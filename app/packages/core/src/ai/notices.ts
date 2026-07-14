@@ -3,6 +3,7 @@ import type { Notice } from "../../../../shared/types.js";
 type Listener = (notice: Notice) => void;
 
 const listeners = new Map<string, Set<Listener>>();
+const anyListeners = new Set<Listener>();
 
 function key(symbol: string): string {
   const normalized = symbol.trim().toUpperCase();
@@ -25,12 +26,16 @@ export function onNotice(symbol: string, listener: Listener): () => void {
   };
 }
 
+export function onAnyNotice(listener: Listener): () => void {
+  anyListeners.add(listener);
+  return () => anyListeners.delete(listener);
+}
+
 export function emitNotice(notice: Notice): void {
   const k = key(notice.symbol);
   const normalized: Notice = { ...notice, symbol: k };
   const set = listeners.get(k);
-  if (!set) return;
-  for (const listener of [...set]) {
+  for (const listener of [...(set ?? []), ...anyListeners]) {
     try {
       listener(normalized);
     } catch {

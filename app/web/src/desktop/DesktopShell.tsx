@@ -1,4 +1,5 @@
 import { Router } from "../PageRouter";
+import { GlobalNotifications } from "../GlobalNotifications";
 import { CommandPalette } from "../palette/CommandPalette";
 import { RestrictedBanner } from "../RestrictedBanner";
 import { ContextMenuHost, ModalHost } from "../ui";
@@ -11,11 +12,12 @@ export function DesktopShell() {
   return (
     <>
       <DesktopTitlebar controller={controller} />
+      <GlobalNotifications route={controller.activeTab.route} />
       <div className="desktop-content" key={controller.activeTab.id}>
         <RestrictedBanner />
         <Router />
       </div>
-      <CommandPalette />
+      <CommandPalette onOpenRoute={controller.openTab} />
       <ModalHost />
       <ContextMenuHost />
     </>
