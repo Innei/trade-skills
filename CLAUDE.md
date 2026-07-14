@@ -48,11 +48,13 @@ These skills do not fetch new kinds of data; they sequence Layer-1 calls into a 
 - **`stock-deep-dive`** — one-pass six-lens onboarding for a name you don't know (business / fundamentals / technicals / catalysts / supply-chain-peers / audit). Dispatch lenses 1–5 in **one parallel tool block** (8–12 `longbridge` calls); lens 6 audits the result.
 - **`capital-rotation`** — one-shot end-of-session scan of net flows across fixed cohorts (indices / semis / software-cloud / mega-tech), names ONE rotation narrative, writes `journal/YYYY-MM-DD-flow.md`.
 - **`market-session-tracker`** — live intraday monitoring of a watchlist across pre-market → close, with breakout verification, distribution detection, tier classification, and timestamped thesis revision.
+- **`trade-gate`** — trade decision gate for every buy/sell/add/trim: a six-layer scored buy funnel (hard gates + soft score, verdict bands ≥6/4–5/<4), a sell-trigger matrix reusing the user's existing rules (6/27 hold-plan lines A–D, the 11-item cycle-top checklist, the flush-not-clean reversal guard), and a patrol mode that runs the sell triggers across all live positions; every decision is logged to `journal/decisions/*.json`, reconciled against actual fills on the next run, and tallied into a violation ledger on request.
 
 **Routing (these three overlap — pick deliberately):**
 - Single name, first look, multiple dimensions → `stock-deep-dive`.
 - Cross-section "where is money moving today" → `capital-rotation`.
 - Live "watch this watchlist as it trades" → `market-session-tracker`.
+- 买入/卖出/加仓/减仓决策，或对持仓跑卖出触发器巡检 → `trade-gate`.
 - Only ONE lens wanted (just a quote, just news) → skip the workflow skills, call the `longbridge-*` sub-skill directly.
 
 ### Layer 3 — durable record (always the last step)
