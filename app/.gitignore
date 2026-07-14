@@ -2,6 +2,7 @@ node_modules/
 dist/
 dist-main/
 dist-preload/
+dist-skills/
 release/
 *.tsbuildinfo
 desktop/native/sparkle-bridge/vendor/

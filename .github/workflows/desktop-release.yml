@@ -94,10 +94,18 @@ jobs:
           # entry that lies about better-sqlite3 already being built for Electron's
           # ABI (see commit 39aa0f5).
           cache: pnpm
-          cache-dependency-path: app/pnpm-lock.yaml
+          cache-dependency-path: |
+            app/pnpm-lock.yaml
+            pnpm-lock.yaml
 
       - name: install dependencies
         working-directory: app
+        run: pnpm install --frozen-lockfile
+
+      # third-party skills are gitignored (pinned in skills-lock.json); the root
+      # prepare script runs `skills experimental_install` to restore them into
+      # .claude/skills so stageSkills.mjs can bundle them into the app.
+      - name: restore third-party skills (skills-lock.json)
         run: pnpm install --frozen-lockfile
 
       - name: typecheck (web, server, desktop)
