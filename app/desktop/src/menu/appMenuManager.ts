@@ -1,6 +1,7 @@
 import { Menu } from "electron";
 import { buildAppSectionWithName } from "./sections/appSection.js";
 import { buildEditSection } from "./sections/editSection.js";
+import { buildGoSection } from "./sections/goSection.js";
 import { buildHelpSection } from "./sections/helpSection.js";
 import { buildViewSection } from "./sections/viewSection.js";
 import { buildWindowSection } from "./sections/windowSection.js";
@@ -21,6 +22,7 @@ export function buildAppMenuTemplate(
     buildAppSectionWithName(appName, deps),
     buildEditSection(),
     buildViewSection(),
+    buildGoSection(deps),
     buildWindowSection(deps),
     buildHelpSection(deps),
   ];

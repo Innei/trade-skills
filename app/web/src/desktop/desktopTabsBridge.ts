@@ -4,7 +4,9 @@ export type TabsCommand =
   | "next-tab"
   | "prev-tab"
   | "open-settings"
-  | "open-logs";
+  | "open-logs"
+  | "open-research"
+  | "open-chat";
 
 export interface DesktopTabsBridge {
   onCommand(cb: (command: TabsCommand) => void): () => void;

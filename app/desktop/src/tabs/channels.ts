@@ -6,4 +6,6 @@ export type TabsCommand =
   | "next-tab"
   | "prev-tab"
   | "open-settings"
-  | "open-logs";
+  | "open-logs"
+  | "open-research"
+  | "open-chat";

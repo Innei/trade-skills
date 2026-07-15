@@ -43,21 +43,12 @@ export function AppSkeleton() {
       aria-busy="true"
       aria-label="加载中"
     >
-      {desktop ? (
+      {desktop && (
         <div className="app-skeleton-titlebar">
           <div className="app-skeleton-traffic" />
           <div className="app-skeleton-tabstrip">
             <Bone className="app-skeleton-bone--tab" />
           </div>
-          <div className="app-skeleton-actions">
-            <Bone className="app-skeleton-bone--btn" />
-            <Bone className="app-skeleton-bone--icon" />
-          </div>
-        </div>
-      ) : (
-        <div className="global-topbar app-skeleton-web-topbar" aria-hidden="true">
-          <Bone className="app-skeleton-bone--btn" />
-          <Bone className="app-skeleton-bone--icon" />
         </div>
       )}
 

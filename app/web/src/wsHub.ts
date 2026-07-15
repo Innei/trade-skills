@@ -24,11 +24,33 @@ interface ChannelSub {
 
 const RECONNECT_MS = 2_000;
 
+export type HubStatus = "idle" | "connecting" | "connected" | "reconnecting";
+
 let ws: SocketLike | null = null;
 let manualClose = false;
 let reconnectTimer: number | null = null;
 let nextKey = 0;
 const subs = new Map<string, ChannelSub>();
+
+let hubStatus: HubStatus = "idle";
+const statusListeners = new Set<() => void>();
+
+function setHubStatus(next: HubStatus): void {
+  if (hubStatus === next) return;
+  hubStatus = next;
+  for (const listener of statusListeners) listener();
+}
+
+export function getHubStatus(): HubStatus {
+  return hubStatus;
+}
+
+export function subscribeHubStatus(listener: () => void): () => void {
+  statusListeners.add(listener);
+  return () => {
+    statusListeners.delete(listener);
+  };
+}
 
 function wsUrl(): string {
   const proto = location.protocol === "https:" ? "wss" : "ws";
@@ -43,8 +65,10 @@ function connect(): void {
   if (ws || subs.size === 0) return;
   const sock = (isDesktopRealtime() ? new PortTransport() : new WebSocket(wsUrl())) as unknown as SocketLike;
   ws = sock;
+  setHubStatus(hubStatus === "reconnecting" ? "reconnecting" : "connecting");
   sock.onopen = () => {
     for (const [key, sub] of subs) sock.send(JSON.stringify({ op: "sub", key, ...sub.spec }));
+    setHubStatus("connected");
     broadcast(true);
   };
   sock.onmessage = (e) => {
@@ -59,7 +83,12 @@ function connect(): void {
   sock.onclose = () => {
     if (ws === sock) ws = null;
     broadcast(false);
-    if (!manualClose && subs.size > 0) scheduleReconnect();
+    if (!manualClose && subs.size > 0) {
+      setHubStatus("reconnecting");
+      scheduleReconnect();
+    } else {
+      setHubStatus("idle");
+    }
     manualClose = false;
   };
   sock.onerror = () => sock.close();

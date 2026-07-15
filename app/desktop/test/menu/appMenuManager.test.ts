@@ -8,6 +8,8 @@ function makeDeps(overrides: Partial<MenuActionDeps> = {}): MenuActionDeps {
     selectDataRoot: vi.fn(),
     openSettings: vi.fn(),
     openLogs: vi.fn(),
+    openResearch: vi.fn(),
+    openChat: vi.fn(),
     checkForUpdates: vi.fn(),
     newTab: vi.fn(),
     closeTab: vi.fn(),
@@ -44,15 +46,27 @@ function findByRole(
 }
 
 describe("buildAppMenuTemplate", () => {
-  it("builds app / edit / view / window / help top-level sections", () => {
+  it("builds app / edit / view / go / window / help top-level sections", () => {
     const template = buildAppMenuTemplate("Kansoku", makeDeps());
     expect(template.map((item) => item.label ?? item.role)).toEqual([
       "Kansoku",
       "编辑",
       "显示",
+      "前往",
       "窗口",
       "帮助",
     ]);
+  });
+
+  it("puts chat and research in the go menu and wires clicks to deps", () => {
+    const deps = makeDeps();
+    const goMenu = asSubmenu(buildAppMenuTemplate("Kansoku", deps)[3]);
+    expect(findByLabel(goMenu, "AI 对话").accelerator).toBe("CmdOrCtrl+L");
+    expect(findByLabel(goMenu, "研究库").accelerator).toBe("CmdOrCtrl+Shift+L");
+    findByLabel(goMenu, "AI 对话").click?.(undefined as never, undefined as never, undefined as never);
+    findByLabel(goMenu, "研究库").click?.(undefined as never, undefined as never, undefined as never);
+    expect(deps.openChat).toHaveBeenCalledOnce();
+    expect(deps.openResearch).toHaveBeenCalledOnce();
   });
 
   it("keeps about, check updates, settings, and quit in the app menu", () => {
@@ -81,7 +95,7 @@ describe("buildAppMenuTemplate", () => {
 
   it("puts logs and data tools in the help menu", () => {
     const deps = makeDeps();
-    const helpMenu = asSubmenu(buildAppMenuTemplate("Kansoku", deps)[4]);
+    const helpMenu = asSubmenu(buildAppMenuTemplate("Kansoku", deps)[5]);
     expect(findByLabel(helpMenu, "查看日志…").label).toBe("查看日志…");
     expect(findByLabel(helpMenu, "选择数据目录…").label).toBe("选择数据目录…");
     expect(findByLabel(helpMenu, "从 repo 导入数据…").label).toBe("从 repo 导入数据…");
@@ -104,7 +118,7 @@ describe("buildAppMenuTemplate", () => {
 
   it("includes tab actions and avoids role close on close-tab", () => {
     const deps = makeDeps();
-    const windowMenu = asSubmenu(buildAppMenuTemplate("Kansoku", deps)[3]);
+    const windowMenu = asSubmenu(buildAppMenuTemplate("Kansoku", deps)[4]);
     const closeTab = findByLabel(windowMenu, "关闭标签页");
     expect(closeTab).toMatchObject({
       label: "关闭标签页",
@@ -118,7 +132,7 @@ describe("buildAppMenuTemplate", () => {
 
   it("wires window tab clicks to deps", () => {
     const deps = makeDeps();
-    const windowMenu = asSubmenu(buildAppMenuTemplate("Kansoku", deps)[3]);
+    const windowMenu = asSubmenu(buildAppMenuTemplate("Kansoku", deps)[4]);
     findByLabel(windowMenu, "新建标签页").click?.(undefined as never, undefined as never, undefined as never);
     findByLabel(windowMenu, "关闭标签页").click?.(undefined as never, undefined as never, undefined as never);
     findByLabel(windowMenu, "下一个标签页").click?.(undefined as never, undefined as never, undefined as never);

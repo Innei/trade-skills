@@ -9,9 +9,15 @@ describe("buildPaletteCommands", () => {
       "symbol:MRVL.US",
       "nav:home",
       "nav:research",
+      "nav:chat",
       "nav:settings",
       "nav:logs",
     ]);
+  });
+
+  it("exposes the assistant chat through chat keywords", () => {
+    expect(buildPaletteCommands("chat", []).map((command) => command.id)).toContain("nav:chat");
+    expect(buildPaletteCommands("对话", []).map((command) => command.id)).toContain("nav:chat");
   });
 
   it("dedupes symbols across sources", () => {

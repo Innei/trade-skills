@@ -60,6 +60,8 @@ function installAppMenu(checkForUpdates: () => void): void {
       },
       openSettings: () => sendTabsCommand("open-settings"),
       openLogs: () => sendTabsCommand("open-logs"),
+      openResearch: () => sendTabsCommand("open-research"),
+      openChat: () => sendTabsCommand("open-chat"),
       checkForUpdates,
       newTab: () => sendTabsCommand("new-tab"),
       closeTab: () => sendTabsCommand("close-tab"),

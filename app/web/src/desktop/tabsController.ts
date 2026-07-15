@@ -17,6 +17,7 @@ export interface TabsController {
   focusOrOpenResearch(): void;
   focusOrOpenSettings(): void;
   focusOrOpenLogs(): void;
+  focusOrOpenChat(): void;
 }
 
 function withCurrentScrollCaptured(snapshot: TabsSnapshot): TabsSnapshot {
@@ -85,6 +86,10 @@ export function useTabsController(): TabsController {
     setSnapshot((prev) => tabsStore.focusOrOpenRoute(withCurrentScrollCaptured(prev), "/logs"));
   }, []);
 
+  const focusOrOpenChat = useCallback(() => {
+    setSnapshot((prev) => tabsStore.focusOrOpenRoute(withCurrentScrollCaptured(prev), "/chat"));
+  }, []);
+
   const closeActiveTab = useCallback(() => {
     setSnapshot((prev) => tabsStore.closeActiveTab(prev));
   }, []);
@@ -107,8 +112,10 @@ export function useTabsController(): TabsController {
       else if (command === "prev-tab") goToPrevTab();
       else if (command === "open-settings") focusOrOpenSettings();
       else if (command === "open-logs") focusOrOpenLogs();
+      else if (command === "open-research") focusOrOpenResearch();
+      else if (command === "open-chat") focusOrOpenChat();
     });
-  }, [openHomeTab, closeActiveTab, goToNextTab, goToPrevTab, focusOrOpenSettings, focusOrOpenLogs]);
+  }, [openHomeTab, closeActiveTab, goToNextTab, goToPrevTab, focusOrOpenSettings, focusOrOpenLogs, focusOrOpenResearch, focusOrOpenChat]);
 
   return {
     snapshot,
@@ -122,5 +129,6 @@ export function useTabsController(): TabsController {
     focusOrOpenResearch,
     focusOrOpenSettings,
     focusOrOpenLogs,
+    focusOrOpenChat,
   };
 }

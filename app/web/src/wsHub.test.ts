@@ -91,4 +91,24 @@ describe("wsHub reconnect regression (port transport)", () => {
 
     expect(win.ports.length).toBeGreaterThanOrEqual(3);
   });
+
+  it("tracks hub status across connect, peer death, reconnect, and idle", async () => {
+    const { subscribeChannel, getHubStatus, subscribeHubStatus } = await import("./wsHub.js");
+    const seen: string[] = [];
+    subscribeHubStatus(() => seen.push(getHubStatus()));
+
+    expect(getHubStatus()).toBe("idle");
+    const unsub = subscribeChannel({ kind: "board" }, vi.fn(), vi.fn());
+    expect(getHubStatus()).toBe("connecting");
+    await flush();
+    expect(getHubStatus()).toBe("connected");
+
+    win.ports[0].emitClose();
+    await flush();
+    expect(seen).toContain("reconnecting");
+    expect(getHubStatus()).toBe("connected");
+
+    unsub();
+    expect(getHubStatus()).toBe("idle");
+  });
 });

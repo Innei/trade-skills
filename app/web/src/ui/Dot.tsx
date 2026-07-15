@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from "react";
 
 type DotProps = {
-  tone?: "accent" | "up" | "down";
+  tone?: "accent" | "ok" | "up" | "down";
   pulse?: boolean;
 } & HTMLAttributes<HTMLSpanElement>;
 

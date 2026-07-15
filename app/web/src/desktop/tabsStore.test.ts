@@ -166,6 +166,11 @@ describe("tabKind", () => {
     expect(tabKind("/research?view=journal")).toBe("research");
   });
 
+  it("classifies chat routes", () => {
+    expect(tabKind("/chat")).toBe("chat");
+    expect(tabKind("/chat?session=abc")).toBe("chat");
+  });
+
   it("classifies logs routes", () => {
     expect(tabKind("/logs")).toBe("logs");
     expect(tabKind("/logs?x=1")).toBe("logs");

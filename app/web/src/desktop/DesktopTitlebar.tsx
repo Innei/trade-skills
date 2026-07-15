@@ -4,14 +4,17 @@ import {
   Circle,
   House,
   Library,
+  MessageCircle,
   Plus,
   ScrollText,
   Settings,
   TrendingUp,
   X,
 } from 'lucide-react'
-import { openNewChartDialog } from '../newChart/NewChartDialog'
-import { ScrollArea, showContextMenu, type ContextMenuItem } from '../ui'
+import { openSymbolDialog } from '../OpenSymbolDialog'
+import { useHubStatus } from '../useHubStatus'
+import type { HubStatus } from '../wsHub'
+import { Dot, ScrollArea, showContextMenu, Tooltip, type ContextMenuItem } from '../ui'
 import {
   getDesktopUpdaterBridge,
   isAvailableStatus,
@@ -23,6 +26,7 @@ import type { TabsController } from './tabsController'
 const TAB_ICONS: Record<ReturnType<typeof tabKind>, typeof House> = {
   home: House,
   research: Library,
+  chat: MessageCircle,
   settings: Settings,
   logs: ScrollText,
   symbol: TrendingUp,
@@ -38,17 +42,36 @@ function TabIcon({ route }: { route: string }) {
   )
 }
 
-function AddTab() {
+function AddTab({ onOpenRoute }: { onOpenRoute: (route: string) => void }) {
   return (
     <button
       type="button"
       className="desktop-tab-new"
-      aria-label="新建图表"
-      title="新建图表"
-      onClick={openNewChartDialog}
+      aria-label="打开个股"
+      title="打开个股"
+      onClick={() => openSymbolDialog(onOpenRoute)}
     >
       <Plus size={13} />
     </button>
+  )
+}
+
+const HUB_STATUS_META: Record<HubStatus, { label: string; tone?: 'accent' | 'ok'; pulse?: boolean; dim?: boolean }> = {
+  connected: { label: '行情已连接', tone: 'ok' },
+  connecting: { label: '行情连接中…', tone: 'accent' },
+  reconnecting: { label: '行情已断开，重连中…', tone: 'accent', pulse: true },
+  idle: { label: '行情空闲（当前页面无订阅）', dim: true },
+}
+
+function HubStatusDot() {
+  const status = useHubStatus()
+  const meta = HUB_STATUS_META[status]
+  return (
+    <Tooltip content={meta.label} placement="bottom">
+      <span className={`desktop-hub-status${meta.dim ? ' desktop-hub-status--dim' : ''}`}>
+        <Dot tone={meta.tone} pulse={meta.pulse} aria-label={meta.label} role="status" />
+      </span>
+    </Tooltip>
   )
 }
 
@@ -130,8 +153,7 @@ export function DesktopTitlebar({
     closeOtherTabs,
     closeTabsToRight,
     openHomeTab,
-    focusOrOpenResearch,
-    focusOrOpenSettings,
+    openTab,
   } = controller
   const updaterStatus = useUpdaterStatus()
   const showUpdateBadge = isAvailableStatus(updaterStatus)
@@ -190,7 +212,7 @@ export function DesktopTitlebar({
             onContextMenu={() => openTabMenu(tab.id, index)}
           />
         ))}
-        <AddTab />
+        <AddTab onOpenRoute={openTab} />
       </ScrollArea>
       <div className="desktop-titlebar-actions">
         {showUpdateBadge && (
@@ -206,22 +228,7 @@ export function DesktopTitlebar({
             <ArrowUpCircle size={16} />
           </button>
         )}
-        <button
-          className="global-settings-link"
-          type="button"
-          aria-label="研究库"
-          onClick={focusOrOpenResearch}
-        >
-          <Library size={16} />
-        </button>
-        <button
-          className="global-settings-link"
-          type="button"
-          aria-label="设置"
-          onClick={focusOrOpenSettings}
-        >
-          <Settings size={16} />
-        </button>
+        <HubStatusDot />
       </div>
     </div>
   )
