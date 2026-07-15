@@ -13,7 +13,7 @@ import {
 import { useHubStatus } from '../useHubStatus'
 import type { HubStatus } from '../wsHub'
 import { Dot, ScrollArea, showContextMenu, Tooltip, type ContextMenuItem } from '../ui'
-import { getPopoutBridge } from './desktopWindowsBridge'
+import { getOpenWindowBridge, getPopoutBridge } from './desktopWindowsBridge'
 import {
   getDesktopUpdaterBridge,
   isAvailableStatus,
@@ -154,6 +154,7 @@ export function DesktopTitlebar({
     const isLast = index === snapshot.tabs.length - 1
     const symbolMatch = tabKind(tab.route) === 'symbol' && tab.route.match(/^\/symbol\/(.+)$/)
     const popoutBridge = symbolMatch ? getPopoutBridge() : null
+    const openWindowBridge = getOpenWindowBridge()
     const items: ContextMenuItem[] = [
       {
         key: 'close',
@@ -181,6 +182,17 @@ export function DesktopTitlebar({
         accelerator: 'CmdOrCtrl+T',
         onClick: openHomeTab,
       },
+      ...(openWindowBridge
+        ? [
+            {
+              key: 'open-in-window',
+              label: '在新窗口中打开',
+              onClick: () => {
+                void openWindowBridge.openWindow(tabId)
+              },
+            },
+          ]
+        : []),
       ...(popoutBridge && symbolMatch
         ? [
             { type: 'divider' as const },

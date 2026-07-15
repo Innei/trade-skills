@@ -192,4 +192,27 @@ describe("createWindowManager", () => {
     expect(createPopoutWindow).toHaveBeenCalledWith("NVDA");
     expect(manager.windowCount()).toBe(0);
   });
+
+  it("opens a full window seeded with the requested active tab via the open ipc handler", async () => {
+    dir = await mkdtemp(join(tmpdir(), "window-manager-"));
+    ipcMain.handle.mockClear();
+    const manager = await createWindowManager({ userDataDir: dir, debounceMs: 10 });
+
+    const openHandler = ipcMain.handle.mock.calls.find(([channel]) => channel === "desktop:windows:open")?.[1];
+    expect(openHandler).toBeDefined();
+
+    await openHandler?.({} as never, "tab-42" as never);
+    await manager.flush();
+
+    expect(manager.windowCount()).toBe(1);
+    expect(await readWindowsJson()).toEqual([{ id: "win-1", activeTabId: "tab-42" }]);
+
+    await openHandler?.({} as never, 7 as never);
+    await manager.flush();
+
+    expect(await readWindowsJson()).toEqual([
+      { id: "win-1", activeTabId: "tab-42" },
+      { id: "win-2", activeTabId: "" },
+    ]);
+  });
 });

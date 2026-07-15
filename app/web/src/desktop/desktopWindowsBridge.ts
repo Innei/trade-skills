@@ -7,6 +7,7 @@ export interface DesktopWindowsBridge {
   getContext?(): Promise<WindowsContext | undefined>;
   reportActiveTab?(activeTabId: string): void;
   openPopout?(symbol: string): Promise<void>;
+  openWindow?(activeTabId?: string): Promise<void>;
 }
 
 interface DesktopGlobal {
@@ -29,6 +30,18 @@ export function getWindowsBridge(win: unknown = typeof window === "undefined" ? 
   const bridge = getDesktopWindowsBridge(win);
   if (!bridge || !bridge.getContext || !bridge.reportActiveTab) return null;
   return bridge as WindowsBridge;
+}
+
+export interface OpenWindowBridge {
+  openWindow(activeTabId?: string): Promise<void>;
+}
+
+export function getOpenWindowBridge(
+  win: unknown = typeof window === "undefined" ? undefined : window,
+): OpenWindowBridge | null {
+  const bridge = getDesktopWindowsBridge(win);
+  if (!bridge || !bridge.openWindow) return null;
+  return bridge as OpenWindowBridge;
 }
 
 export interface PopoutBridge {

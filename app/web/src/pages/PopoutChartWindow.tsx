@@ -1,4 +1,5 @@
 import { IntradayChartOnly } from "../charts/intraday/IntradayDashboard";
+import { getDesktopWindowsBridge } from "../desktop/desktopWindowsBridge";
 import { resolveIntradayTf } from "../charts/intraday/useIntradayDoc";
 import { useIntradayPreview } from "../charts/intraday/useIntradayPreview";
 import { TopbarQuote } from "../QuoteBar";
@@ -10,11 +11,13 @@ export function PopoutChartWindow({ sym }: { sym: string }) {
   const symLabel = sym.toUpperCase().replace(/\.US$/, "");
   const liveQuote = useLiveQuote(sym);
   const { built, error, degraded, intradayTf } = useIntradayPreview(sym);
+  const isDesktop = getDesktopWindowsBridge() !== null;
   useTitle(symLabel);
 
   return (
     <div className="popout-shell">
       <div className="popout-header">
+        {isDesktop && <div className="popout-traffic-spacer" />}
         <span className="popout-symbol">{symLabel}</span>
         {degraded && <Dot tone="accent" pulse title="数据延迟：行情拉取失败，正在重试" />}
         <TopbarQuote quote={liveQuote} />
