@@ -61,6 +61,9 @@ export async function createWindowManager(options: WindowManagerOptions): Promis
     openPopout(symbol) {
       createPopoutWindow(symbol);
     },
+    openWindow(activeTabId) {
+      openWithActiveTab(activeTabId);
+    },
   });
 
   function spawn(windowId: string, activeTabId: string): BrowserWindow {
@@ -88,10 +91,14 @@ export async function createWindowManager(options: WindowManagerOptions): Promis
     return win;
   }
 
+  function openWithActiveTab(activeTabId: string): BrowserWindow {
+    const id = nextWindowId(state.map((entry) => entry.id));
+    return spawn(id, activeTabId);
+  }
+
   return {
     openWindow(): BrowserWindow {
-      const id = nextWindowId(state.map((entry) => entry.id));
-      return spawn(id, "");
+      return openWithActiveTab("");
     },
 
     restoreWindows(): void {

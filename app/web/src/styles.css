@@ -271,7 +271,10 @@ a:hover { color: var(--accent); }
   display: flex; align-items: center; gap: 10px;
   padding: 8px 12px; background: var(--bg-surface); border-bottom: 1px solid var(--border);
   font-size: var(--fs-md); flex-shrink: 0;
+  -webkit-app-region: drag;
+  user-select: none;
 }
+.popout-traffic-spacer { flex: 0 0 66px; }
 .popout-symbol { color: var(--text-primary); font-weight: 600; }
 .popout-body { flex: 1; min-height: 0; }
 .popout-body .charts-col { border-right: none; height: 100%; }

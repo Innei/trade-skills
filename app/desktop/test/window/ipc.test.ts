@@ -30,7 +30,7 @@ describe("registerWindowsIpc", () => {
 
   it("resolves context for the calling window via getContext keyed by sender id", async () => {
     const getContext = vi.fn().mockReturnValue({ windowId: "win-1", activeTabId: "tab-a" });
-    registerWindowsIpc({ getContext, reportActiveTab: vi.fn(), openPopout: vi.fn() });
+    registerWindowsIpc({ getContext, reportActiveTab: vi.fn(), openPopout: vi.fn(), openWindow: vi.fn() });
 
     const result = await handlers.get(WINDOWS_CONTEXT_CHANNEL)?.({ sender: { id: 7 } } as never);
 
@@ -40,7 +40,7 @@ describe("registerWindowsIpc", () => {
 
   it("returns undefined when the sender is not a registered window", async () => {
     const getContext = vi.fn().mockReturnValue(undefined);
-    registerWindowsIpc({ getContext, reportActiveTab: vi.fn(), openPopout: vi.fn() });
+    registerWindowsIpc({ getContext, reportActiveTab: vi.fn(), openPopout: vi.fn(), openWindow: vi.fn() });
 
     const result = await handlers.get(WINDOWS_CONTEXT_CHANNEL)?.({ sender: { id: 99 } } as never);
 
@@ -49,7 +49,7 @@ describe("registerWindowsIpc", () => {
 
   it("forwards active-tab reports keyed by sender id", () => {
     const reportActiveTab = vi.fn();
-    registerWindowsIpc({ getContext: vi.fn(), reportActiveTab, openPopout: vi.fn() });
+    registerWindowsIpc({ getContext: vi.fn(), reportActiveTab, openPopout: vi.fn(), openWindow: vi.fn() });
 
     onHandlers.get(WINDOWS_ACTIVE_TAB_CHANNEL)?.({ sender: { id: 9 } } as never, "tab-z" as never);
 
@@ -58,7 +58,7 @@ describe("registerWindowsIpc", () => {
 
   it("opens a popout window for the requested symbol", async () => {
     const openPopout = vi.fn();
-    registerWindowsIpc({ getContext: vi.fn(), reportActiveTab: vi.fn(), openPopout });
+    registerWindowsIpc({ getContext: vi.fn(), reportActiveTab: vi.fn(), openPopout, openWindow: vi.fn() });
 
     await handlers.get(WINDOWS_POPOUT_CHANNEL)?.({ sender: { id: 1 } } as never, "NVDA" as never);
 
