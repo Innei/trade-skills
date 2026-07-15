@@ -13,7 +13,8 @@ export function __setActiveTitleSink(sink: ((title: string) => void) | null): vo
 
 export function useTitle(pageName: string | null | undefined): void {
   useEffect(() => {
+    if (pageName === undefined) return;
     document.title = pageName ? `${pageName} · ${BRAND}` : BRAND;
-    activeTitleSink?.(pageName ?? BRAND);
+    activeTitleSink?.(pageName || BRAND);
   }, [pageName]);
 }

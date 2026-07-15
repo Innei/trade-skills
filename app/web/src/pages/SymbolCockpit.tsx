@@ -70,7 +70,7 @@ export function SymbolCockpit({ sym }: { sym: string }) {
     loadHistory,
   } = useIntradayDoc(latestId);
 
-  useTitle(doc?.title ?? symLabel);
+  useTitle(doc ? doc.title || symLabel : latestChecked && !latestId ? symLabel : undefined);
 
   useEffect(() => {
     if (doc || (latestChecked && !latestId && !latestError)) recordRecentSymbol(sym);
