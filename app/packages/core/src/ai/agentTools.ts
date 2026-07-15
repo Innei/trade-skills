@@ -4,7 +4,8 @@ import { relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { Type } from "typebox";
-import { readSkill, type SkillMeta } from "../services/skills.js";
+import { skillSearchDirs } from "../env.js";
+import { loadSkillIndex, readSkill, type SkillMeta } from "../services/skills.js";
 import { textResult } from "./dataTools.js";
 
 const OUTPUT_TRUNCATE_CHARS = 30_000;
@@ -104,5 +105,29 @@ export function buildReadFileTool(repoRoot: string): AgentTool<typeof readFileSc
         return textResult(`read failed: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
+  };
+}
+
+export interface ResearchToolsOptions {
+  repoRoot: string;
+  exec?: ExecFn;
+  skillIndex?: SkillMeta[];
+  onSkillRead?: (name: string) => void;
+}
+
+export function buildResearchTools(opts: ResearchToolsOptions): {
+  tools: AgentTool[];
+  skillIndex: SkillMeta[];
+} {
+  const exec = opts.exec ?? createDefaultExec(opts.repoRoot);
+  const skillIndex = opts.skillIndex ?? loadSkillIndex(skillSearchDirs(opts.repoRoot));
+
+  return {
+    tools: [
+      buildReadSkillTool(skillIndex, opts.onSkillRead),
+      buildBashTool(exec),
+      buildReadFileTool(opts.repoRoot),
+    ],
+    skillIndex,
   };
 }
