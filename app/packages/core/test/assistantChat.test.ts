@@ -221,6 +221,37 @@ describe("assistant chat", () => {
     );
   });
 
+  it("wires transformContext to inject the skill catalog from the repo's skill index", async () => {
+    const session = await createAssistantSession({ title: "新对话" }, db);
+    write(".claude/skills/foo/SKILL.md", "---\nname: foo\ndescription: 演示技能\n---\nfoo body");
+
+    let capturedTransform: ((messages: AgentMessage[]) => Promise<AgentMessage[]>) | undefined;
+    const factory: AiAgentFactory = (config) => {
+      capturedTransform = config.transformContext;
+      return {
+        prompt: async () => {},
+        abort: () => undefined,
+        state: { messages: [...(config.messages ?? [])] },
+      };
+    };
+
+    const result = await runAssistantChatTurn(session.id, "你好", {
+      model,
+      rootDir: root,
+      db,
+      agentFactory: factory,
+      disciplineText: "# trading-discipline\n测试纪律。",
+    });
+    expect(result.started).toBe(true);
+    if (result.started) await result.done;
+
+    if (!capturedTransform) throw new Error("missing transformContext");
+    const viewed = await capturedTransform([{ role: "user", content: "hi", timestamp: 0 }]);
+    const text = JSON.stringify(viewed);
+    expect(text).toContain("<available_skills>");
+    expect(text).toContain("foo");
+  });
+
   it("includes discipline text and the @path instruction in the system prompt", async () => {
     const session = await createAssistantSession({ title: "新对话" }, db);
     let capturedSystemPrompt = "";

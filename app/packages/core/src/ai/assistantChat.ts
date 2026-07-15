@@ -1,14 +1,6 @@
-import type { AgentTool } from "@earendil-works/pi-agent-core";
+import { PROJECT_ROOT } from "../env.js";
 import type { Db } from "../db/index.js";
-import { PROJECT_ROOT, skillSearchDirs } from "../env.js";
-import { loadSkillIndex } from "../services/skills.js";
-import {
-  buildBashTool,
-  buildReadFileTool,
-  buildReadSkillTool,
-  createDefaultExec,
-  type ExecFn,
-} from "./agentTools.js";
+import { buildResearchTools, type ExecFn } from "./agentTools.js";
 import type { AiAgentFactory } from "./agentSession.js";
 import {
   appendAssistantMessages,
@@ -21,6 +13,8 @@ import {
   type ConversationPreparedTurn,
   createConversationEngine,
 } from "./conversationEngine.js";
+import { MessagesEngine } from "./messages/messageEngine.js";
+import { SkillCatalogProvider, toSkillContexts } from "./messages/sharedProviders.js";
 import { composeWithDiscipline, DisciplineMissingError, loadSharedDiscipline } from "./promptPolicy.js";
 import { buildResearchLibraryTools } from "./researchLibraryTools.js";
 import type { AiModel } from "./models.js";
@@ -69,19 +63,14 @@ function prepareTurn(
     buildTurn: async () => {
       const disciplineText = deps.disciplineText ?? loadSharedDiscipline(rootDir);
       if (!disciplineText) throw new DisciplineMissingError();
-      const exec = deps.exec ?? createDefaultExec(rootDir);
-      const skillIndex = loadSkillIndex(skillSearchDirs(rootDir));
-      const tools: AgentTool[] = [
-        buildBashTool(exec),
-        buildReadFileTool(rootDir),
-        buildReadSkillTool(skillIndex),
-        ...buildResearchLibraryTools(rootDir),
-      ];
+      const { tools: researchTools, skillIndex } = buildResearchTools({ repoRoot: rootDir, exec: deps.exec });
+      const messageEngine = new MessagesEngine([new SkillCatalogProvider(toSkillContexts(skillIndex))]);
       return {
         symbol: "ASSISTANT",
         origin: "assistant",
         systemPrompt: buildSystemPrompt(disciplineText),
-        tools,
+        tools: [...researchTools, ...buildResearchLibraryTools(rootDir)],
+        transformContext: async (messages) => (await messageEngine.process(messages)).messages,
       };
     },
   };
