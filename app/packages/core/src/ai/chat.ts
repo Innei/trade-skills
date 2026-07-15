@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { join } from "node:path";
 import type { AgentMessage, AgentTool } from "@earendil-works/pi-agent-core";
 import { Type } from "typebox";
 import type {
@@ -42,12 +41,13 @@ import {
 } from "./dataTools.js";
 import { buildReassessPack as defaultBuildReassessPack, type ReassessPack } from "./datapack.js";
 import { MessagesEngine } from "./messages/messageEngine.js";
-import { SkillCatalogProvider, type SkillContext } from "./messages/sharedProviders.js";
+import { SkillCatalogProvider, toSkillContexts } from "./messages/sharedProviders.js";
 import type { AiModel } from "./models.js";
 import {
   CHAT_DIALOG_RULES,
   CHAT_GATED_RETRY_INSTRUCTION,
   CHAT_GATED_TURN_INSTRUCTION,
+  CHAT_TOOLING_SCOPE_NOTE,
   RESEARCH_TOOLING_RULES,
 } from "./prompts.js";
 import { composeWithDiscipline, DisciplineMissingError, loadSharedDiscipline } from "./promptPolicy.js";
@@ -195,6 +195,7 @@ export function buildChatSystemPrompt(
     CHAT_DIALOG_RULES,
     "",
     RESEARCH_TOOLING_RULES,
+    CHAT_TOOLING_SCOPE_NOTE,
   ].join("\n");
 
   // Chat is where the user pushes back on a call, so it is a judgment agent: the caller loads the
@@ -354,13 +355,7 @@ function prepareTurn(
 
       const repoRoot = deps.repoRoot ?? PROJECT_ROOT;
       const { tools: researchTools, skillIndex } = buildResearchTools({ repoRoot, exec: deps.exec });
-      const skillContexts: SkillContext[] = skillIndex.map((skill) => ({
-        activated: false,
-        description: skill.description,
-        location: join(skill.dir, "SKILL.md"),
-        name: skill.name,
-      }));
-      const messageEngine = new MessagesEngine([new SkillCatalogProvider(skillContexts)]);
+      const messageEngine = new MessagesEngine([new SkillCatalogProvider(toSkillContexts(skillIndex))]);
 
       return {
         symbol,

@@ -67,8 +67,10 @@ export const RESEARCH_TOOLING_RULES = [
   "- 读美股存储链（MU/SNDK/WDC/STX/SMH 等）前先看韩国（TD-KOREA-01）：用 read_skill 加载 korea-market 后按其说明用 bash 跑脚本；宏观数据跑 `.claude/skills/fred/scripts` 下的脚本。",
   "- 项目全部技能已列在下方注入的 available_skills 里；需要某技能完整流程时用 read_skill 加载全文。",
   "- 引用工具拉到的数据要标明拉取时间与口径（TD-DATA-02）。",
-  "- draw_annotations 与 verify_directional_read 仍然只针对当前图表标的，不因这批新工具而扩大范围。",
 ].join("\n");
+
+export const CHAT_TOOLING_SCOPE_NOTE =
+  "- draw_annotations 与 verify_directional_read 仍然只针对当前图表标的，不因这批新工具而扩大范围。";
 
 export const CHAT_GATED_TURN_INSTRUCTION = [
   "【本轮触发走势核验】用户对走势下了判断。按上方 TD-VERIFY-01 执行；本环境的动作映射：",

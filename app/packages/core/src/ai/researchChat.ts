@@ -9,6 +9,7 @@ import { createResearchEditProposal } from "../modules/research/researchEdit.ser
 import { getProvider } from "../services/marketdata/registry.js";
 import { marketOf } from "../services/symbol.utils.js";
 import type { AiAgentFactory } from "./agentSession.js";
+import { buildResearchTools, type ExecFn } from "./agentTools.js";
 import type { ChatEvent } from "./chat.js";
 import {
   type ConversationPreparedTurn,
@@ -24,7 +25,9 @@ import {
   listResearchMessages,
 } from "./researchChatStore.js";
 import { BaseVirtualTailProvider, MessagesEngine, type MessagePipelineContext } from "./messages/messageEngine.js";
+import { SkillCatalogProvider, toSkillContexts } from "./messages/sharedProviders.js";
 import type { AiModel } from "./models.js";
+import { RESEARCH_TOOLING_RULES } from "./prompts.js";
 import { composeWithDiscipline, DisciplineMissingError, loadSharedDiscipline } from "./promptPolicy.js";
 
 export interface ResearchChatDeps {
@@ -36,6 +39,7 @@ export interface ResearchChatDeps {
   agentFactory?: AiAgentFactory;
   timeoutMs?: number;
   disciplineText?: string;
+  exec?: ExecFn;
 }
 
 export type ResearchChatStartResult =
@@ -87,6 +91,8 @@ function buildSystemPrompt(document: ResearchDocument, disciplineText: string): 
     "当用户明确要求修改、补充、纠错、删除或重组当前文档时，必须调用 propose_current_document_edit 生成可审阅提案。",
     "提案只是待审阅修改，不得声称文件已经写入；只有用户在界面中接受后才会落盘。",
     writePolicy,
+    "",
+    RESEARCH_TOOLING_RULES,
   ].join("\n");
   return composeWithDiscipline(disciplineText, own);
 }
@@ -164,15 +170,19 @@ function prepareTurn(path: string, document: ResearchDocument, model: AiModel, d
         .slice(0, 12);
       const disciplineText = deps.disciplineText ?? loadSharedDiscipline(rootDir);
       if (!disciplineText) throw new DisciplineMissingError();
-      const messageEngine = new MessagesEngine([new ResearchDocumentContextProvider(document, related)]);
       const buildPack = deps.buildPack ?? defaultBuildReassessPack;
       const fetchNews = deps.fetchNews ?? ((symbol: string) => getProvider(marketOf(symbol)).getNews(symbol));
       const tools = buildTools({ document, sessionId, rootDir, db: deps.db, buildPack, fetchNews });
+      const { tools: researchTools, skillIndex } = buildResearchTools({ repoRoot: rootDir, exec: deps.exec });
+      const messageEngine = new MessagesEngine([
+        new ResearchDocumentContextProvider(document, related),
+        new SkillCatalogProvider(toSkillContexts(skillIndex)),
+      ]);
       return {
         symbol: document.symbols[0] ? `${document.symbols[0]}.US` : "RESEARCH",
         origin: "research",
         systemPrompt: buildSystemPrompt(document, disciplineText),
-        tools,
+        tools: [...tools, ...researchTools],
         transformContext: async (messages) => (await messageEngine.process(messages)).messages,
       };
     },

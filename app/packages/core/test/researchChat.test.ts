@@ -1,4 +1,4 @@
-import type { AgentEvent, AgentMessage } from "@earendil-works/pi-agent-core";
+import type { AgentEvent, AgentMessage, AgentTool } from "@earendil-works/pi-agent-core";
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -197,5 +197,95 @@ describe("research chat", () => {
       content: [{ type: "text", text: "半截回答" }],
       stopReason: "aborted",
     });
+  });
+});
+
+describe("runResearchChatTurn tools and prompt", () => {
+  it("wires the research trio alongside the research-library and proposal tools", async () => {
+    write("stocks/MU.md", "# MU\n");
+    let capturedTools: AgentTool[] | undefined;
+    const factory: AiAgentFactory = (config) => {
+      capturedTools = config.tools;
+      return {
+        prompt: async () => {},
+        abort: () => {},
+        state: { messages: [...(config.messages ?? [])] },
+      };
+    };
+
+    const result = await runResearchChatTurn("stocks/MU.md", "hi", {
+      model,
+      rootDir: root,
+      db,
+      agentFactory: factory,
+      disciplineText: "# trading-discipline\n测试纪律。",
+    });
+    expect(result.started).toBe(true);
+    if (result.started) await result.done;
+
+    const names = capturedTools?.map((tool) => tool.name) ?? [];
+    expect(names).toContain("propose_current_document_edit");
+    expect(names).toContain("read_skill");
+    expect(names).toContain("bash");
+    expect(names).toContain("read_file");
+  });
+
+  it("wires transformContext to inject both the document and the skill catalog", async () => {
+    write("stocks/MU.md", "# MU\n\n笔记内容。\n");
+    const skillDir = join(root, ".claude", "skills", "foo");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "SKILL.md"), "---\nname: foo\ndescription: 演示技能\n---\nfoo body");
+
+    let capturedTransform: ((messages: AgentMessage[]) => Promise<AgentMessage[]>) | undefined;
+    const factory: AiAgentFactory = (config) => {
+      capturedTransform = config.transformContext;
+      return {
+        prompt: async () => {},
+        abort: () => {},
+        state: { messages: [...(config.messages ?? [])] },
+      };
+    };
+
+    const result = await runResearchChatTurn("stocks/MU.md", "hi", {
+      model,
+      rootDir: root,
+      db,
+      agentFactory: factory,
+      disciplineText: "# trading-discipline\n测试纪律。",
+    });
+    expect(result.started).toBe(true);
+    if (result.started) await result.done;
+
+    if (!capturedTransform) throw new Error("missing transformContext");
+    const viewed = await capturedTransform([{ role: "user", content: "hi", timestamp: 0 }]);
+    const text = JSON.stringify(viewed);
+    expect(text).toContain("<research_document");
+    expect(text).toContain("<available_skills>");
+    expect(text).toContain("foo");
+  });
+
+  it("appends the research tooling rules to the system prompt", async () => {
+    write("stocks/MU.md", "# MU\n");
+    let capturedSystemPrompt: string | undefined;
+    const factory: AiAgentFactory = (config) => {
+      capturedSystemPrompt = config.systemPrompt;
+      return {
+        prompt: async () => {},
+        abort: () => {},
+        state: { messages: [...(config.messages ?? [])] },
+      };
+    };
+
+    const result = await runResearchChatTurn("stocks/MU.md", "hi", {
+      model,
+      rootDir: root,
+      db,
+      agentFactory: factory,
+      disciplineText: "# trading-discipline\n测试纪律。",
+    });
+    expect(result.started).toBe(true);
+    if (result.started) await result.done;
+
+    expect(capturedSystemPrompt).toContain("跨标的研究工具");
   });
 });
