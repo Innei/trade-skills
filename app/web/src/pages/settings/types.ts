@@ -1,3 +1,5 @@
+import type { Market } from "../../../../shared/time";
+
 export type RoleMode = "custom" | "disabled" | "inherit";
 export type Role = "comment" | "analyst" | "deepDive" | "chat";
 
@@ -109,3 +111,6 @@ export const THINKING_LABEL: Record<string, string> = {
 export function thinkingLabel(level: string | null): string {
   return level ? (THINKING_LABEL[level] ?? level) : THINKING_LABEL.off;
 }
+
+export type { Market };
+export const MARKET_LABEL: Record<Market, string> = { US: "美股", HK: "港股", CN: "A 股" };

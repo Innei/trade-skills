@@ -15,6 +15,7 @@ import { initModelsRuntime, SINGLE_KEY_PROVIDERS } from "./modelsRuntime.js";
 import { parseModelRef } from "./models.js";
 import { createSecretBox, type SecretBox } from "./secretBox.js";
 import { type AiTaskRole, createSettingsStore, setActiveSettingsStore } from "./settingsStore.js";
+import { createWatchedMarketsStore, setActiveWatchedMarketsStore } from "./watchedMarketsStore.js";
 
 export interface AiRuntime {
   secretBox: SecretBox;
@@ -161,6 +162,7 @@ export function initAiSettings(
   runEnvImport(db, box, opts?.env ?? process.env);
   runPrimaryModelMigration(db);
   setActiveSettingsStore(createSettingsStore(db));
+  setActiveWatchedMarketsStore(createWatchedMarketsStore(db));
   const credentials = createCredentialStore(db, box, { codexAuthPath: opts?.codexAuthPath });
   const models = initModelsRuntime(credentials);
   const env = opts?.env ?? process.env;

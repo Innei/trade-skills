@@ -7,6 +7,7 @@ import type {
   ResearchRefreshReport,
   ResearchRefreshStatus,
 } from "../contract/research.js";
+import type { Market } from "../services/symbol.utils.js";
 import { index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const comments = sqliteTable(
@@ -189,4 +190,10 @@ export const appMeta = sqliteTable("app_meta", {
 export const symbolFollows = sqliteTable("symbol_follows", {
   symbol: text("symbol").primaryKey(),
   startedAt: text("started_at").notNull(),
+});
+
+export const watchedMarketsSettings = sqliteTable("watched_markets_settings", {
+  id: integer("id").primaryKey(),
+  markets: text("markets", { mode: "json" }).$type<Market[]>().notNull(),
+  updatedAt: text("updated_at").notNull(),
 });

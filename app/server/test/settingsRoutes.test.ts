@@ -10,6 +10,7 @@ import { createCredentialStore, type AppCredentialStore } from "../../packages/c
 import { SINGLE_KEY_PROVIDERS } from "../../packages/core/src/ai/modelsRuntime.js";
 import { createSecretBox, type SecretBox } from "../../packages/core/src/ai/secretBox.js";
 import { createSettingsStore, type SettingsStore } from "../../packages/core/src/ai/settingsStore.js";
+import { createWatchedMarketsStore, type WatchedMarketsStore } from "../../packages/core/src/ai/watchedMarketsStore.js";
 import { createDb, type Db } from "../../packages/core/src/db/index.js";
 import { aiUsage, providerCredentials } from "../../packages/core/src/db/schema.js";
 import { setSettingsDepsForTests } from "../src/modules/settings/settings.controller.js";
@@ -48,6 +49,7 @@ interface TestCtx {
   secretBox: SecretBox;
   credentials: AppCredentialStore;
   settingsStore: SettingsStore;
+  watchedMarketsStore: WatchedMarketsStore;
   models: MutableModels;
 }
 
@@ -58,13 +60,15 @@ function makeCtx(): TestCtx {
   const codexAuthPath = join(dir, "codex-auth.json");
   const credentials = createCredentialStore(db, secretBox, { codexAuthPath });
   const settingsStore = createSettingsStore(db);
+  const watchedMarketsStore = createWatchedMarketsStore(db);
   const models = builtinModels({ credentials });
-  return { dir, db, secretBox, credentials, settingsStore, models };
+  return { dir, db, secretBox, credentials, settingsStore, watchedMarketsStore, models };
 }
 
 function applyCtx(ctx: TestCtx, overrides: Partial<TestCtx & { testTimeoutMs: number; models: MutableModels }> = {}): void {
   setSettingsDepsForTests({
     settingsStore: ctx.settingsStore,
+    watchedMarketsStore: ctx.watchedMarketsStore,
     credentials: ctx.credentials,
     secretBox: ctx.secretBox,
     models: overrides.models ?? ctx.models,
@@ -362,6 +366,35 @@ describe("no-plaintext sweep", () => {
     for (const res of [getAi, getCatalog, testRes]) {
       expect(JSON.stringify(await res.json())).not.toContain(canary);
     }
+  });
+});
+
+describe("GET/PUT /watched-markets", () => {
+  it("GET returns the default watched markets, wrapped in {ok, data}", async () => {
+    const res = await get("/watched-markets");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.data).toEqual({ markets: ["US"] });
+  });
+
+  it("PUT persists the new set and returns it", async () => {
+    const res = await put("/watched-markets", { markets: ["US", "HK"] });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.data).toEqual({ markets: ["US", "HK"] });
+    expect(ctx.watchedMarketsStore.get()).toEqual(["US", "HK"]);
+
+    const getRes = await get("/watched-markets");
+    expect((await getRes.json()).data).toEqual({ markets: ["US", "HK"] });
+  });
+
+  it("PUT rejects an empty array", async () => {
+    const res = await put("/watched-markets", { markets: [] });
+    expect(res.status).toBe(400);
+    expect((await res.json()).ok).toBe(false);
+    expect(ctx.watchedMarketsStore.get()).toEqual(["US"]);
   });
 });
 

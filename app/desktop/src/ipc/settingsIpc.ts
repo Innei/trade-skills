@@ -50,4 +50,14 @@ export class SettingsIpc extends IpcService implements WrapEnvelope<SettingsApi>
   resetCredentials() {
     return toEnvelope("settings.resetCredentials", () => settingsService.resetCredentials());
   }
+
+  @IpcMethod()
+  getWatchedMarkets() {
+    return toEnvelope("settings.getWatchedMarkets", () => settingsService.getWatchedMarkets());
+  }
+
+  @IpcMethod()
+  putWatchedMarkets(input: Parameters<SettingsApi["putWatchedMarkets"]>[0]) {
+    return toEnvelope("settings.putWatchedMarkets", () => settingsService.putWatchedMarkets(input));
+  }
 }

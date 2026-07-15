@@ -5,12 +5,14 @@ import { getAiRuntime } from "../../ai/initAiSettings.js";
 import { getModelsRuntime } from "../../ai/modelsRuntime.js";
 import type { SecretBox } from "../../ai/secretBox.js";
 import { getActiveSettingsStore, type SettingsStore } from "../../ai/settingsStore.js";
+import { getActiveWatchedMarketsStore, type WatchedMarketsStore } from "../../ai/watchedMarketsStore.js";
 import { getDb, type Db } from "../../db/index.js";
 
 const DEFAULT_TEST_TIMEOUT_MS = 25_000;
 
 export interface SettingsDeps {
   settingsStore: SettingsStore;
+  watchedMarketsStore: WatchedMarketsStore;
   credentials: AppCredentialStore;
   secretBox: SecretBox;
   models: MutableModels;
@@ -41,6 +43,7 @@ export function setSettingsDepsForTests(overrides: Partial<SettingsDeps> | null)
 export function settingsDeps(): SettingsDeps {
   return {
     settingsStore: testDeps?.settingsStore ?? getActiveSettingsStore(),
+    watchedMarketsStore: testDeps?.watchedMarketsStore ?? getActiveWatchedMarketsStore(),
     credentials: testDeps?.credentials ?? getAiRuntime().credentials,
     secretBox: testDeps?.secretBox ?? getAiRuntime().secretBox,
     models: testDeps?.models ?? getModelsRuntime(),

@@ -1,5 +1,7 @@
 import { skillSearchDirs } from "../env.js";
+import type { Market } from "../services/symbol.utils.js";
 import { loadSkillIndex, readSkill } from "../services/skills.js";
+import { getWatchedMarketsOrDefault } from "./watchedMarketsStore.js";
 
 /**
  * Single injection point for the shared trading discipline.
@@ -38,11 +40,21 @@ export const OBSERVER_CONTRACT = [
   "- 引用任何数字都要标明它来自哪个时间点的快照。",
   "- 数据不足以支撑判断时，升级交给分析员，不要自己硬猜。",
   "- 中文白话，少用行话；确实要用的术语，紧跟一个方括号白话注解。",
-  "- 只做美股，不臆造数据，拿不到就说明。",
+  "- 市场范围跟随配置的关注市场，不臆造数据，拿不到就说明。",
 ].join("\n");
 
+export function watchedMarketsLine(markets: Market[]): string {
+  return `关注市场：${markets.join(" / ")}。全市场级扫描只覆盖这些市场；单标的分析跟随标的所在市场（TD-LANG-03）。`;
+}
+
+export function appendWatchedMarketsLine(disciplineText: string): string {
+  if (!disciplineText) return disciplineText;
+  return [disciplineText, "", watchedMarketsLine(getWatchedMarketsOrDefault())].join("\n");
+}
+
 export function loadSharedDiscipline(repoRoot: string): string | null {
-  return readSkill(loadSkillIndex(skillSearchDirs(repoRoot)), DISCIPLINE_SKILL);
+  const text = readSkill(loadSkillIndex(skillSearchDirs(repoRoot)), DISCIPLINE_SKILL);
+  return text ? appendWatchedMarketsLine(text) : null;
 }
 
 /**

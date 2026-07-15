@@ -12,6 +12,7 @@ import { ProviderCredentialsSection } from "./ProviderCredentialsSection";
 import { RoleModelsCard } from "./RoleModelsCard";
 import { SettingsStatusStrip } from "./SettingsStatusStrip";
 import { TimeDisplaySettingsCard } from "./TimeDisplaySettingsCard";
+import { WatchedMarketsCard } from "./WatchedMarketsCard";
 import { deriveSettingsViewModel } from "./settingsViewModel";
 import type {
   AiRoles,
@@ -85,6 +86,7 @@ function SettingsWorkspace({
         </div>
         <div className="settings-side-column">
           <TimeDisplaySettingsCard />
+          <WatchedMarketsCard />
           <Card className="settings-connections-card">
             <div className="settings-card-heading">
               <SectionTitle>连接</SectionTitle>

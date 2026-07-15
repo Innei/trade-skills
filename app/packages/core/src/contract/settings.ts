@@ -1,6 +1,7 @@
 import type { CredentialListEntry } from "../ai/credentialStore.js";
 import type { MasterKeyStatus } from "../ai/secretBox.js";
 import type { AiRole, RoleSetting } from "../ai/settingsStore.js";
+import type { Market } from "../services/symbol.utils.js";
 import { defineRoutes } from "./defineRoutes.js";
 
 export interface RoleSettingOut extends RoleSetting {
@@ -51,6 +52,8 @@ export interface SettingsApi {
   testConnection(input: Record<string, unknown>): Promise<TestConnectionResult>;
   getUsageToday(): Promise<UsageTodayOut>;
   resetCredentials(): Promise<{ reset: true }>;
+  getWatchedMarkets(): Promise<{ markets: Market[] }>;
+  putWatchedMarkets(input: { markets: unknown }): Promise<{ markets: Market[] }>;
 }
 
 export const settingsRoutes = defineRoutes<SettingsApi>("settings", {
@@ -63,4 +66,6 @@ export const settingsRoutes = defineRoutes<SettingsApi>("settings", {
   testConnection: { method: "POST", path: "/ai/test" },
   getUsageToday: { method: "GET", path: "/ai/usage-today" },
   resetCredentials: { method: "POST", path: "/ai/reset-credentials" },
+  getWatchedMarkets: { method: "GET", path: "/watched-markets" },
+  putWatchedMarkets: { method: "PUT", path: "/watched-markets" },
 });

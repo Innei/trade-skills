@@ -4,6 +4,7 @@ import { LOBEHUB_PROVIDER } from "../../ai/lobehub/types.js";
 import type { AiRole } from "../../ai/settingsStore.js";
 import type { AiUsageRecord } from "../../ai/usageStore.js";
 import { listUsage } from "../../ai/usageStore.js";
+import { validateWatchedMarkets } from "../../ai/watchedMarketsStore.js";
 import type { RoleSettingOut, SettingsApi } from "../../contract/settings.js";
 import { ClientError } from "../../errors.js";
 import { easternDate } from "../../services/session.js";
@@ -167,5 +168,16 @@ export const settingsService: SettingsApi = {
     });
     secretBox.resetKey();
     return { reset: true };
+  },
+
+  async getWatchedMarkets() {
+    const { watchedMarketsStore } = settingsDeps();
+    return { markets: watchedMarketsStore.get() };
+  },
+
+  async putWatchedMarkets(input) {
+    const { watchedMarketsStore } = settingsDeps();
+    watchedMarketsStore.set(validateWatchedMarkets(input.markets));
+    return { markets: watchedMarketsStore.get() };
   },
 };

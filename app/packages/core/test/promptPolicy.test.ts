@@ -1,14 +1,34 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vitest";
 import { PROJECT_ROOT, skillSearchDirs } from "../src/env.js";
 import {
   DISCIPLINE_SKILL,
   DisciplineMissingError,
+  appendWatchedMarketsLine,
   disciplineFor,
   loadSharedDiscipline,
+  watchedMarketsLine,
   withDiscipline,
 } from "../src/ai/promptPolicy.js";
+import { setActiveWatchedMarketsStore, type WatchedMarketsStore } from "../src/ai/watchedMarketsStore.js";
+import type { Market } from "../src/services/symbol.utils.js";
+
+function fakeWatchedMarketsStore(markets: Market[]): WatchedMarketsStore {
+  let current = markets;
+  let rev = 0;
+  return {
+    get: () => [...current],
+    set: (next) => {
+      current = next;
+      rev += 1;
+    },
+    revision: () => rev,
+  };
+}
+
+setActiveWatchedMarketsStore(fakeWatchedMarketsStore(["US"]));
+afterAll(() => setActiveWatchedMarketsStore(null));
 
 const discipline = loadSharedDiscipline(PROJECT_ROOT);
 
@@ -87,5 +107,35 @@ describe("no discipline text is duplicated into other skills", () => {
   it.each(FINGERPRINTS)("no skill copies %j", (fingerprint) => {
     const offenders = skillFiles.filter((s) => s.text.includes(fingerprint)).map((s) => s.name);
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("watched-markets line injection", () => {
+  afterAll(() => setActiveWatchedMarketsStore(fakeWatchedMarketsStore(["US"])));
+
+  it("appends the exact line for the active watched markets", () => {
+    setActiveWatchedMarketsStore(fakeWatchedMarketsStore(["HK"]));
+    const merged = appendWatchedMarketsLine("BASE_DISCIPLINE");
+    expect(merged).toBe(
+      "BASE_DISCIPLINE\n\n关注市场：HK。全市场级扫描只覆盖这些市场；单标的分析跟随标的所在市场（TD-LANG-03）。",
+    );
+  });
+
+  it("joins multiple markets with a slash", () => {
+    expect(watchedMarketsLine(["US", "HK", "CN"])).toBe(
+      "关注市场：US / HK / CN。全市场级扫描只覆盖这些市场；单标的分析跟随标的所在市场（TD-LANG-03）。",
+    );
+  });
+
+  it("leaves an empty discipline text untouched", () => {
+    expect(appendWatchedMarketsLine("")).toBe("");
+  });
+
+  it("loadSharedDiscipline includes the watched-markets line for the active store", () => {
+    setActiveWatchedMarketsStore(fakeWatchedMarketsStore(["HK"]));
+    const text = loadSharedDiscipline(PROJECT_ROOT);
+    expect(text).toContain(
+      "关注市场：HK。全市场级扫描只覆盖这些市场；单标的分析跟随标的所在市场（TD-LANG-03）。",
+    );
   });
 });

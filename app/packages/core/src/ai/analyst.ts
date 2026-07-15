@@ -15,7 +15,7 @@ import { createChart } from "../services/store.js";
 import { AgentTimeoutError, type AiAgentFactory, createAgentSession } from "./agentSession.js";
 import { AnalystMessagesEngine, type AnalystSkillContext } from "./messages/analystMessagesEngine.js";
 import { ANALYST_ADAPTER_PROMPT, ANALYST_RETRY_PROMPT, ANALYST_SYSTEM_PROMPT } from "./prompts.js";
-import { DISCIPLINE_SKILL, DisciplineMissingError } from "./promptPolicy.js";
+import { appendWatchedMarketsLine, DISCIPLINE_SKILL, DisciplineMissingError } from "./promptPolicy.js";
 import {
   buildBashTool,
   buildReadFileTool,
@@ -392,7 +392,7 @@ export async function executeAnalystRun(symbol: string, deps: AnalystDeps): Prom
     return;
   }
 
-  const disciplineText = deps.disciplineText ?? readSkill(skillIndex, DISCIPLINE_SKILL);
+  const disciplineText = deps.disciplineText ?? appendWatchedMarketsLine(readSkill(skillIndex, DISCIPLINE_SKILL) ?? "");
   if (!disciplineText) {
     await writeError(new DisciplineMissingError().message);
     return;

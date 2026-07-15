@@ -18,7 +18,7 @@ A personal **US-equities trading journal**, not a software product. The repo is 
 
 **持仓相关不要问用户，直接查长桥**（TD-BROKER-01）。
 
-**US markets only**（TD-LANG-03）。
+**市场范围跟随配置，默认 US**（TD-LANG-03；个人配置在 `journal/personal.md`）。
 
 ## Architecture — three layers
 

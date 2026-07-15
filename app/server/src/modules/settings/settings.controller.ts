@@ -60,4 +60,16 @@ export class SettingsController {
     const data = await settingsService.resetCredentials();
     return { ok: true, data };
   }
+
+  @Get("/watched-markets")
+  async getWatchedMarkets() {
+    const data = await settingsService.getWatchedMarkets();
+    return { ok: true, data };
+  }
+
+  @Put("/watched-markets")
+  async putWatchedMarkets(@Body() body: { markets?: unknown } | null) {
+    const data = await settingsService.putWatchedMarkets({ markets: body?.markets });
+    return { ok: true, data };
+  }
 }
