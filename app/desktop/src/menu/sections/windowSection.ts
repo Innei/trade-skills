@@ -6,6 +6,11 @@ export function buildWindowSection(deps: MenuActionDeps): MenuItemConstructorOpt
     label: "窗口",
     submenu: [
       {
+        label: "新建窗口",
+        accelerator: "CmdOrCtrl+N",
+        click: () => deps.newWindow(),
+      },
+      {
         label: "新建标签页",
         accelerator: "CmdOrCtrl+T",
         click: () => deps.newTab(),

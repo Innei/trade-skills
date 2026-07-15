@@ -14,6 +14,7 @@ export const WINDOW_BG = "#0a0a0a";
 
 export type CreateWindowOptions = {
   onFocus?: () => void;
+  stateFileName?: string;
 };
 
 export function createWindow(options: CreateWindowOptions = {}): BrowserWindow {
@@ -22,6 +23,7 @@ export function createWindow(options: CreateWindowOptions = {}): BrowserWindow {
     defaultHeight: 900,
     maximize: false,
     fullScreen: false,
+    ...(options.stateFileName ? { file: options.stateFileName } : {}),
   });
   const win = new BrowserWindow({
     x: windowState.x,

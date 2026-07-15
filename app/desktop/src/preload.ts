@@ -5,6 +5,8 @@ import { IPC_GROUPS } from "./ipc/groups.js";
 import { TABS_COMMAND_CHANNEL, TABS_GET_CHANNEL, TABS_MUTATE_CHANNEL, TABS_SNAPSHOT_CHANNEL, type TabsCommand } from "./tabs/channels.js";
 import type { MutateOp, TabsState } from "./tabs/store.js";
 import { UPDATER_CHANNELS } from "./updater/channels.js";
+import { WINDOWS_ACTIVE_TAB_CHANNEL, WINDOWS_CONTEXT_CHANNEL } from "./window/channels.js";
+import type { WindowsContext } from "./window/ipc.js";
 
 // main.ts boots one embedded kernel regardless of dev or packaged mode, so
 // both the packaged app:// page and the dev renderer (ELECTRON_DEV=1, served
@@ -67,6 +69,13 @@ if (isPrivilegedOrigin) {
       const listener = (_event: Electron.IpcRendererEvent, snapshot: TabsState) => cb(snapshot);
       ipcRenderer.on(TABS_SNAPSHOT_CHANNEL, listener);
       return () => ipcRenderer.removeListener(TABS_SNAPSHOT_CHANNEL, listener);
+    },
+  };
+
+  desktopApi.windows = {
+    getContext: (): Promise<WindowsContext | undefined> => ipcRenderer.invoke(WINDOWS_CONTEXT_CHANNEL),
+    reportActiveTab: (activeTabId: string): void => {
+      ipcRenderer.send(WINDOWS_ACTIVE_TAB_CHANNEL, activeTabId);
     },
   };
 

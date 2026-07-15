@@ -11,6 +11,7 @@ function makeDeps(overrides: Partial<MenuActionDeps> = {}): MenuActionDeps {
     openResearch: vi.fn(),
     openChat: vi.fn(),
     checkForUpdates: vi.fn(),
+    newWindow: vi.fn(),
     newTab: vi.fn(),
     closeTab: vi.fn(),
     nextTab: vi.fn(),
@@ -133,10 +134,12 @@ describe("buildAppMenuTemplate", () => {
   it("wires window tab clicks to deps", () => {
     const deps = makeDeps();
     const windowMenu = asSubmenu(buildAppMenuTemplate("Kansoku", deps)[4]);
+    findByLabel(windowMenu, "新建窗口").click?.(undefined as never, undefined as never, undefined as never);
     findByLabel(windowMenu, "新建标签页").click?.(undefined as never, undefined as never, undefined as never);
     findByLabel(windowMenu, "关闭标签页").click?.(undefined as never, undefined as never, undefined as never);
     findByLabel(windowMenu, "下一个标签页").click?.(undefined as never, undefined as never, undefined as never);
     findByLabel(windowMenu, "上一个标签页").click?.(undefined as never, undefined as never, undefined as never);
+    expect(deps.newWindow).toHaveBeenCalledOnce();
     expect(deps.newTab).toHaveBeenCalledOnce();
     expect(deps.closeTab).toHaveBeenCalledOnce();
     expect(deps.nextTab).toHaveBeenCalledOnce();

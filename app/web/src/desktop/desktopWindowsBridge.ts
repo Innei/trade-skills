@@ -1,0 +1,31 @@
+export interface WindowsContext {
+  windowId: string;
+  activeTabId: string;
+}
+
+export interface DesktopWindowsBridge {
+  getContext?(): Promise<WindowsContext | undefined>;
+  reportActiveTab?(activeTabId: string): void;
+}
+
+interface DesktopGlobal {
+  windows?: DesktopWindowsBridge;
+}
+
+export function getDesktopWindowsBridge(
+  win: unknown = typeof window === "undefined" ? undefined : window,
+): DesktopWindowsBridge | null {
+  const bridge = (win as { desktop?: DesktopGlobal } | undefined)?.desktop?.windows;
+  return bridge ?? null;
+}
+
+export interface WindowsBridge {
+  getContext(): Promise<WindowsContext | undefined>;
+  reportActiveTab(activeTabId: string): void;
+}
+
+export function getWindowsBridge(win: unknown = typeof window === "undefined" ? undefined : window): WindowsBridge | null {
+  const bridge = getDesktopWindowsBridge(win);
+  if (!bridge || !bridge.getContext || !bridge.reportActiveTab) return null;
+  return bridge as WindowsBridge;
+}

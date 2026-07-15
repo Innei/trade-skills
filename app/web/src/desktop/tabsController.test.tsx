@@ -71,6 +71,19 @@ function applyOp(tabs: TabState[], op: TabsMutateOp): TabState[] {
   }
 }
 
+class FakeWindowsBridge {
+  context: { windowId: string; activeTabId: string } | undefined;
+  reportedActiveTabIds: string[] = [];
+
+  async getContext() {
+    return this.context;
+  }
+
+  reportActiveTab(activeTabId: string) {
+    this.reportedActiveTabIds.push(activeTabId);
+  }
+}
+
 function Probe({ onReady }: { onReady: (controller: TabsController) => void }) {
   const controller = useTabsController();
   onReady(controller);
@@ -204,6 +217,60 @@ describe("useTabsController with shared bridge", () => {
     await waitFor(() => {
       expect(getController().snapshot.tabs).toHaveLength(2);
       expect(getController().snapshot.activeTabId).toBe("b");
+    });
+  });
+});
+
+describe("useTabsController with a per-window context bridge", () => {
+  let bridge: FakeBridge;
+  let windowsBridge: FakeWindowsBridge;
+
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    bridge = new FakeBridge();
+    windowsBridge = new FakeWindowsBridge();
+    (window as unknown as { desktop: unknown }).desktop = { tabs: bridge, windows: windowsBridge };
+  });
+
+  afterEach(() => {
+    cleanup();
+    delete (window as unknown as { desktop?: unknown }).desktop;
+  });
+
+  it("prefers the window context activeTabId over sessionStorage", async () => {
+    sessionStorage.setItem("desktop-active-tab-v1", "a");
+    windowsBridge.context = { windowId: "win-2", activeTabId: "b" };
+    bridge.seed([makeTab("/", "a"), makeTab("/settings", "b")]);
+    const getController = renderController();
+
+    await waitFor(() => {
+      expect(getController().snapshot.tabs).toHaveLength(2);
+      expect(getController().snapshot.activeTabId).toBe("b");
+    });
+  });
+
+  it("falls back to sessionStorage when the window context has no active tab", async () => {
+    sessionStorage.setItem("desktop-active-tab-v1", "b");
+    windowsBridge.context = { windowId: "win-2", activeTabId: "" };
+    bridge.seed([makeTab("/", "a"), makeTab("/settings", "b")]);
+    const getController = renderController();
+
+    await waitFor(() => {
+      expect(getController().snapshot.tabs).toHaveLength(2);
+      expect(getController().snapshot.activeTabId).toBe("b");
+    });
+  });
+
+  it("reports active-tab changes to the window bridge", async () => {
+    bridge.seed([makeTab("/", "a"), makeTab("/settings", "b")]);
+    const getController = renderController();
+    await waitFor(() => expect(getController().snapshot.tabs).toHaveLength(2));
+
+    act(() => getController().activateTab("b"));
+
+    await waitFor(() => {
+      expect(windowsBridge.reportedActiveTabIds).toContain("b");
     });
   });
 });

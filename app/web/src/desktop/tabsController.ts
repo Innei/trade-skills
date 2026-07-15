@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createMemoryRouteStore, __setActiveRouteStore, type RouteStore } from "../router";
 import { __setActiveTitleSink } from "../useTitle";
 import { getDesktopTabsBridge, getSharedTabsBridge, type SharedTabsBridge, type TabsSnapshot as SharedSnapshot } from "./desktopTabsBridge";
+import { getWindowsBridge } from "./desktopWindowsBridge";
 import * as tabsStore from "./tabsStore";
 import { loadTabsSnapshot, saveTabsSnapshot, type TabsSnapshot, type TabState } from "./tabsStore";
 
@@ -106,13 +107,24 @@ export function useTabsController(): TabsController {
 
   useEffect(() => {
     if (!bridge) return;
+    const activeBridge = bridge;
     let cancelled = false;
 
-    const unsubscribe = bridge.onSnapshot((next) => {
+    const unsubscribe = activeBridge.onSnapshot((next) => {
       if (!cancelled) applySnapshot(next);
     });
 
-    void bridge.getSnapshot().then(async (initial) => {
+    const windowsBridge = getWindowsBridge();
+
+    async function bootstrap(): Promise<void> {
+      if (windowsBridge) {
+        const context = await windowsBridge.getContext().catch(() => undefined);
+        if (!cancelled && context?.activeTabId) {
+          setSnapshot((prev) => ({ ...prev, activeTabId: context.activeTabId }));
+        }
+      }
+
+      const initial = await activeBridge.getSnapshot();
       if (cancelled) return;
       if (initial.tabs.length > 0) {
         applySnapshot(initial);
@@ -120,10 +132,12 @@ export function useTabsController(): TabsController {
       }
       const legacy = readLegacyTabs();
       const result = legacy
-        ? await bridge.mutate({ op: "adopt", tabs: legacy })
-        : await bridge.mutate({ op: "open", route: "/" });
+        ? await activeBridge.mutate({ op: "adopt", tabs: legacy })
+        : await activeBridge.mutate({ op: "open", route: "/" });
       if (!cancelled) applySnapshot(result);
-    });
+    }
+
+    void bootstrap();
 
     return () => {
       cancelled = true;
@@ -133,7 +147,10 @@ export function useTabsController(): TabsController {
 
   useEffect(() => {
     if (bridge) {
-      if (snapshot.activeTabId) writeActiveTabId(snapshot.activeTabId);
+      if (snapshot.activeTabId) {
+        writeActiveTabId(snapshot.activeTabId);
+        getWindowsBridge()?.reportActiveTab(snapshot.activeTabId);
+      }
       return;
     }
     saveTabsSnapshot(snapshot);

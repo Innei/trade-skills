@@ -12,7 +12,7 @@ import { app, BrowserWindow } from "electron";
 import { createServices } from "electron-ipc-decorator";
 import { createAppMenuManager } from "./menu/appMenuManager.js";
 import { bootKernel } from "./boot/kernel.js";
-import { createWindow } from "./window/mainWindow.js";
+import { createWindowManager } from "./window/windowManager.js";
 import { showFatalErrorWindow } from "./window/fatalErrorWindow.js";
 import { applyDevDockIcon } from "./window/dockIcon.js";
 import { registerAppProtocolHandler, registerAppScheme, resolveWebDistRoot } from "./protocol/protocol.js";
@@ -47,7 +47,7 @@ console.log(`[desktop] logging to ${fileLogger.path}`);
 // grows into.
 registerAppScheme();
 
-function installAppMenu(checkForUpdates: () => void): void {
+function installAppMenu(checkForUpdates: () => void, openWindow: () => void): void {
   createAppMenuManager({
     appName: app.name,
     deps: {
@@ -66,6 +66,7 @@ function installAppMenu(checkForUpdates: () => void): void {
       openResearch: () => sendTabsCommand("open-research"),
       openChat: () => sendTabsCommand("open-chat"),
       checkForUpdates,
+      newWindow: openWindow,
       newTab: () => sendTabsCommand("new-tab"),
       closeTab: () => sendTabsCommand("close-tab"),
       nextTab: () => sendTabsCommand("next-tab"),
@@ -96,15 +97,19 @@ app.whenReady().then(async () => {
 
     const updater = initUpdater();
     registerUpdaterIpc(updater);
-    installAppMenu(() => updater.checkNow());
-    const openMainWindow = () =>
-      createWindow({
-        onFocus: () => updater.silentCheckOnActivate(),
-      });
-    openMainWindow();
+
+    const windowManager = await createWindowManager({
+      userDataDir: app.getPath("userData"),
+      onWindowFocus: () => updater.silentCheckOnActivate(),
+    });
+    installAppMenu(
+      () => updater.checkNow(),
+      () => windowManager.openWindow(),
+    );
+    windowManager.restoreWindows();
 
     app.on("activate", () => {
-      if (BrowserWindow.getAllWindows().length === 0) openMainWindow();
+      if (windowManager.windowCount() === 0) windowManager.restoreWindows();
     });
   } catch (error) {
     showFatalErrorWindow(error);
