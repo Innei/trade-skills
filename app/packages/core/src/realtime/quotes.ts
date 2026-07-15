@@ -29,7 +29,7 @@ export function normalizeQuote(q: RawQuote, nowMs: number): QuoteCell {
         symbol: q.symbol,
         session: label,
         last,
-        pct: prev ? (last / prev - 1) * 100 : 0,
+        pct: prev ? (last / prev - 1) * 100 : null,
         regularLast,
         regularPct,
       };

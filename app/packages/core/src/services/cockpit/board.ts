@@ -31,7 +31,7 @@ export function latestPerSymbol(metas: ChartMeta[]): Map<string, ChartMeta> {
 export function boardRow(
   meta: ChartMeta,
   doc: ChartDoc | null,
-  quote: { last: number; pct: number; session: string } | null,
+  quote: { last: number; pct: number | null; session: string } | null,
   comments: CockpitComment[],
   following: boolean,
   chartUrl: (doc: ChartUrlDoc) => string,

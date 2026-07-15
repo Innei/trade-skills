@@ -11,12 +11,14 @@ import {
   TRADE_SESSION_PRE,
   type ProtocolQuote,
 } from "./longbridgeProtocol.js";
-import { LongbridgeQuoteSocket } from "./longbridgeSocket.js";
+import type { LongbridgeQuoteSocket } from "./longbridgeSocket.js";
+import { getSharedQuoteSocket } from "./sharedSocket.js";
 import type { CandleListener, QuoteListener, QuoteStream } from "./quoteStream.js";
 
 export type { CandleBar, CandlePeriod };
 
 const PREV_CLOSE_TTL_MS = 30 * 60_000;
+const PREV_CLOSE_RETRY_MS = 60_000;
 
 type PrevCloseCache = {
   regular: number;
@@ -26,8 +28,8 @@ type PrevCloseCache = {
   fetchedAt: number;
 };
 
-function pctOf(last: number, prev: number): number {
-  return prev ? (last / prev - 1) * 100 : 0;
+function pctOf(last: number, prev: number): number | null {
+  return prev ? (last / prev - 1) * 100 : null;
 }
 
 function candleKey(symbol: string, period: CandlePeriod): string {
@@ -47,15 +49,17 @@ export class LongbridgeStream implements QuoteStream {
   private readonly aggregator: CandleAggregator;
   private snapshots = new Map<string, QuoteCell>();
   private prevCloseCache = new Map<string, PrevCloseCache>();
-  private lastRegular = new Map<string, { last: number; pct: number }>();
+  private lastRegular = new Map<string, { last: number; pct: number | null }>();
+  private lastPush = new Map<string, ProtocolQuote>();
   private quoteRefs = new Map<string, number>();
   private listeners = new Set<QuoteListener>();
   private candleRefs = new Map<string, number>();
   private candleListeners = new Map<string, Set<CandleListener>>();
   private prevCloseTimer: ReturnType<typeof setInterval> | null = null;
+  private prevCloseRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(deps: LongbridgeStreamDeps = {}) {
-    this.socket = deps.socket ?? new LongbridgeQuoteSocket();
+    this.socket = deps.socket ?? getSharedQuoteSocket();
     this.aggregator = new CandleAggregator((bar) => this.dispatchCandle(bar));
     this.socket.onQuote((quote) => {
       this.handleQuotePush(quote);
@@ -66,6 +70,14 @@ export class LongbridgeStream implements QuoteStream {
 
   private handleQuotePush(quote: ProtocolQuote): void {
     if (quote.tag === 1) return;
+    this.lastPush.set(quote.symbol, quote);
+    const cell = this.buildCell(quote);
+    if (cell.pct === null) this.schedulePrevCloseRetry();
+    this.snapshots.set(quote.symbol, cell);
+    for (const listener of this.listeners) listener(cell);
+  }
+
+  private buildCell(quote: ProtocolQuote): QuoteCell {
     const prev = this.prevCloseCache.get(quote.symbol);
     let prevClose = prev?.regular ?? 0;
     if (quote.tradeSession === TRADE_SESSION_PRE) prevClose = prev?.pre || prevClose;
@@ -76,7 +88,7 @@ export class LongbridgeStream implements QuoteStream {
     const regular = this.lastRegular.get(quote.symbol);
     const labelTs = quote.timestamp > 0 ? quote.timestamp : Math.floor(Date.now() / 1000);
     const market = marketOf(quote.symbol);
-    const cell: QuoteCell = {
+    return {
       symbol: quote.symbol,
       session: sessionLabel(classifySession(labelTs, market), market),
       last: quote.lastDone,
@@ -85,8 +97,6 @@ export class LongbridgeStream implements QuoteStream {
       regularPct: regular?.pct ?? pct,
       ...(quote.timestamp > 0 ? { asOf: new Date(quote.timestamp * 1000).toISOString() } : {}),
     };
-    this.snapshots.set(quote.symbol, cell);
-    for (const listener of this.listeners) listener(cell);
   }
 
   private async refreshSnapshots(symbols: string[]): Promise<void> {
@@ -105,7 +115,8 @@ export class LongbridgeStream implements QuoteStream {
       });
       const regularCell = { last, pct: pctOf(last, regular) };
       this.lastRegular.set(row.symbol, regularCell);
-      if (!this.snapshots.has(row.symbol)) {
+      const snapshot = this.snapshots.get(row.symbol);
+      if (!snapshot) {
         this.snapshots.set(row.symbol, {
           symbol: row.symbol,
           session: "日盘",
@@ -114,6 +125,13 @@ export class LongbridgeStream implements QuoteStream {
           regularLast: last,
           regularPct: regularCell.pct,
         });
+      } else if (snapshot.pct === null) {
+        const push = this.lastPush.get(row.symbol);
+        if (push) {
+          const cell = this.buildCell(push);
+          this.snapshots.set(row.symbol, cell);
+          for (const listener of this.listeners) listener(cell);
+        }
       }
     }
   }
@@ -126,10 +144,32 @@ export class LongbridgeStream implements QuoteStream {
       if (count === 1) fresh.push(symbol);
     }
     if (!fresh.length) return;
-    await Promise.all([this.socket.subscribe(fresh, [SUB_TYPE_QUOTE]), this.refreshSnapshots(fresh)]);
-    if (!this.prevCloseTimer) {
-      this.prevCloseTimer = setInterval(() => void this.refreshSnapshots([...this.quoteRefs.keys()]).catch(() => {}), PREV_CLOSE_TTL_MS);
+    this.startPrevCloseTimer();
+    const [subscribed, refreshed] = await Promise.allSettled([
+      this.socket.subscribe(fresh, [SUB_TYPE_QUOTE]),
+      this.refreshSnapshots(fresh),
+    ]);
+    if (refreshed.status === "rejected") {
+      const reason = refreshed.reason instanceof Error ? refreshed.reason.message : String(refreshed.reason);
+      console.warn("[longbridge-stream] prev-close snapshot failed, will retry:", reason);
+      this.schedulePrevCloseRetry();
     }
+    if (subscribed.status === "rejected") throw subscribed.reason;
+  }
+
+  private startPrevCloseTimer(): void {
+    if (this.prevCloseTimer) return;
+    this.prevCloseTimer = setInterval(() => void this.refreshSnapshots([...this.quoteRefs.keys()]).catch(() => {}), PREV_CLOSE_TTL_MS);
+  }
+
+  private schedulePrevCloseRetry(): void {
+    if (this.prevCloseRetryTimer) return;
+    this.prevCloseRetryTimer = setTimeout(() => {
+      this.prevCloseRetryTimer = null;
+      const missing = [...this.quoteRefs.keys()].filter((symbol) => !this.prevCloseCache.has(symbol));
+      if (!missing.length) return;
+      void this.refreshSnapshots(missing).catch(() => this.schedulePrevCloseRetry());
+    }, PREV_CLOSE_RETRY_MS);
   }
 
   async release(symbols: string[]): Promise<void> {
@@ -148,10 +188,17 @@ export class LongbridgeStream implements QuoteStream {
       this.snapshots.delete(symbol);
       this.prevCloseCache.delete(symbol);
       this.lastRegular.delete(symbol);
+      this.lastPush.delete(symbol);
     }
-    if (this.quoteRefs.size === 0 && this.prevCloseTimer) {
-      clearInterval(this.prevCloseTimer);
-      this.prevCloseTimer = null;
+    if (this.quoteRefs.size === 0) {
+      if (this.prevCloseTimer) {
+        clearInterval(this.prevCloseTimer);
+        this.prevCloseTimer = null;
+      }
+      if (this.prevCloseRetryTimer) {
+        clearTimeout(this.prevCloseRetryTimer);
+        this.prevCloseRetryTimer = null;
+      }
     }
   }
 

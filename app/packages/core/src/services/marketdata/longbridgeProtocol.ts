@@ -1,14 +1,40 @@
 import { gunzipSync } from "node:zlib";
+import type { RawBar } from "../../../../../shared/types.js";
+import type { ExtendedQuote, RawQuote } from "./types.js";
 
 export const COMMAND_AUTH = 2;
 export const COMMAND_RECONNECT = 3;
 export const COMMAND_SUBSCRIBE = 6;
 export const COMMAND_UNSUBSCRIBE = 7;
+export const COMMAND_QUERY_SECURITY_QUOTE = 11;
+export const COMMAND_QUERY_CANDLESTICK = 19;
 export const COMMAND_PUSH_QUOTE = 101;
 export const COMMAND_PUSH_TRADE = 104;
 
 export const SUB_TYPE_QUOTE = 1;
 export const SUB_TYPE_TRADE = 4;
+
+export const TRADE_SESSIONS_INTRADAY = 0;
+export const TRADE_SESSIONS_ALL = 100;
+
+const CANDLESTICK_PERIODS: Record<string, number> = {
+  "1m": 1,
+  "5m": 5,
+  "15m": 15,
+  "30m": 30,
+  "60m": 60,
+  "1h": 60,
+  day: 1000,
+  week: 2000,
+  month: 3000,
+  year: 4000,
+};
+
+export function candlestickPeriod(period: string): number {
+  const value = CANDLESTICK_PERIODS[period];
+  if (!value) throw new Error(`Unsupported candlestick period: ${period}`);
+  return value;
+}
 
 export const TRADE_SESSION_INTRADAY = 0;
 export const TRADE_SESSION_PRE = 1;
@@ -135,6 +161,19 @@ export function encodeUnsubscribeRequest(symbols: string[], subTypes: number[], 
   ]);
 }
 
+export function encodeMultiSecurityRequest(symbols: string[]): Uint8Array {
+  return concat(symbols.map((symbol) => fieldString(1, symbol)));
+}
+
+export function encodeCandlestickRequest(symbol: string, period: number, count: number, tradeSessions: number): Uint8Array {
+  return concat([
+    fieldString(1, symbol),
+    fieldVarint(2, period),
+    fieldVarint(3, count),
+    ...(tradeSessions ? [fieldVarint(5, tradeSessions)] : []),
+  ]);
+}
+
 interface Field {
   number: number;
   wire: number;
@@ -251,6 +290,76 @@ function decodeTrade(body: Uint8Array): ProtocolTrade {
     timestamp: numberValue(get(3)),
     tradeSession: numberValue(get(6)),
   };
+}
+
+function bytesValue(field: Field | undefined): Uint8Array | null {
+  return field?.value instanceof Uint8Array ? field.value : null;
+}
+
+function isoTime(seconds: number): string {
+  return new Date(seconds * 1000).toISOString();
+}
+
+function decodePrePostQuote(body: Uint8Array): ExtendedQuote {
+  const decoded = fields(body);
+  const get = (number: number) => decoded.find((field) => field.number === number);
+  const timestamp = numberValue(get(2));
+  const last = stringValue(get(1));
+  const prevClose = stringValue(get(7));
+  return {
+    ...(last ? { last } : {}),
+    ...(prevClose ? { prev_close: prevClose } : {}),
+    ...(timestamp > 0 ? { timestamp: isoTime(timestamp) } : {}),
+  };
+}
+
+function changePercentage(last: string, prevClose: string): string {
+  const lastNum = Number(last);
+  const prev = Number(prevClose);
+  if (!prev || !Number.isFinite(lastNum) || !Number.isFinite(prev)) return "0";
+  return ((lastNum / prev - 1) * 100).toFixed(3);
+}
+
+function decodeSecurityQuote(body: Uint8Array): RawQuote {
+  const decoded = fields(body);
+  const get = (number: number) => decoded.find((field) => field.number === number);
+  const last = stringValue(get(2));
+  const prevClose = stringValue(get(3));
+  const pre = bytesValue(get(11));
+  const post = bytesValue(get(12));
+  const overnight = bytesValue(get(13));
+  return {
+    symbol: stringValue(get(1)),
+    last,
+    prev_close: prevClose,
+    change_percentage: changePercentage(last, prevClose),
+    ...(pre ? { pre_market: decodePrePostQuote(pre) } : {}),
+    ...(post ? { post_market: decodePrePostQuote(post) } : {}),
+    ...(overnight ? { overnight: decodePrePostQuote(overnight) } : {}),
+  };
+}
+
+export function decodeSecurityQuoteResponse(body: Uint8Array): RawQuote[] {
+  return fields(body)
+    .filter((field) => field.number === 1 && field.value instanceof Uint8Array)
+    .map((field) => decodeSecurityQuote(field.value as Uint8Array));
+}
+
+export function decodeCandlestickResponse(body: Uint8Array): RawBar[] {
+  return fields(body)
+    .filter((field) => field.number === 2 && field.value instanceof Uint8Array)
+    .map((field) => {
+      const decoded = fields(field.value as Uint8Array);
+      const get = (number: number) => decoded.find((item) => item.number === number);
+      return {
+        time: isoTime(numberValue(get(7))),
+        open: Number(stringValue(get(2))),
+        high: Number(stringValue(get(4))),
+        low: Number(stringValue(get(3))),
+        close: Number(stringValue(get(1))),
+        volume: numberValue(get(5)),
+      };
+    });
 }
 
 export function decodePushTrades(body: Uint8Array): ProtocolTradePush {

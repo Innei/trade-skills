@@ -1,23 +1,36 @@
+import type { RawBar } from "../../../../../shared/types.js";
 import { readLongbridgeToken, type LongbridgeToken } from "../longbridgeToken.js";
+import type { RawQuote } from "./types.js";
 import {
+  candlestickPeriod,
   COMMAND_AUTH,
   COMMAND_PUSH_QUOTE,
   COMMAND_PUSH_TRADE,
+  COMMAND_QUERY_CANDLESTICK,
+  COMMAND_QUERY_SECURITY_QUOTE,
   COMMAND_RECONNECT,
   COMMAND_SUBSCRIBE,
   COMMAND_UNSUBSCRIBE,
+  decodeCandlestickResponse,
   decodePacket,
   decodePushQuote,
   decodePushTrades,
+  decodeSecurityQuoteResponse,
   decodeSessionResponse,
   encodeAuthRequest,
+  encodeCandlestickRequest,
+  encodeMultiSecurityRequest,
   encodeReconnectRequest,
   encodeRequest,
   encodeSubscribeRequest,
   encodeUnsubscribeRequest,
+  TRADE_SESSIONS_ALL,
+  TRADE_SESSIONS_INTRADAY,
   type ProtocolQuote,
   type ProtocolTradePush,
 } from "./longbridgeProtocol.js";
+
+const QUERY_TIMEOUT_MS = 10_000;
 
 interface SocketEvent {
   data?: unknown;
@@ -207,6 +220,27 @@ export class LongbridgeQuoteSocket {
     }, delay);
   }
 
+  async queryQuotes(symbols: string[]): Promise<RawQuote[]> {
+    await this.connect();
+    const body = await this.request(COMMAND_QUERY_SECURITY_QUOTE, encodeMultiSecurityRequest(symbols), QUERY_TIMEOUT_MS);
+    return decodeSecurityQuoteResponse(body);
+  }
+
+  async queryCandlesticks(symbol: string, period: string, count: number, session: "intraday" | "all"): Promise<RawBar[]> {
+    await this.connect();
+    const body = await this.request(
+      COMMAND_QUERY_CANDLESTICK,
+      encodeCandlestickRequest(
+        symbol,
+        candlestickPeriod(period),
+        count,
+        session === "all" ? TRADE_SESSIONS_ALL : TRADE_SESSIONS_INTRADAY,
+      ),
+      QUERY_TIMEOUT_MS,
+    );
+    return decodeCandlestickResponse(body);
+  }
+
   async subscribe(symbols: string[], subTypes: number[]): Promise<void> {
     const alreadyConnected = this.socket?.readyState === 1;
     for (const symbol of symbols) {
@@ -228,7 +262,7 @@ export class LongbridgeQuoteSocket {
     if (this.socket?.readyState === 1) {
       await this.request(COMMAND_UNSUBSCRIBE, encodeUnsubscribeRequest(symbols, subTypes));
     }
-    if (this.desired.size === 0) this.close();
+    if (this.desired.size === 0 && this.pending.size === 0) this.close();
   }
 
   private async restoreSubscriptions(): Promise<void> {

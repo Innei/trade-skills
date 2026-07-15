@@ -34,6 +34,40 @@ describe("longbridgeProvider (CLI-backed)", () => {
     await expect(provider.getQuotes(["NVDA.US"])).resolves.toEqual(rows);
   });
 
+  it("prefers the WS transport for kline and quotes when available", async () => {
+    const bars = [{ time: "2026-07-06T14:30:00.000Z", open: 100, high: 101, low: 99, close: 100.5, volume: 1000 }];
+    const rows = [{ symbol: "NVDA.US", last: "110", prev_close: "100", change_percentage: "10.000" }];
+    const transport = {
+      queryQuotes: vi.fn().mockResolvedValue(rows),
+      queryCandlesticks: vi.fn().mockResolvedValue(bars),
+    };
+    const run = vi.fn().mockRejectedValue(new Error("CLI should not run"));
+    const provider = createLongbridgeProvider(run as LongbridgeRunner, () => transport);
+
+    await expect(provider.getKline("NVDA.US", "60m", 2, "all")).resolves.toEqual(bars);
+    expect(transport.queryCandlesticks).toHaveBeenCalledWith("NVDA.US", "1h", 2, "all");
+    await expect(provider.getQuotes(["NVDA.US"])).resolves.toEqual(rows);
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the CLI when the WS transport fails", async () => {
+    const transport = {
+      queryQuotes: vi.fn().mockRejectedValue(new Error("connections limitation is hit")),
+      queryCandlesticks: vi.fn().mockRejectedValue(new Error("connections limitation is hit")),
+    };
+    const rows = [{ symbol: "NVDA.US", last: "110", prev_close: "100", change_percentage: "10" }];
+    const run = runner({
+      "quote NVDA.US": rows,
+      "kline NVDA.US --period 5m --count 2": [
+        { time: "2026-07-06T14:30:00.000Z", open: "1", high: "1", low: "1", close: "1", volume: 1 },
+      ],
+    });
+    const provider = createLongbridgeProvider(run, () => transport);
+
+    await expect(provider.getQuotes(["NVDA.US"])).resolves.toEqual(rows);
+    await expect(provider.getKline("NVDA.US", "5m", 2)).resolves.toHaveLength(1);
+  });
+
   it("loads and caches the Chinese security name from static reference data", async () => {
     const run = runner({
       "static MRVL.US --lang zh-CN": [{ symbol: "MRVL.US", name: "迈威尔科技" }],

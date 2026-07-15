@@ -1,9 +1,14 @@
 import { gzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import {
+  candlestickPeriod,
+  decodeCandlestickResponse,
   decodePacket,
   decodePushQuote,
   decodePushTrades,
+  decodeSecurityQuoteResponse,
+  encodeCandlestickRequest,
+  encodeMultiSecurityRequest,
   encodeRequest,
   encodeSubscribeRequest,
 } from "../src/services/marketdata/longbridgeProtocol.js";
@@ -17,6 +22,10 @@ function str(field: number, value: string): number[] {
 
 function num(field: number, value: number): number[] {
   return [field << 3, value];
+}
+
+function msg(field: number, body: number[]): number[] {
+  return [(field << 3) | 2, body.length, ...body];
 }
 
 describe("Longbridge realtime protocol", () => {
@@ -41,6 +50,44 @@ describe("Longbridge realtime protocol", () => {
       ...num(2, 1),
       ...num(2, 4),
       ...num(3, 1),
+    ]);
+  });
+
+  it("encodes security quote and candlestick query requests", () => {
+    expect([...encodeMultiSecurityRequest(["AAA.US", "BBB.US"])]).toEqual([...str(1, "AAA.US"), ...str(1, "BBB.US")]);
+    expect([...encodeCandlestickRequest("A.US", candlestickPeriod("5m"), 2, 100)]).toEqual([
+      ...str(1, "A.US"),
+      ...num(2, 5),
+      ...num(3, 2),
+      ...num(5, 100),
+    ]);
+    expect([...encodeCandlestickRequest("A.US", candlestickPeriod("5m"), 2, 0)]).toEqual([
+      ...str(1, "A.US"),
+      ...num(2, 5),
+      ...num(3, 2),
+    ]);
+    expect(() => candlestickPeriod("3m")).toThrow("Unsupported candlestick period");
+  });
+
+  it("decodes security quote responses with extended-session sub-quotes", () => {
+    const prePost = [...str(1, "604"), ...num(2, 100), ...str(7, "600.31")];
+    const quote = [...str(1, "SMH.US"), ...str(2, "604"), ...str(3, "600.31"), ...msg(11, prePost)];
+    const decoded = decodeSecurityQuoteResponse(bytes(...msg(1, quote)));
+    expect(decoded).toEqual([
+      {
+        symbol: "SMH.US",
+        last: "604",
+        prev_close: "600.31",
+        change_percentage: "0.615",
+        pre_market: { last: "604", prev_close: "600.31", timestamp: "1970-01-01T00:01:40.000Z" },
+      },
+    ]);
+  });
+
+  it("decodes candlestick responses into RawBar rows", () => {
+    const candle = [...str(1, "10.5"), ...str(2, "10"), ...str(3, "9.5"), ...str(4, "11"), ...num(5, 42), ...num(7, 60)];
+    expect(decodeCandlestickResponse(bytes(...str(1, "A.US"), ...msg(2, candle)))).toEqual([
+      { time: "1970-01-01T00:01:00.000Z", open: 10, high: 11, low: 9.5, close: 10.5, volume: 42 },
     ]);
   });
 

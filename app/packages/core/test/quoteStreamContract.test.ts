@@ -112,6 +112,55 @@ describe("QuoteStream snapshot merge semantics", () => {
   });
 });
 
+describe("QuoteStream prev-close self-heal", () => {
+  it("reports pct as null while prev close is unknown, then heals via the retry timer", async () => {
+    vi.useFakeTimers();
+    try {
+      const { socket, fake } = makeSocket();
+      const stream = new LongbridgeStream({ socket });
+      provider.getQuotes
+        .mockRejectedValueOnce(new Error("longbridge CLI 执行失败"))
+        .mockResolvedValue([{ symbol: "AAA.US", last: "50", prev_close: "48", change_percentage: "4.17" }]);
+      const received: Array<number | null> = [];
+      stream.onUpdate((cell) => received.push(cell.pct));
+
+      await stream.retain(["AAA.US"]);
+      fake.emitQuote(quote("AAA.US", 100, US_PRE, 1));
+      expect(stream.getSnapshot("AAA.US")?.pct).toBeNull();
+
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      const cell = stream.getSnapshot("AAA.US");
+      expect(cell?.pct).toBeCloseTo((100 / 48 - 1) * 100, 6);
+      expect(received).toEqual([null, cell?.pct]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps retrying while the snapshot fetch keeps failing", async () => {
+    vi.useFakeTimers();
+    try {
+      const { socket, fake } = makeSocket();
+      const stream = new LongbridgeStream({ socket });
+      provider.getQuotes.mockRejectedValue(new Error("longbridge CLI 执行失败"));
+
+      await stream.retain(["AAA.US"]);
+      fake.emitQuote(quote("AAA.US", 100, US_PRE, 1));
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(stream.getSnapshot("AAA.US")?.pct).toBeNull();
+
+      provider.getQuotes.mockResolvedValue([
+        { symbol: "AAA.US", last: "50", prev_close: "48", change_percentage: "4.17" },
+      ]);
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(stream.getSnapshot("AAA.US")?.pct).toBeCloseTo((100 / 48 - 1) * 100, 6);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
 describe("QuoteStream session labels are derived from market sessions", () => {
   it("labels an HK lunch push as off-session, an SH regular push as day, and a US pre push as pre-market", () => {
     const { socket, fake } = makeSocket();

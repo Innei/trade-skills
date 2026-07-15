@@ -1,6 +1,7 @@
 import type { MacroEventItem, NewsItem, RawBar } from "../../../../../shared/types.js";
 import { ClientError } from "../../errors.js";
-import { runLongbridgeJson } from "../longbridgeCli.js";
+import { LongbridgeCliError, runLongbridgeJson } from "../longbridgeCli.js";
+import { getSharedQuoteSocket } from "./sharedSocket.js";
 import type { FlowRow } from "../simple.js";
 import type { Market } from "../symbol.utils.js";
 import type {
@@ -82,7 +83,12 @@ async function callCli<T>(label: string, run: LongbridgeRunner, args: string[]):
     return await run<T>(args);
   } catch (error) {
     if (error instanceof ClientError) throw error;
-    const detail = error instanceof Error ? error.message : String(error);
+    const detail =
+      error instanceof LongbridgeCliError && error.detail
+        ? `${error.message}（${error.detail}）`
+        : error instanceof Error
+          ? error.message
+          : String(error);
     throw new ClientError(
       `longbridge ${label} failed: ${detail}`,
       "请确认已安装 longbridge CLI，并执行 longbridge auth login 完成登录。",
@@ -91,8 +97,27 @@ async function callCli<T>(label: string, run: LongbridgeRunner, args: string[]):
   }
 }
 
-export function createLongbridgeProvider(run: LongbridgeRunner = runLongbridgeJson): MarketDataProvider {
+export interface QuoteQueryTransport {
+  queryQuotes(symbols: string[]): Promise<RawQuote[]>;
+  queryCandlesticks(symbol: string, period: string, count: number, session: "intraday" | "all"): Promise<RawBar[]>;
+}
+
+export function createLongbridgeProvider(
+  run: LongbridgeRunner = runLongbridgeJson,
+  socket?: () => QuoteQueryTransport,
+): MarketDataProvider {
   const securityNameCache = new Map<string, Promise<string | null>>();
+
+  async function wsFirst<T>(label: string, viaSocket: () => Promise<T>, viaCli: () => Promise<T>): Promise<T> {
+    if (!socket) return viaCli();
+    try {
+      return await viaSocket();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[longbridge] ws ${label} failed, falling back to CLI:`, message);
+      return viaCli();
+    }
+  }
 
   return {
     name: "longbridge",
@@ -108,22 +133,32 @@ export function createLongbridgeProvider(run: LongbridgeRunner = runLongbridgeJs
 
     async getKline(symbol: string, period: string, count: number, session?: string): Promise<RawBar[]> {
       const normalized = normalizePeriod(period);
-      const args = ["kline", symbol, "--period", normalized, "--count", String(count)];
-      if (session === "all") args.push("--session", "all");
-      const rows = await callCli<CliBar[]>("kline", run, args);
-      return rows.map((row) => ({
-        time: row.time,
-        open: number(row.open),
-        high: number(row.high),
-        low: number(row.low),
-        close: number(row.close),
-        volume: row.volume,
-      }));
+      return wsFirst(
+        "kline",
+        () => socket!().queryCandlesticks(symbol, normalized, count, session === "all" ? "all" : "intraday"),
+        async () => {
+          const args = ["kline", symbol, "--period", normalized, "--count", String(count)];
+          if (session === "all") args.push("--session", "all");
+          const rows = await callCli<CliBar[]>("kline", run, args);
+          return rows.map((row) => ({
+            time: row.time,
+            open: number(row.open),
+            high: number(row.high),
+            low: number(row.low),
+            close: number(row.close),
+            volume: row.volume,
+          }));
+        },
+      );
     },
 
     getQuotes(symbols: string[]): Promise<RawQuote[]> {
       if (!symbols.length) return Promise.resolve([]);
-      return callCli<RawQuote[]>("quote", run, ["quote", ...symbols]);
+      return wsFirst(
+        "quote",
+        () => socket!().queryQuotes(symbols),
+        () => callCli<RawQuote[]>("quote", run, ["quote", ...symbols]),
+      );
     },
 
     getSecurityName(symbol: string): Promise<string | null> {
@@ -252,4 +287,4 @@ export function createLongbridgeProvider(run: LongbridgeRunner = runLongbridgeJs
   };
 }
 
-export const longbridgeProvider: MarketDataProvider = createLongbridgeProvider();
+export const longbridgeProvider: MarketDataProvider = createLongbridgeProvider(runLongbridgeJson, getSharedQuoteSocket);

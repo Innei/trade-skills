@@ -594,9 +594,10 @@ export interface QuoteCell {
   symbol: string;
   session: string;
   last: number;
-  pct: number;
+  /** null = prev close unknown (snapshot fetch failed); render as "—", not 0 */
+  pct: number | null;
   regularLast: number;
-  regularPct: number;
+  regularPct: number | null;
   asOf?: string;
 }
 

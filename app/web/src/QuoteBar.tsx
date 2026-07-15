@@ -4,12 +4,20 @@ import { signed, upDown } from "./format";
 import { useWsChannel } from "./useWsChannel";
 import { Badge, DataAgeBadge, Dot } from "./ui";
 
+function pctTone(pct: number | null): string {
+  return pct == null ? "" : upDown(pct);
+}
+
+function pctText(pct: number | null): string {
+  return pct == null ? "—" : `${signed(pct)}%`;
+}
+
 function Cell({ q }: { q: QuoteCell }) {
   return (
     <a className="quote-cell" href={`/symbol/${encodeURIComponent(q.symbol)}`}>
       <span className="qc-symbol">{q.symbol.replace(/\.US$/, "")}</span>
-      <span className={`num qc-price ${upDown(q.pct)}`}>${q.last < 10 ? q.last.toFixed(3) : q.last.toFixed(2)}</span>
-      <span className={`num qc-pct ${upDown(q.pct)}`}>{signed(q.pct)}%</span>
+      <span className={`num qc-price ${pctTone(q.pct)}`}>${q.last < 10 ? q.last.toFixed(3) : q.last.toFixed(2)}</span>
+      <span className={`num qc-pct ${pctTone(q.pct)}`}>{pctText(q.pct)}</span>
       {q.session !== "日盘" && <Badge className="qc-session">{q.session}</Badge>}
     </a>
   );
@@ -48,8 +56,8 @@ export function TopbarQuote({ quote }: { quote: QuoteCell | null }) {
 
   return (
     <span className="topbar-quote">
-      <span className={`num qc-price ${upDown(quote.pct)}`}>${quote.last.toFixed(2)}</span>
-      <span className={`num qc-pct ${upDown(quote.pct)}`}>{signed(quote.pct)}%</span>
+      <span className={`num qc-price ${pctTone(quote.pct)}`}>${quote.last.toFixed(2)}</span>
+      <span className={`num qc-pct ${pctTone(quote.pct)}`}>{pctText(quote.pct)}</span>
       <Badge className="qc-session">{quote.session}</Badge>
     </span>
   );
