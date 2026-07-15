@@ -7,6 +7,7 @@
 // where env.ts captures an empty/wrong project root in the bundled output.
 import "./boot/env.js";
 import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { app, BrowserWindow } from "electron";
 import { createServices } from "electron-ipc-decorator";
 import { createAppMenuManager } from "./menu/appMenuManager.js";
@@ -29,6 +30,8 @@ import { installDefaultContextMenu } from "./contextMenu/defaultMenu.js";
 import { registerContextMenuIpc } from "./contextMenu/ipc.js";
 import { registerLogsIpc } from "./logging/ipc.js";
 import { sendTabsCommand } from "./tabs/commands.js";
+import { createTabsFileStore } from "./tabs/store.js";
+import { registerTabsIpc } from "./tabs/ipc.js";
 import { initUpdater } from "./updater/updater.js";
 import { registerUpdaterIpc } from "./updater/ipc.js";
 
@@ -86,6 +89,7 @@ app.whenReady().then(async () => {
 
     registerOnboardingIpc(createOnboardingStore());
     registerDataRootIpc();
+    registerTabsIpc(createTabsFileStore(join(app.getPath("userData"), "tabs.json")));
     registerLogsIpc(fileLogger);
     registerContextMenuIpc();
     await installDefaultContextMenu();
