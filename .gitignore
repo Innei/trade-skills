@@ -20,6 +20,7 @@ node_modules/
 !/.claude/skills/chart/
 !/.claude/skills/fred/
 !/.claude/skills/gdelt/
+!/.claude/skills/hithink-a-share/
 !/.claude/skills/intraday-signal/
 !/.claude/skills/korea-market/
 !/.claude/skills/market-session-tracker/

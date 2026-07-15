@@ -32,6 +32,7 @@ A personal **US-equities trading journal**, not a software product. The repo is 
 | **`gdelt`** skill | none (5s throttle) | global multilingual news tone stream |
 | **`trump-truth-monitor`** skill | RSS mirror | Trump Truth Social feed, classified + tier-graded for market impact |
 | **`options-levels`** skill | none (CBOE delayed) | per-strike option open interest（磁铁位/止损扎堆区）+ put/call ratios; per-contract quotes on Longbridge are NOT authorized for this account |
+| **`hithink-a-share`** skill | `HITHINK_FINANCE_API_KEY` | A 股特色数据（同花顺官方 API）：涨停池带原因、连板天梯、龙虎榜、异动、热榜、官方口径财报三表与指标、A 股交易日历；只有日线无分钟线——A 股图表与实时仍走 Longbridge |
 
 Longbridge covers price/fundamentals; the five custom skills cover Longbridge's blind spots (macro, raw filings, world news, policy speech, per-strike options positioning). Earnings dates and macro release schedules come from `longbridge finance-calendar report/macrodata` — never hand-hunt them from news. See `docs/superpowers/specs/2026-05-28-market-intel-skills-design.md` for the design rationale and full per-script interface.
 

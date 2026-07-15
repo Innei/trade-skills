@@ -4,7 +4,7 @@
 
 # Kansoku
 
-> 本地优先的美股看盘桌面应用：实时行情、多周期 K 线、图表画线、研究库与 AI 助手——数据和 AI key 都留在你自己的机器上。
+> 本地优先的看盘桌面应用（美股为主，港股 / A 股行情已接入）：实时行情、多周期 K 线、图表画线、研究库与 AI 助手——数据和 AI key 都留在你自己的机器上。
 
 **Kansoku（観測）** 是一个 macOS 桌面应用，把「看盘 → 分析 → 研究 → 复盘」做成一条本地闭环：行情从你自己的长桥账户拉，指标全部本地实算，AI 点评用你自己配置的模型，研究结论落成本地 markdown 和 JSON。它背后还有一套 Claude Code skill 工具链，覆盖宏观、监管文件、新闻流和资金轮动——应用负责「看」，skill 负责「查」，日志负责「记」。
 
@@ -47,7 +47,7 @@
 **桌面原生体验** —— 内嵌标题栏 + 应用内标签页（⌘T 新开、右键批量关闭）、⌘K 命令面板快速跳转到股票或页面、系统菜单、窗口状态记忆、实时行情推送（盘前/盘后/夜盘都覆盖）。有更新时标题栏右侧出现升级图标，点一下直接下载安装。
 
 > [!NOTE]
-> 这套工具针对**美股**。内置的 cohort、宏观系列、新闻流都默认美股口径。
+> 这套工具以**美股**为主战场，从 2026-07 起开始扩展多市场：应用的行情图表（K 线、实时推送、SEPA、短线多周期）已支持**港股**（`700.HK`）和 **A 股**（`600519.SH` / `000001.SZ`），交易时段、午休断档、时区显示（美东/香港/北京时间）都按各自市场处理；数据仍走长桥同一账户。美股专属能力（财报日历、期权档位、SPY/QQQ 基准对比）在非美股代号上自动隐藏。skill 工具链侧由 `hithink-a-share`（同花顺官方 API）补上 A 股特色数据。内置的 cohort、宏观系列、新闻流仍默认美股口径。
 
 ## 架构
 
@@ -95,7 +95,8 @@ cd app && pnpm typecheck     # 全 workspace 类型检查
 
 | 来源 | 接入方式 | 覆盖范围 |
 |---|---|---|
-| **Longbridge 长桥** | `longbridge ...` CLI / `longbridge-*` skill | 实时报价、K 线、基本面、资金流、技术指标、新闻 |
+| **Longbridge 长桥** | `longbridge ...` CLI / `longbridge-*` skill | 实时报价、K 线、基本面、资金流、技术指标、新闻（美股 / 港股 / A 股） |
+| **同花顺 HiThink** | `hithink-a-share` skill（官方 API key） | A 股特色数据：涨停池（带原因）、连板天梯、龙虎榜、异动、热榜、官方口径财报三表、交易日历 |
 | **FRED** | `fred` skill（免费 API key） | 美国/全球宏观时间序列（CPI、GDP、联邦利率、收益率、M2、美元指数） |
 | **SEC EDGAR** | `sec-edgar` skill（UA header） | 10-K/10-Q/8-K/S-1 原文，Form 4 内部人交易解析 |
 | **GDELT 2.0** | `gdelt` skill（5 秒限流） | 全球多语种新闻流，含情绪打分 |
@@ -155,6 +156,7 @@ python3 .claude/skills/trump-truth-monitor/scripts/fetch.py --hours 24 --json
 ```bash
 FRED_API_KEY=...                               # FRED 免费申请
 SEC_USER_AGENT="Your Name <you@example.com>"   # SEC EDGAR 要求带身份
+HITHINK_FINANCE_API_KEY=...                    # 同花顺金融数据服务（fuyao.aicubes.cn 签发）
 ```
 
 AI 模型与 key 不走环境变量，在应用的设置页配置（加密存本地 SQLite）。
