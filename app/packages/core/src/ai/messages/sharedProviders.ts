@@ -1,3 +1,5 @@
+import { join } from "node:path";
+import type { SkillMeta } from "../../services/skills.js";
 import { BaseFirstUserContentProvider } from "./messageEngine.js";
 
 export interface SkillContext {
@@ -16,6 +18,14 @@ export interface RunMetadataContext {
   marketDate?: string;
   dataAsOf?: string;
 }
+
+export const toSkillContexts = (index: SkillMeta[]): SkillContext[] =>
+  index.map((skill) => ({
+    activated: false,
+    description: skill.description,
+    location: join(skill.dir, "SKILL.md"),
+    name: skill.name,
+  }));
 
 export const escapeXml = (value: string): string =>
   value
