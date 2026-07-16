@@ -4,6 +4,7 @@ import type { AgentTool } from "@earendil-works/pi-agent-core";
 import { type Static, Type } from "typebox";
 import { Check } from "typebox/value";
 import { type CockpitComment, type CommentLevel, type NewsItem, type RawBar } from "../../../../shared/types.js";
+import type { ReassessPhase, ReassessStatus } from "../contract/symbols.js";
 import { chartUrl } from "../chartUrl.js";
 import { JOURNAL_DIR, PROJECT_ROOT, skillSearchDirs } from "../env.js";
 import { buildChart } from "../services/build.js";
@@ -152,18 +153,9 @@ const analystRunStates = new Map<string, Extract<AnalystRunStatus, { running: tr
 const lastEscalationStart = new Map<string, number>();
 const analystRunListeners = new Set<(symbol: string, status: AnalystRunStatus) => void>();
 
-export type AnalystRunPhase = "preparing" | "researching" | "writing" | "finalizing";
+export type AnalystRunPhase = ReassessPhase;
 
-export type AnalystRunStatus =
-  | { running: false }
-  | {
-      running: true;
-      origin: AnalystOrigin;
-      phase: AnalystRunPhase;
-      activity: string;
-      startedAt: string;
-      updatedAt: string;
-    };
+export type AnalystRunStatus = ReassessStatus;
 
 export function analystRunStatus(symbol: string): AnalystRunStatus {
   if (!analystRunLock.isLocked(symbol)) return { running: false };
@@ -180,7 +172,13 @@ export function onAnalystRunChange(listener: (symbol: string, status: AnalystRun
 }
 
 function emitAnalystRunChange(symbol: string, status: AnalystRunStatus): void {
-  for (const listener of analystRunListeners) listener(symbol, status);
+  for (const listener of analystRunListeners) {
+    try {
+      listener(symbol, status);
+    } catch {
+      continue;
+    }
+  }
 }
 
 function updateAnalystRunStatus(
