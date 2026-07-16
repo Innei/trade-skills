@@ -1,5 +1,5 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { ArrowDown, ChevronRight } from "lucide-react";
 import { ScrollArea } from "../../../ui";
 import { Markdown } from "../markdown";
 import { mergeTimeline, type TranscriptInsert } from "./transcriptTimeline.js";
@@ -119,6 +119,7 @@ function ConversationTranscriptView({
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const stickRef = useRef(true);
+  const [stuck, setStuck] = useState(true);
 
   useEffect(() => {
     const element = bodyRef.current;
@@ -133,12 +134,15 @@ function ConversationTranscriptView({
   return (
     <ScrollArea
       className={className}
+      viewportClassName="chat-transcript-viewport"
       contentClassName="chat-panel-body-content"
       viewportRef={bodyRef}
       onScroll={() => {
         const element = bodyRef.current;
         if (!element) return;
-        stickRef.current = element.scrollHeight - element.scrollTop - element.clientHeight < SCROLL_STICK_THRESHOLD;
+        const next = element.scrollHeight - element.scrollTop - element.clientHeight < SCROLL_STICK_THRESHOLD;
+        stickRef.current = next;
+        setStuck(next);
       }}
     >
       {isEmpty && !busy ? (
@@ -176,10 +180,36 @@ function ConversationTranscriptView({
       {streamText ? (
         <div className="chat-row">
           <div className="chat-bubble chat-bubble--assistant">
-            <Markdown variant="chat">{streamText}</Markdown>
-            <span className="chat-cursor" />
+            <Markdown variant="chat" streaming>
+              {streamText}
+            </Markdown>
           </div>
         </div>
+      ) : null}
+      {busy && !streamText && !liveTools.some((tool) => tool.status === "start") ? (
+        <div className="chat-row">
+          <div className="chat-bubble chat-bubble--assistant chat-thinking" aria-label="正在思考">
+            <span className="chat-thinking-dot" />
+            <span className="chat-thinking-dot" />
+            <span className="chat-thinking-dot" />
+          </div>
+        </div>
+      ) : null}
+      {!stuck && busy ? (
+        <button
+          type="button"
+          className="chat-scroll-bottom"
+          aria-label="回到底部"
+          onClick={() => {
+            const element = bodyRef.current;
+            if (!element) return;
+            stickRef.current = true;
+            setStuck(true);
+            element.scrollTop = element.scrollHeight;
+          }}
+        >
+          <ArrowDown size={14} />
+        </button>
       ) : null}
     </ScrollArea>
   );

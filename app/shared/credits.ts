@@ -3,6 +3,11 @@ export type CreditEntry = { name: string; version: string; license: string };
 
 export const CREDITS: CreditEntry[] = [
   {
+    "name": "@antfu/install-pkg",
+    "version": "1.1.0",
+    "license": "MIT"
+  },
+  {
     "name": "@anthropic-ai/sdk",
     "version": "0.91.1",
     "license": "MIT"
@@ -34,72 +39,72 @@ export const CREDITS: CreditEntry[] = [
   },
   {
     "name": "@aws-sdk/core",
-    "version": "3.975.1",
+    "version": "3.975.2",
     "license": "Apache-2.0"
   },
   {
     "name": "@aws-sdk/credential-provider-env",
-    "version": "3.972.57",
+    "version": "3.972.58",
     "license": "Apache-2.0"
   },
   {
     "name": "@aws-sdk/credential-provider-http",
-    "version": "3.972.59",
+    "version": "3.972.60",
     "license": "Apache-2.0"
   },
   {
     "name": "@aws-sdk/credential-provider-ini",
-    "version": "3.973.1",
+    "version": "3.973.2",
     "license": "Apache-2.0"
   },
   {
     "name": "@aws-sdk/credential-provider-login",
-    "version": "3.972.63",
+    "version": "3.972.64",
     "license": "Apache-2.0"
   },
   {
     "name": "@aws-sdk/credential-provider-node",
-    "version": "3.972.66",
+    "version": "3.972.68",
     "license": "Apache-2.0"
   },
   {
     "name": "@aws-sdk/credential-provider-process",
-    "version": "3.972.57",
+    "version": "3.972.58",
     "license": "Apache-2.0"
   },
   {
     "name": "@aws-sdk/credential-provider-sso",
-    "version": "3.973.1",
+    "version": "3.973.2",
     "license": "Apache-2.0"
   },
   {
     "name": "@aws-sdk/credential-provider-web-identity",
-    "version": "3.972.63",
+    "version": "3.972.64",
     "license": "Apache-2.0"
   },
   {
     "name": "@aws-sdk/eventstream-handler-node",
-    "version": "3.972.26",
+    "version": "3.972.27",
     "license": "Apache-2.0"
   },
   {
     "name": "@aws-sdk/middleware-eventstream",
-    "version": "3.972.22",
+    "version": "3.972.23",
     "license": "Apache-2.0"
   },
   {
     "name": "@aws-sdk/middleware-websocket",
-    "version": "3.972.39",
+    "version": "3.972.40",
     "license": "Apache-2.0"
   },
   {
     "name": "@aws-sdk/nested-clients",
-    "version": "3.997.31",
+    "version": "3.997.32",
     "license": "Apache-2.0"
   },
   {
     "name": "@aws-sdk/signature-v4-multi-region",
-    "version": "3.996.39",
+    "version": "3.996.40",
     "license": "Apache-2.0"
   },
   {
@@ -109,12 +114,12 @@ export const CREDITS: CreditEntry[] = [
   },
   {
     "name": "@aws-sdk/token-providers",
-    "version": "3.1083.0",
+    "version": "3.1087.0",
     "license": "Apache-2.0"
   },
   {
     "name": "@aws-sdk/types",
-    "version": "3.974.0",
+    "version": "3.974.1",
     "license": "Apache-2.0"
   },
   {
@@ -124,7 +129,7 @@ export const CREDITS: CreditEntry[] = [
   },
   {
     "name": "@aws-sdk/xml-builder",
-    "version": "3.972.34",
+    "version": "3.972.35",
     "license": "Apache-2.0"
   },
   {
@@ -148,13 +153,23 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "@braintree/sanitize-url",
+    "version": "7.1.2",
+    "license": "MIT"
+  },
+  {
+    "name": "@chevrotain/types",
+    "version": "11.1.2",
+    "license": "Apache-2.0"
+  },
+  {
     "name": "@earendil-works/pi-agent-core",
-    "version": "0.80.6",
+    "version": "0.80.7",
     "license": "MIT"
   },
   {
     "name": "@earendil-works/pi-ai",
-    "version": "0.80.6",
+    "version": "0.80.7",
     "license": "MIT"
   },
   {
@@ -194,7 +209,22 @@ export const CREDITS: CreditEntry[] = [
   },
   {
     "name": "@hono/node-server",
-    "version": "2.0.8",
+    "version": "2.0.9",
+    "license": "MIT"
+  },
+  {
+    "name": "@iconify/types",
+    "version": "2.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "@iconify/utils",
+    "version": "3.1.4",
+    "license": "MIT"
+  },
+  {
+    "name": "@mermaid-js/parser",
+    "version": "1.2.0",
     "license": "MIT"
   },
   {
@@ -264,17 +294,17 @@ export const CREDITS: CreditEntry[] = [
   },
   {
     "name": "@smithy/core",
-    "version": "3.29.3",
+    "version": "3.29.4",
     "license": "Apache-2.0"
   },
   {
     "name": "@smithy/credential-provider-imds",
-    "version": "4.4.8",
+    "version": "4.4.9",
     "license": "Apache-2.0"
   },
   {
     "name": "@smithy/fetch-http-handler",
-    "version": "5.6.5",
+    "version": "5.6.6",
     "license": "Apache-2.0"
   },
   {
@@ -289,12 +319,12 @@ export const CREDITS: CreditEntry[] = [
   },
   {
     "name": "@smithy/node-http-handler",
-    "version": "4.9.5",
+    "version": "4.9.6",
     "license": "Apache-2.0"
   },
   {
     "name": "@smithy/signature-v4",
-    "version": "5.6.4",
+    "version": "5.6.5",
     "license": "Apache-2.0"
   },
   {
@@ -363,8 +393,28 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "@types/d3",
+    "version": "7.4.3",
+    "license": "MIT"
+  },
+  {
     "name": "@types/d3-array",
     "version": "3.2.2",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-axis",
+    "version": "3.0.6",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-brush",
+    "version": "3.0.6",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-chord",
+    "version": "3.0.6",
     "license": "MIT"
   },
   {
@@ -373,8 +423,58 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "@types/d3-contour",
+    "version": "3.0.6",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-delaunay",
+    "version": "6.0.4",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-dispatch",
+    "version": "3.0.7",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-drag",
+    "version": "3.0.7",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-dsv",
+    "version": "3.0.7",
+    "license": "MIT"
+  },
+  {
     "name": "@types/d3-ease",
     "version": "3.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-fetch",
+    "version": "3.0.7",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-force",
+    "version": "3.0.10",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-format",
+    "version": "3.0.4",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-geo",
+    "version": "3.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-hierarchy",
+    "version": "3.1.7",
     "license": "MIT"
   },
   {
@@ -388,8 +488,33 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "@types/d3-polygon",
+    "version": "3.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-quadtree",
+    "version": "3.0.6",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-random",
+    "version": "3.0.4",
+    "license": "MIT"
+  },
+  {
     "name": "@types/d3-scale",
     "version": "4.0.9",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-scale-chromatic",
+    "version": "3.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-selection",
+    "version": "3.0.11",
     "license": "MIT"
   },
   {
@@ -403,8 +528,23 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "@types/d3-time-format",
+    "version": "4.0.3",
+    "license": "MIT"
+  },
+  {
     "name": "@types/d3-timer",
     "version": "3.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-transition",
+    "version": "3.0.9",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/d3-zoom",
+    "version": "3.0.8",
     "license": "MIT"
   },
   {
@@ -420,6 +560,11 @@ export const CREDITS: CreditEntry[] = [
   {
     "name": "@types/estree-jsx",
     "version": "1.0.5",
+    "license": "MIT"
+  },
+  {
+    "name": "@types/geojson",
+    "version": "7946.0.16",
     "license": "MIT"
   },
   {
@@ -458,6 +603,11 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "@types/trusted-types",
+    "version": "2.0.7",
+    "license": "MIT"
+  },
+  {
     "name": "@types/unist",
     "version": "2.0.11",
     "license": "MIT"
@@ -476,6 +626,11 @@ export const CREDITS: CreditEntry[] = [
     "name": "@ungap/structured-clone",
     "version": "1.3.3",
     "license": "ISC"
+  },
+  {
+    "name": "@upsetjs/venn.js",
+    "version": "2.0.0",
+    "license": "MIT"
   },
   {
     "name": "agent-base",
@@ -583,13 +738,73 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "commander",
+    "version": "7.2.0",
+    "license": "MIT"
+  },
+  {
+    "name": "commander",
+    "version": "8.3.0",
+    "license": "MIT"
+  },
+  {
+    "name": "cose-base",
+    "version": "1.0.3",
+    "license": "MIT"
+  },
+  {
+    "name": "cose-base",
+    "version": "2.2.0",
+    "license": "MIT"
+  },
+  {
     "name": "csstype",
     "version": "3.2.3",
     "license": "MIT"
   },
   {
+    "name": "cytoscape",
+    "version": "3.34.0",
+    "license": "MIT"
+  },
+  {
+    "name": "cytoscape-cose-bilkent",
+    "version": "4.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "cytoscape-fcose",
+    "version": "2.2.0",
+    "license": "MIT"
+  },
+  {
+    "name": "d3",
+    "version": "7.9.0",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-array",
+    "version": "2.12.1",
+    "license": "BSD-3-Clause"
+  },
+  {
     "name": "d3-array",
     "version": "3.2.4",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-axis",
+    "version": "3.0.0",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-brush",
+    "version": "3.0.0",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-chord",
+    "version": "3.0.1",
     "license": "ISC"
   },
   {
@@ -598,12 +813,57 @@ export const CREDITS: CreditEntry[] = [
     "license": "ISC"
   },
   {
+    "name": "d3-contour",
+    "version": "4.0.2",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-delaunay",
+    "version": "6.0.4",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-dispatch",
+    "version": "3.0.1",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-drag",
+    "version": "3.0.0",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-dsv",
+    "version": "3.0.1",
+    "license": "ISC"
+  },
+  {
     "name": "d3-ease",
     "version": "3.0.1",
     "license": "BSD-3-Clause"
   },
   {
+    "name": "d3-fetch",
+    "version": "3.0.1",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-force",
+    "version": "3.0.0",
+    "license": "ISC"
+  },
+  {
     "name": "d3-format",
+    "version": "3.1.2",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-geo",
+    "version": "3.1.1",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-hierarchy",
     "version": "3.1.2",
     "license": "ISC"
   },
@@ -614,13 +874,53 @@ export const CREDITS: CreditEntry[] = [
   },
   {
     "name": "d3-path",
+    "version": "1.0.9",
+    "license": "BSD-3-Clause"
+  },
+  {
+    "name": "d3-path",
     "version": "3.1.0",
     "license": "ISC"
+  },
+  {
+    "name": "d3-polygon",
+    "version": "3.0.1",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-quadtree",
+    "version": "3.0.1",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-random",
+    "version": "3.0.1",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-sankey",
+    "version": "0.12.3",
+    "license": "BSD-3-Clause"
   },
   {
     "name": "d3-scale",
     "version": "4.0.2",
     "license": "ISC"
+  },
+  {
+    "name": "d3-scale-chromatic",
+    "version": "3.1.0",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-selection",
+    "version": "3.0.0",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-shape",
+    "version": "1.3.7",
+    "license": "BSD-3-Clause"
   },
   {
     "name": "d3-shape",
@@ -643,8 +943,28 @@ export const CREDITS: CreditEntry[] = [
     "license": "ISC"
   },
   {
+    "name": "d3-transition",
+    "version": "3.0.1",
+    "license": "ISC"
+  },
+  {
+    "name": "d3-zoom",
+    "version": "3.0.0",
+    "license": "ISC"
+  },
+  {
+    "name": "dagre-d3-es",
+    "version": "7.0.14",
+    "license": "MIT"
+  },
+  {
     "name": "data-uri-to-buffer",
     "version": "4.0.1",
+    "license": "MIT"
+  },
+  {
+    "name": "dayjs",
+    "version": "1.11.21",
     "license": "MIT"
   },
   {
@@ -673,6 +993,11 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "delaunator",
+    "version": "5.1.0",
+    "license": "ISC"
+  },
+  {
     "name": "dequal",
     "version": "2.0.3",
     "license": "MIT"
@@ -688,6 +1013,11 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "dompurify",
+    "version": "3.4.12",
+    "license": "(MPL-2.0 OR Apache-2.0)"
+  },
+  {
     "name": "drizzle-orm",
     "version": "0.45.2",
     "license": "Apache-2.0"
@@ -699,7 +1029,7 @@ export const CREDITS: CreditEntry[] = [
   },
   {
     "name": "electron",
-    "version": "43.1.0",
+    "version": "43.1.1",
     "license": "MIT"
   },
   {
@@ -736,6 +1066,11 @@ export const CREDITS: CreditEntry[] = [
     "name": "end-of-stream",
     "version": "1.4.5",
     "license": "MIT"
+  },
+  {
+    "name": "entities",
+    "version": "6.0.1",
+    "license": "BSD-2-Clause"
   },
   {
     "name": "env-paths",
@@ -863,8 +1198,38 @@ export const CREDITS: CreditEntry[] = [
     "license": "Standard 'no charge' license: https://gsap.com/standard-license."
   },
   {
+    "name": "hachure-fill",
+    "version": "0.5.2",
+    "license": "MIT"
+  },
+  {
+    "name": "hast-util-from-parse5",
+    "version": "8.0.3",
+    "license": "MIT"
+  },
+  {
+    "name": "hast-util-parse-selector",
+    "version": "4.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "hast-util-raw",
+    "version": "9.1.0",
+    "license": "MIT"
+  },
+  {
+    "name": "hast-util-sanitize",
+    "version": "5.0.2",
+    "license": "MIT"
+  },
+  {
     "name": "hast-util-to-jsx-runtime",
     "version": "2.3.6",
+    "license": "MIT"
+  },
+  {
+    "name": "hast-util-to-parse5",
+    "version": "8.0.1",
     "license": "MIT"
   },
   {
@@ -873,13 +1238,23 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "hastscript",
+    "version": "9.0.1",
+    "license": "MIT"
+  },
+  {
     "name": "hono",
-    "version": "4.12.29",
+    "version": "4.12.30",
     "license": "MIT"
   },
   {
     "name": "html-url-attributes",
     "version": "3.0.1",
+    "license": "MIT"
+  },
+  {
+    "name": "html-void-elements",
+    "version": "3.0.0",
     "license": "MIT"
   },
   {
@@ -890,6 +1265,11 @@ export const CREDITS: CreditEntry[] = [
   {
     "name": "https-proxy-agent",
     "version": "7.0.6",
+    "license": "MIT"
+  },
+  {
+    "name": "iconv-lite",
+    "version": "0.6.3",
     "license": "MIT"
   },
   {
@@ -908,6 +1288,11 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "import-meta-resolve",
+    "version": "4.2.0",
+    "license": "MIT"
+  },
+  {
     "name": "inherits",
     "version": "2.0.4",
     "license": "ISC"
@@ -921,6 +1306,11 @@ export const CREDITS: CreditEntry[] = [
     "name": "inline-style-parser",
     "version": "0.2.7",
     "license": "MIT"
+  },
+  {
+    "name": "internmap",
+    "version": "1.0.1",
+    "license": "ISC"
   },
   {
     "name": "internmap",
@@ -988,9 +1378,34 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "katex",
+    "version": "0.16.47",
+    "license": "MIT"
+  },
+  {
+    "name": "khroma",
+    "version": "2.1.0",
+    "license": "Unknown"
+  },
+  {
+    "name": "layout-base",
+    "version": "1.0.2",
+    "license": "MIT"
+  },
+  {
+    "name": "layout-base",
+    "version": "2.0.1",
+    "license": "MIT"
+  },
+  {
     "name": "lightweight-charts",
     "version": "5.2.0",
     "license": "Apache-2.0"
+  },
+  {
+    "name": "lodash-es",
+    "version": "4.18.1",
+    "license": "MIT"
   },
   {
     "name": "long",
@@ -1010,6 +1425,16 @@ export const CREDITS: CreditEntry[] = [
   {
     "name": "markdown-table",
     "version": "3.0.4",
+    "license": "MIT"
+  },
+  {
+    "name": "marked",
+    "version": "16.4.2",
+    "license": "MIT"
+  },
+  {
+    "name": "marked",
+    "version": "17.0.6",
     "license": "MIT"
   },
   {
@@ -1085,6 +1510,11 @@ export const CREDITS: CreditEntry[] = [
   {
     "name": "mdast-util-to-string",
     "version": "4.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "mermaid",
+    "version": "11.16.0",
     "license": "MIT"
   },
   {
@@ -1229,7 +1659,7 @@ export const CREDITS: CreditEntry[] = [
   },
   {
     "name": "mime-db",
-    "version": "1.52.0",
+    "version": "1.54.0",
     "license": "MIT"
   },
   {
@@ -1308,13 +1738,28 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "package-manager-detector",
+    "version": "1.7.0",
+    "license": "MIT"
+  },
+  {
     "name": "parse-entities",
     "version": "4.0.2",
     "license": "MIT"
   },
   {
+    "name": "parse5",
+    "version": "7.3.0",
+    "license": "MIT"
+  },
+  {
     "name": "partial-json",
     "version": "0.1.7",
+    "license": "MIT"
+  },
+  {
+    "name": "path-data-parser",
+    "version": "0.1.0",
     "license": "MIT"
   },
   {
@@ -1326,6 +1771,16 @@ export const CREDITS: CreditEntry[] = [
     "name": "picocolors",
     "version": "1.1.1",
     "license": "ISC"
+  },
+  {
+    "name": "points-on-curve",
+    "version": "0.2.0",
+    "license": "MIT"
+  },
+  {
+    "name": "points-on-path",
+    "version": "0.2.1",
+    "license": "MIT"
   },
   {
     "name": "prebuild-install",
@@ -1378,11 +1833,6 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
-    "name": "react-markdown",
-    "version": "10.1.0",
-    "license": "MIT"
-  },
-  {
     "name": "react-redux",
     "version": "9.3.0",
     "license": "MIT"
@@ -1413,6 +1863,21 @@ export const CREDITS: CreditEntry[] = [
     "license": "Apache-2.0"
   },
   {
+    "name": "rehype-harden",
+    "version": "1.1.8",
+    "license": "MIT"
+  },
+  {
+    "name": "rehype-raw",
+    "version": "7.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "rehype-sanitize",
+    "version": "6.0.0",
+    "license": "MIT"
+  },
+  {
     "name": "remark-gfm",
     "version": "4.0.1",
     "license": "MIT"
@@ -1433,6 +1898,11 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "remend",
+    "version": "1.3.0",
+    "license": "Apache-2.0"
+  },
+  {
     "name": "reselect",
     "version": "5.2.0",
     "license": "MIT"
@@ -1443,8 +1913,28 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "robust-predicates",
+    "version": "3.0.3",
+    "license": "Unlicense"
+  },
+  {
+    "name": "roughjs",
+    "version": "4.6.6",
+    "license": "MIT"
+  },
+  {
+    "name": "rw",
+    "version": "1.3.3",
+    "license": "BSD-3-Clause"
+  },
+  {
     "name": "safe-buffer",
     "version": "5.2.1",
+    "license": "MIT"
+  },
+  {
+    "name": "safer-buffer",
+    "version": "2.1.2",
     "license": "MIT"
   },
   {
@@ -1488,6 +1978,11 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "streamdown",
+    "version": "2.5.0",
+    "license": "Apache-2.0"
+  },
+  {
     "name": "string_decoder",
     "version": "1.3.0",
     "license": "MIT"
@@ -1523,9 +2018,19 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "stylis",
+    "version": "4.4.0",
+    "license": "MIT"
+  },
+  {
     "name": "sumchecker",
     "version": "3.0.1",
     "license": "Apache-2.0"
+  },
+  {
+    "name": "tailwind-merge",
+    "version": "3.6.0",
+    "license": "MIT"
   },
   {
     "name": "tar-fs",
@@ -1543,6 +2048,11 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "tinyexec",
+    "version": "1.2.4",
+    "license": "MIT"
+  },
+  {
     "name": "trim-lines",
     "version": "3.0.1",
     "license": "MIT"
@@ -1555,6 +2065,11 @@ export const CREDITS: CreditEntry[] = [
   {
     "name": "ts-algebra",
     "version": "2.0.0",
+    "license": "MIT"
+  },
+  {
+    "name": "ts-dedent",
+    "version": "2.3.0",
     "license": "MIT"
   },
   {
@@ -1648,8 +2163,18 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT"
   },
   {
+    "name": "uuid",
+    "version": "14.0.1",
+    "license": "MIT"
+  },
+  {
     "name": "vfile",
     "version": "6.0.3",
+    "license": "MIT"
+  },
+  {
+    "name": "vfile-location",
+    "version": "5.0.3",
     "license": "MIT"
   },
   {
@@ -1663,6 +2188,11 @@ export const CREDITS: CreditEntry[] = [
     "license": "MIT AND ISC"
   },
   {
+    "name": "web-namespaces",
+    "version": "2.0.1",
+    "license": "MIT"
+  },
+  {
     "name": "web-streams-polyfill",
     "version": "3.3.3",
     "license": "MIT"
@@ -1674,7 +2204,7 @@ export const CREDITS: CreditEntry[] = [
   },
   {
     "name": "ws",
-    "version": "8.21.0",
+    "version": "8.21.1",
     "license": "MIT"
   },
   {
