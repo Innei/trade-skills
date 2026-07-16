@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { errorMessage } from "../../../api";
 import { client } from "../../../client";
 import { subscribeChannel } from "../../../wsHub";
+import { useSmoothStream } from "./useSmoothStream.js";
 
 export interface ChatSessionInfo {
   id: string;
@@ -128,7 +129,7 @@ function useConversationSession(kind: ConversationKind, id: string): ChatSession
   const [rows, setRows] = useState<ChatRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [aborting, setAborting] = useState(false);
-  const [streamText, setStreamText] = useState("");
+  const { text: streamText, push: streamPush, flush: streamFlush, finish: streamFinish, reset: streamReset } = useSmoothStream();
   const [liveTools, setLiveTools] = useState<ChatLiveTool[]>([]);
   const [hint, setHint] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -141,12 +142,15 @@ function useConversationSession(kind: ConversationKind, id: string): ChatSession
   const suggestionsRequestedRef = useRef(false);
 
   const reload = useCallback(
-    (markError?: string) => {
+    (markError?: string, after?: () => void) => {
       const seq = ++requestSeqRef.current;
       adapter
         .fetchChat(id)
         .then((env) => {
-          if (requestSeqRef.current !== seq || sendPendingRef.current) return;
+          if (requestSeqRef.current !== seq || sendPendingRef.current) {
+            after?.();
+            return;
+          }
           setSession(env.session);
           setRows(
             markError
@@ -154,18 +158,21 @@ function useConversationSession(kind: ConversationKind, id: string): ChatSession
               : env.messages,
           );
           setBusy(env.busy);
-          setStreamText(env.busy ? env.partial : "");
+          if (env.busy) streamFlush(env.partial);
+          else streamReset();
           setUsage(usageFromEnvelope(env));
           setLoaded(true);
           setHint((prev) => (prev === "对话记录加载失败" ? null : prev));
+          after?.();
         })
         .catch(() => {
+          after?.();
           if (requestSeqRef.current !== seq || sendPendingRef.current) return;
           setLoaded(true);
           setHint("对话记录加载失败");
         });
     },
-    [adapter, id],
+    [adapter, id, streamFlush, streamReset],
   );
 
   useEffect(() => {
@@ -175,14 +182,14 @@ function useConversationSession(kind: ConversationKind, id: string): ChatSession
     setRows([]);
     setBusy(false);
     setAborting(false);
-    setStreamText("");
+    streamReset();
     setLiveTools([]);
     setHint(null);
     setLoaded(false);
     setSuggestions([]);
     setUsage(null);
     reload();
-  }, [id, reload]);
+  }, [id, reload, streamReset]);
 
   useEffect(() => {
     let connectedOnce = false;
@@ -193,14 +200,17 @@ function useConversationSession(kind: ConversationKind, id: string): ChatSession
         if (env.type !== "init" && env.type !== "event") return;
         if (env.type === "init") {
           setBusy(env.busy);
-          setStreamText(env.busy ? env.partial : "");
-          if (!env.busy) setLiveTools([]);
+          if (env.busy) streamFlush(env.partial);
+          else {
+            streamReset();
+            setLiveTools([]);
+          }
           return;
         }
         const evt = env.event;
         if (evt.event === "delta") {
           setBusy(true);
-          setStreamText((prev) => prev + evt.text);
+          streamPush(evt.text);
           return;
         }
         if (evt.event === "tool") {
@@ -218,19 +228,25 @@ function useConversationSession(kind: ConversationKind, id: string): ChatSession
           });
           return;
         }
-        if (evt.event === "done" || evt.event === "aborted") {
+        if (evt.event === "aborted") {
+          streamFlush();
           setBusy(false);
           setAborting(false);
-          setStreamText("");
-          setLiveTools([]);
-          reload();
+          reload(undefined, () => {
+            setLiveTools([]);
+            streamReset();
+          });
           return;
         }
-        setBusy(false);
-        setAborting(false);
-        setStreamText("");
-        setLiveTools([]);
-        reload(evt.message);
+        const markError = evt.event === "done" ? undefined : evt.message;
+        streamFinish(() => {
+          setAborting(false);
+          reload(markError, () => {
+            setBusy(false);
+            setLiveTools([]);
+            streamReset();
+          });
+        });
       },
       (connected) => {
         if (!connected) return;
@@ -239,7 +255,7 @@ function useConversationSession(kind: ConversationKind, id: string): ChatSession
       },
     );
     return off;
-  }, [adapter, id, reload]);
+  }, [adapter, id, reload, streamFlush, streamFinish, streamPush, streamReset]);
 
   const send = useCallback(
     async (text: string): Promise<ChatSendResult> => {

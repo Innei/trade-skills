@@ -1,7 +1,6 @@
 import { ArrowRight, ChartCandlestick, LayoutDashboard, Library } from "lucide-react";
-import type { ComponentPropsWithoutRef } from "react";
-import ReactMarkdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
+import type { ReactNode } from "react";
+import { type Components, Streamdown } from "streamdown";
 import { parseAppDeepLink } from "../../../../shared/appDeepLink";
 import { navigate } from "../../router";
 import { openModal } from "../../ui";
@@ -9,7 +8,9 @@ import { researchRoute } from "../research/researchModel";
 
 type MarkdownVariant = "chat" | "report";
 
-function MarkdownLink({ href, children }: ComponentPropsWithoutRef<"a">) {
+function MarkdownLink(props: Record<string, unknown>) {
+  const href = typeof props.href === "string" ? props.href : undefined;
+  const children = props.children as ReactNode;
   const appLink = parseAppDeepLink(href);
   if (!appLink) return <a href={href}>{children}</a>;
 
@@ -40,27 +41,35 @@ function MarkdownLink({ href, children }: ComponentPropsWithoutRef<"a">) {
   );
 }
 
-export const MARKDOWN_COMPONENTS: Components = {
+export const MARKDOWN_COMPONENTS = {
   a: MarkdownLink,
-  table: ({ children }) => (
+  table: ({ children }: { children?: ReactNode }) => (
     <div className="typeset-scroll">
       <table>{children}</table>
     </div>
   ),
-};
+} as Components;
 
 export function Markdown({
   children,
   variant = "report",
+  streaming = false,
 }: {
   children: string;
   variant?: MarkdownVariant;
+  streaming?: boolean;
 }) {
   return (
     <div className={`typeset typeset-${variant}`}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
+      <Streamdown
+        mode={streaming ? "streaming" : "static"}
+        isAnimating={streaming}
+        controls={false}
+        linkSafety={{ enabled: false }}
+        components={MARKDOWN_COMPONENTS}
+      >
         {children}
-      </ReactMarkdown>
+      </Streamdown>
     </div>
   );
 }
