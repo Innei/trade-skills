@@ -14,7 +14,8 @@ export type ChannelSpec =
   | { kind: "research-chat"; path: string }
   | { kind: "assistant-chat"; id: string }
   | { kind: "research-refresh"; path: string }
-  | { kind: "annotations"; symbol: string };
+  | { kind: "annotations"; symbol: string }
+  | { kind: "analyst-runs" };
 
 interface ChannelSub {
   spec: ChannelSpec;
