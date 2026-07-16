@@ -138,35 +138,45 @@ export class LongbridgeQuoteSocket {
     socket.addEventListener("message", (event) => void this.handleMessage(event.data));
     socket.addEventListener("close", () => this.handleClose(new Error("Longbridge WebSocket closed")));
 
-    await new Promise<void>((resolve, reject) => {
-      const onOpen = () => resolve();
-      const onError = () => reject(new Error("Longbridge WebSocket connection failed"));
-      socket.addEventListener("open", onOpen);
-      socket.addEventListener("error", onError);
-    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const onOpen = () => resolve();
+        const onError = () => reject(new Error("Longbridge WebSocket connection failed"));
+        socket.addEventListener("open", onOpen);
+        socket.addEventListener("error", onError);
+      });
 
-    const metadata = { need_over_night_quote: "true" };
-    let sessionBody: Uint8Array;
-    let reconnect = false;
-    if (this.session && this.session.deadline > Date.now()) {
-      try {
-        sessionBody = await this.request(COMMAND_RECONNECT, encodeReconnectRequest(this.session.id, metadata), 5_000);
-        reconnect = true;
-      } catch {
+      const metadata = { need_over_night_quote: "true" };
+      let sessionBody: Uint8Array;
+      let reconnect = false;
+      if (this.session && this.session.deadline > Date.now()) {
+        try {
+          sessionBody = await this.request(COMMAND_RECONNECT, encodeReconnectRequest(this.session.id, metadata), 5_000);
+          reconnect = true;
+        } catch {
+          const otp = await (this.deps.getOtp ?? fetchSocketOtp)(token);
+          sessionBody = await this.request(COMMAND_AUTH, encodeAuthRequest(otp, metadata), 5_000);
+        }
+      } else {
         const otp = await (this.deps.getOtp ?? fetchSocketOtp)(token);
         sessionBody = await this.request(COMMAND_AUTH, encodeAuthRequest(otp, metadata), 5_000);
       }
-    } else {
-      const otp = await (this.deps.getOtp ?? fetchSocketOtp)(token);
-      sessionBody = await this.request(COMMAND_AUTH, encodeAuthRequest(otp, metadata), 5_000);
+      const next = decodeSessionResponse(sessionBody);
+      this.session = {
+        id: next.sessionId,
+        deadline: reconnect || next.expires < 1_000_000_000_000 ? Date.now() + next.expires : next.expires,
+      };
+      this.reconnectAttempt = 0;
+      await this.restoreSubscriptions();
+    } catch (error) {
+      if (this.socket === socket) this.socket = null;
+      try {
+        socket.close();
+      } catch {
+        /* already closed */
+      }
+      throw error;
     }
-    const next = decodeSessionResponse(sessionBody);
-    this.session = {
-      id: next.sessionId,
-      deadline: reconnect || next.expires < 1_000_000_000_000 ? Date.now() + next.expires : next.expires,
-    };
-    this.reconnectAttempt = 0;
-    await this.restoreSubscriptions();
   }
 
   private request(command: number, body: Uint8Array, timeoutMs = 30_000): Promise<Uint8Array> {

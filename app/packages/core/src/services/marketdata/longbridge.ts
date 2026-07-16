@@ -105,11 +105,29 @@ export interface QuoteQueryTransport {
   queryStaticNames(symbols: string[]): Promise<Array<{ symbol: string; name: string }>>;
 }
 
+// 长桥行情连接每账户限 10 条；一次性 CLI 进程退出后会留下 ~25 分钟的幽灵会话。
+// 配额打满时若继续回退 CLI，CLI 抢到刚释放的槽又会立刻幽灵化，故障自我延续——
+// 所以识别到配额错误后进入冷却期，冷却期内只走 WS（优雅关闭不烧槽），不再spawn CLI。
+const QUOTA_COOLDOWN_MS = 5 * 60_000;
+
+function isQuotaError(message: string): boolean {
+  return message.includes("command=2 status=5") || message.includes("connections limitation is hit");
+}
+
 export function createLongbridgeProvider(
   run: LongbridgeRunner = runLongbridgeJson,
   socket?: () => QuoteQueryTransport,
 ): MarketDataProvider {
   const securityNameCache = new Map<string, Promise<string | null>>();
+  let quotaCooldownUntil = 0;
+
+  function quotaError(label: string): ClientError {
+    return new ClientError(
+      `longbridge ${label} failed: 长桥行情连接数已满（limit 10）`,
+      "等待约 25 分钟让幽灵会话过期后自动恢复；期间避免运行 quote/kline/capital/static 类 longbridge CLI 命令，也不要重启 app。",
+      503,
+    );
+  }
 
   async function wsFirst<T>(label: string, viaSocket: () => Promise<T>, viaCli: () => Promise<T>): Promise<T> {
     if (!socket) return viaCli();
@@ -117,8 +135,23 @@ export function createLongbridgeProvider(
       return await viaSocket();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (isQuotaError(message)) {
+        quotaCooldownUntil = Date.now() + QUOTA_COOLDOWN_MS;
+        console.warn(`[longbridge] ws ${label} rejected: quote connection quota exhausted, skipping CLI fallback`);
+        throw quotaError(label);
+      }
+      if (Date.now() < quotaCooldownUntil) {
+        console.warn(`[longbridge] ws ${label} failed during quota cooldown, skipping CLI fallback:`, message);
+        throw quotaError(label);
+      }
       console.warn(`[longbridge] ws ${label} failed, falling back to CLI:`, message);
-      return viaCli();
+      try {
+        return await viaCli();
+      } catch (cliError) {
+        const cliMessage = cliError instanceof Error ? cliError.message : String(cliError);
+        if (isQuotaError(cliMessage)) quotaCooldownUntil = Date.now() + QUOTA_COOLDOWN_MS;
+        throw cliError;
+      }
     }
   }
 

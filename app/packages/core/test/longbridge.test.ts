@@ -101,8 +101,8 @@ describe("longbridgeProvider (CLI-backed)", () => {
 
   it("falls back to the CLI when the WS transport fails", async () => {
     const transport = {
-      queryQuotes: vi.fn().mockRejectedValue(new Error("connections limitation is hit")),
-      queryCandlesticks: vi.fn().mockRejectedValue(new Error("connections limitation is hit")),
+      queryQuotes: vi.fn().mockRejectedValue(new Error("socket down")),
+      queryCandlesticks: vi.fn().mockRejectedValue(new Error("socket down")),
       queryCapitalFlow: vi.fn(),
       queryCapitalDistribution: vi.fn(),
       queryStaticNames: vi.fn(),
@@ -118,6 +118,67 @@ describe("longbridgeProvider (CLI-backed)", () => {
 
     await expect(provider.getQuotes(["NVDA.US"])).resolves.toEqual(rows);
     await expect(provider.getKline("NVDA.US", "5m", 2)).resolves.toHaveLength(1);
+  });
+
+  it("skips the CLI fallback when the WS auth is rejected for quota exhaustion", async () => {
+    const transport = {
+      queryQuotes: vi.fn().mockRejectedValue(new Error("Longbridge response failed: command=2 status=5")),
+      queryCandlesticks: vi.fn().mockRejectedValue(new Error("socket down")),
+      queryCapitalFlow: vi.fn(),
+      queryCapitalDistribution: vi.fn(),
+      queryStaticNames: vi.fn(),
+    };
+    const run = vi.fn().mockRejectedValue(new Error("CLI should not run"));
+    const provider = createLongbridgeProvider(run as LongbridgeRunner, () => transport);
+
+    await expect(provider.getQuotes(["NVDA.US"])).rejects.toMatchObject({
+      status: 503,
+      message: expect.stringContaining("连接数已满"),
+    });
+    await expect(provider.getKline("NVDA.US", "5m", 2)).rejects.toMatchObject({ status: 503 });
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("re-enables the CLI fallback after the quota cooldown expires", async () => {
+    vi.useFakeTimers();
+    try {
+      const transport = {
+        queryQuotes: vi.fn().mockRejectedValue(new Error("Longbridge response failed: command=2 status=5")),
+        queryCandlesticks: vi.fn(),
+        queryCapitalFlow: vi.fn(),
+        queryCapitalDistribution: vi.fn(),
+        queryStaticNames: vi.fn(),
+      };
+      const rows = [{ symbol: "NVDA.US", last: "110", prev_close: "100", change_percentage: "10" }];
+      const run = runner({ "quote NVDA.US": rows });
+      const provider = createLongbridgeProvider(run, () => transport);
+
+      await expect(provider.getQuotes(["NVDA.US"])).rejects.toMatchObject({ status: 503 });
+      transport.queryQuotes.mockRejectedValue(new Error("socket down"));
+      await expect(provider.getQuotes(["NVDA.US"])).rejects.toMatchObject({ status: 503 });
+
+      vi.advanceTimersByTime(5 * 60_000 + 1);
+      await expect(provider.getQuotes(["NVDA.US"])).resolves.toEqual(rows);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("arms the quota cooldown when the CLI itself hits the connection limit", async () => {
+    const transport = {
+      queryQuotes: vi.fn().mockRejectedValue(new Error("socket down")),
+      queryCandlesticks: vi.fn().mockRejectedValue(new Error("socket down")),
+      queryCapitalFlow: vi.fn(),
+      queryCapitalDistribution: vi.fn(),
+      queryStaticNames: vi.fn(),
+    };
+    const run = vi.fn().mockRejectedValue(new Error("connections limitation is hit, limit = 10, online = 10"));
+    const provider = createLongbridgeProvider(run as LongbridgeRunner, () => transport);
+
+    await expect(provider.getQuotes(["NVDA.US"])).rejects.toMatchObject({ status: 502 });
+    expect(run).toHaveBeenCalledTimes(1);
+    await expect(provider.getKline("NVDA.US", "5m", 2)).rejects.toMatchObject({ status: 503 });
+    expect(run).toHaveBeenCalledTimes(1);
   });
 
   it("prefers the WS transport for security names and still caches per symbol", async () => {

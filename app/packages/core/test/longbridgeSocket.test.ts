@@ -12,7 +12,7 @@ function num(field: number, value: number): number[] {
   return [field << 3, value];
 }
 
-function response(command: number, requestId: number, body: number[] = []): Uint8Array {
+function response(command: number, requestId: number, body: number[] = [], status = 0): Uint8Array {
   return Uint8Array.from([
     2,
     command,
@@ -20,7 +20,7 @@ function response(command: number, requestId: number, body: number[] = []): Uint
     (requestId >>> 16) & 0xff,
     (requestId >>> 8) & 0xff,
     requestId & 0xff,
-    0,
+    status,
     (body.length >>> 16) & 0xff,
     (body.length >>> 8) & 0xff,
     body.length & 0xff,
@@ -45,11 +45,16 @@ class FakeSocket implements WebSocketLike {
   }
 
   replies = new Map<number, number[]>();
+  authStatus = 0;
 
   send(data: Uint8Array): void {
     this.sent.push(data);
     const command = data[1];
     const requestId = data[2] * 0x1000000 + (data[3] << 16) + (data[4] << 8) + data[5];
+    if (command === 2 && this.authStatus !== 0) {
+      queueMicrotask(() => this.emit("message", { data: response(command, requestId, [], this.authStatus) }));
+      return;
+    }
     const body = command === 2 ? [...str(1, "session"), ...num(2, 120)] : (this.replies.get(command) ?? []);
     queueMicrotask(() => this.emit("message", { data: response(command, requestId, body) }));
   }
@@ -131,5 +136,31 @@ describe("LongbridgeQuoteSocket", () => {
     ]);
     expect(fake.sent.map((packet) => packet[1])).toEqual([2, 11, 19]);
     socket.close();
+  });
+
+  it("closes the socket when auth is rejected so the connection slot is freed", async () => {
+    const fake = new FakeSocket();
+    fake.authStatus = 5;
+    const socket = new LongbridgeQuoteSocket({
+      createSocket: () => {
+        queueMicrotask(() => {
+          fake.readyState = 1;
+          fake.emit("open");
+        });
+        return fake;
+      },
+      loadToken: async () => ({
+        clientId: "client",
+        accessToken: "token",
+        refreshToken: null,
+        expiresAt: 4_102_444_800,
+        dcRegion: "us",
+      }),
+      getOtp: async () => "socket-otp",
+      endpoint: "wss://example.test/v2",
+    });
+
+    await expect(socket.queryQuotes(["SMH.US"])).rejects.toThrow("command=2 status=5");
+    expect(fake.readyState).toBe(3);
   });
 });
