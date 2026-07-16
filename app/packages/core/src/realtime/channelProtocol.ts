@@ -1,4 +1,5 @@
 import type { CockpitComment } from "../../../../shared/types.js";
+import { listAnalystRuns, onAnalystRunChange } from "../ai/analyst.js";
 import { assistantChatTurnState, onAssistantChatEvent } from "../ai/assistantChat.js";
 import { type ChatEvent, chatTurnState, onChatEvent } from "../ai/chat.js";
 import { onResearchChatEvent, researchChatTurnState } from "../ai/researchChat.js";
@@ -44,6 +45,12 @@ function attachNotifications(push: (envelope: string) => void): () => void {
   };
 }
 
+function attachAnalystRuns(push: (envelope: string) => void): () => void {
+  const unsub = onAnalystRunChange((symbol, status) => push(JSON.stringify({ type: "update", symbol, status })));
+  push(JSON.stringify({ type: "init", runs: listAnalystRuns() }));
+  return unsub;
+}
+
 const MAX_CHANNELS_PER_SOCKET = 16;
 
 export interface WsSub {
@@ -54,6 +61,7 @@ export interface WsSub {
     | "chart"
     | "comments"
     | "notifications"
+    | "analyst-runs"
     | "analyses"
     | "position"
     | "benchmark"
@@ -99,6 +107,9 @@ export function parseWsMessage(raw: unknown): WsClientMessage | null {
   }
   if (msg.kind === "notifications") {
     return { op: "sub", key: msg.key, kind: "notifications" };
+  }
+  if (msg.kind === "analyst-runs") {
+    return { op: "sub", key: msg.key, kind: "analyst-runs" };
   }
   if (msg.kind === "analyses") {
     if (typeof msg.symbol !== "string" || !msg.symbol) return null;
@@ -196,6 +207,7 @@ async function attachChannel(msg: WsSub, push: (envelope: string) => void): Prom
     return attachComments(symbol, push);
   }
   if (msg.kind === "notifications") return attachNotifications(push);
+  if (msg.kind === "analyst-runs") return attachAnalystRuns(push);
   if (msg.kind === "analyses") return subscribeAnalyses(normalizeSymbol(msg.symbol as string), push);
   if (msg.kind === "position") return subscribePosition(normalizeSymbol(msg.symbol as string), push);
   if (msg.kind === "benchmark") return subscribeBenchmark(normalizeSymbol(msg.symbol as string), push);

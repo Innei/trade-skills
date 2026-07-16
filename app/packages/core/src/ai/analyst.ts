@@ -150,6 +150,7 @@ export interface StartResult {
 const analystRunLock = createRunLock();
 const analystRunStates = new Map<string, Extract<AnalystRunStatus, { running: true }>>();
 const lastEscalationStart = new Map<string, number>();
+const analystRunListeners = new Set<(symbol: string, status: AnalystRunStatus) => void>();
 
 export type AnalystRunPhase = "preparing" | "researching" | "writing" | "finalizing";
 
@@ -169,6 +170,19 @@ export function analystRunStatus(symbol: string): AnalystRunStatus {
   return analystRunStates.get(symbol) ?? { running: false };
 }
 
+export function listAnalystRuns(): Array<{ symbol: string; status: AnalystRunStatus }> {
+  return [...analystRunStates.entries()].map(([symbol, status]) => ({ symbol, status }));
+}
+
+export function onAnalystRunChange(listener: (symbol: string, status: AnalystRunStatus) => void): () => void {
+  analystRunListeners.add(listener);
+  return () => analystRunListeners.delete(listener);
+}
+
+function emitAnalystRunChange(symbol: string, status: AnalystRunStatus): void {
+  for (const listener of analystRunListeners) listener(symbol, status);
+}
+
 function updateAnalystRunStatus(
   symbol: string,
   phase: AnalystRunPhase,
@@ -177,12 +191,14 @@ function updateAnalystRunStatus(
 ): void {
   const current = analystRunStates.get(symbol);
   if (!current) return;
-  analystRunStates.set(symbol, {
+  const next: Extract<AnalystRunStatus, { running: true }> = {
     ...current,
     phase,
     activity,
     updatedAt: new Date(now()).toISOString(),
-  });
+  };
+  analystRunStates.set(symbol, next);
+  emitAnalystRunChange(symbol, next);
 }
 
 export function escalationOnCooldown(symbol: string, now: number): boolean {
@@ -495,18 +511,21 @@ export function runAnalyst({ symbol, origin, deps }: RunAnalystInput): StartResu
   if (origin === "escalation") lastEscalationStart.set(symbol, now);
 
   const startedAt = new Date(now).toISOString();
-  analystRunStates.set(symbol, {
+  const initialStatus: Extract<AnalystRunStatus, { running: true }> = {
     running: true,
     origin,
     phase: "preparing",
     activity: "正在准备分析环境",
     startedAt,
     updatedAt: startedAt,
-  });
+  };
+  analystRunStates.set(symbol, initialStatus);
+  emitAnalystRunChange(symbol, initialStatus);
 
   const done = executeAnalystRun(symbol, { ...deps, origin }).finally(() => {
     analystRunStates.delete(symbol);
     analystRunLock.release(symbol);
+    emitAnalystRunChange(symbol, { running: false });
   });
   return { started: true, done };
 }

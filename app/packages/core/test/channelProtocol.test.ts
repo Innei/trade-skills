@@ -1,8 +1,13 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { AgentEvent } from "@earendil-works/pi-agent-core";
-import type { AiAgentFactory } from "../src/ai/agentSession.js";
+import type { AiAgentFactory, AiAgentHandle } from "../src/ai/agentSession.js";
 import type { AiModel } from "../src/ai/models.js";
 import { runAssistantChatTurn } from "../src/ai/assistantChat.js";
+import { type AnalystDeps, runAnalyst } from "../src/ai/analyst.js";
 import { createAssistantSession } from "../src/ai/assistantChatStore.js";
+import type { ReassessPack } from "../src/ai/datapack.js";
 import { createDb, type Db } from "../src/db/index.js";
 import type { Connection } from "../src/realtime/connection.js";
 import { describe, expect, it } from "vitest";
@@ -152,6 +157,158 @@ describe("assistant-chat channel", () => {
     expect(conn.sent).toHaveLength(0);
 
     releasePrompt();
+  });
+});
+
+type Tools = Parameters<AiAgentFactory>[0]["tools"];
+
+function tool(tools: Tools, name: string) {
+  const t = tools.find((x) => x.name === name);
+  if (!t) throw new Error(`missing tool ${name}`);
+  return t;
+}
+
+function makePack(): ReassessPack {
+  return {
+    symbol: "CHANNEL.US",
+    as_of: "2026-07-16T15:00:00.000Z",
+    timeframes: {} as ReassessPack["timeframes"],
+    flow: [],
+    rel_volume: null,
+    day_levels: null,
+    day_context: null,
+    options_levels: null,
+    event_risk: null,
+    lessons: [],
+    market: { spy: null, qqq: null },
+    news: [],
+    prediction: null,
+    prediction_chart_id: null,
+    position: null,
+  };
+}
+
+const validPrediction = {
+  direction: "long" as const,
+  anchor: { timeframe: "m5" as const, time: "2026-07-16T15:00:00Z", price: 100 },
+  entry_plan: { entry: 100, stop: 97, target1: 104, target2: 108 },
+  scenarios: [
+    { label: "上破", probability: 50 },
+    { label: "震荡", probability: 30 },
+    { label: "下破", probability: 20 },
+  ],
+  comment: "多头结构完好，站上 100 看 104。",
+};
+
+function makeAnalystDeps(script: (tools: Tools) => Promise<void>): AnalystDeps {
+  const sandbox = mkdtempSync(join(tmpdir(), "analyst-channel-test-"));
+  const agentFactory: AiAgentFactory = ({ tools }) => {
+    const agent: AiAgentHandle = {
+      prompt: async () => script(tools),
+      abort: () => undefined,
+    };
+    return agent;
+  };
+  return {
+    model: { provider: "anthropic", id: "test-model" } as unknown as AiModel,
+    agentFactory,
+    buildReassessPack: async () => makePack(),
+    fetchNews: async () => [],
+    fetchKline: async () => [],
+    createChart: async () => ({ id: "chart-1", url: "http://localhost/#/charts/chart-1" }),
+    appendComment: async () => {},
+    repoRoot: sandbox,
+    journalDir: join(sandbox, "journal"),
+    exec: async () => ({ stdout: "", stderr: "" }),
+    skillText: "# intraday-signal\n假技能全文。",
+    disciplineText: "# trading-discipline\n假纪律全文。",
+  };
+}
+
+describe("parseWsMessage analyst-runs kind", () => {
+  it("parses a valid analyst-runs subscription", () => {
+    expect(parseWsMessage({ op: "sub", key: "k1", kind: "analyst-runs" })).toEqual({
+      op: "sub",
+      key: "k1",
+      kind: "analyst-runs",
+    });
+  });
+});
+
+describe("analyst-runs channel", () => {
+  it("includes an already-running entry in the init snapshot", async () => {
+    const symbol = "INIT.US";
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const deps = makeAnalystDeps(async () => {
+      await gate;
+    });
+
+    const run = runAnalyst({ symbol, origin: "manual", deps });
+    expect(run.started).toBe(true);
+
+    const conn = makeConnection();
+    handleConnection(conn);
+    conn.emitMessage(JSON.stringify({ op: "sub", key: "runs1", kind: "analyst-runs" }));
+    await waitFor(() => conn.sent.length > 0);
+
+    const init = JSON.parse(conn.sent[0]);
+    expect(init.key).toBe("runs1");
+    expect(init.payload.type).toBe("init");
+    expect(init.payload.runs).toContainEqual(
+      expect.objectContaining({ symbol, status: expect.objectContaining({ running: true }) }),
+    );
+
+    release();
+    await run.done;
+  });
+
+  it("pushes update on phase change and running:false on run end, then stops after unsubscribe", async () => {
+    const symbol = "UPDATE.US";
+    let releaseTool!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseTool = resolve;
+    });
+    const deps = makeAnalystDeps(async (tools) => {
+      await tool(tools, "read_data_pack").execute("c1", {});
+      await gate;
+      await tool(tools, "submit_prediction").execute("c2", validPrediction);
+    });
+
+    const conn = makeConnection();
+    handleConnection(conn);
+    conn.emitMessage(JSON.stringify({ op: "sub", key: "runs2", kind: "analyst-runs" }));
+    await waitFor(() => conn.sent.length > 0);
+    conn.sent.length = 0;
+
+    const run = runAnalyst({ symbol, origin: "manual", deps });
+    await waitFor(() =>
+      conn.sent.some((raw) => {
+        const msg = JSON.parse(raw);
+        return msg.payload.type === "update" && msg.payload.symbol === symbol && msg.payload.status.phase === "researching";
+      }),
+    );
+
+    releaseTool();
+    await waitFor(() =>
+      conn.sent.some((raw) => {
+        const msg = JSON.parse(raw);
+        return msg.payload.type === "update" && msg.payload.symbol === symbol && msg.payload.status.running === false;
+      }),
+    );
+    await run.done;
+
+    conn.emitMessage(JSON.stringify({ op: "unsub", key: "runs2" }));
+    conn.sent.length = 0;
+
+    const secondSymbol = "AFTER-UNSUB.US";
+    const secondDeps = makeAnalystDeps(async () => {});
+    const secondRun = runAnalyst({ symbol: secondSymbol, origin: "manual", deps: secondDeps });
+    await secondRun.done;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(conn.sent).toHaveLength(0);
   });
 });
 
