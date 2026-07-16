@@ -166,4 +166,76 @@ describe("useAnalystRun", () => {
 
     expect(result.current.running).toBe(false);
   });
+
+  it("ignores an in-flight re-check that resolves after unmount", async () => {
+    vi.useFakeTimers();
+    reassess.mockResolvedValue({ started: true });
+    let resolveStatus: ((value: { running: boolean }) => void) | undefined;
+    reassessStatus.mockReturnValue(
+      new Promise((resolve) => {
+        resolveStatus = resolve;
+      }),
+    );
+
+    const { result, unmount } = renderHook(() => useAnalystRun("NVDA"));
+
+    await act(async () => {
+      await result.current.start();
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RECONCILE_WINDOW_MS);
+    });
+    expect(reassessStatus).toHaveBeenCalledTimes(1);
+
+    unmount();
+
+    await act(async () => {
+      resolveStatus?.({ running: true });
+      await Promise.resolve();
+    });
+
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("keeps the new symbol's optimistic placeholder when the old symbol's re-check resolves late", async () => {
+    vi.useFakeTimers();
+    reassess.mockResolvedValue({ started: true });
+    let resolveStatus: ((value: { running: boolean }) => void) | undefined;
+    reassessStatus.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveStatus = resolve;
+      }),
+    );
+
+    const { result, rerender } = renderHook(({ symbol }) => useAnalystRun(symbol), {
+      initialProps: { symbol: "NVDA" },
+    });
+
+    await act(async () => {
+      await result.current.start();
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(RECONCILE_WINDOW_MS);
+    });
+    expect(reassessStatus).toHaveBeenCalledWith({ sym: "NVDA" });
+
+    rerender({ symbol: "MU" });
+
+    reassessStatus.mockResolvedValue({ running: true });
+    await act(async () => {
+      await result.current.start();
+    });
+    expect(result.current.running).toBe(true);
+    const muActivity = result.current.status?.activity;
+
+    await act(async () => {
+      resolveStatus?.({ running: false });
+      await Promise.resolve();
+    });
+
+    expect(result.current.running).toBe(true);
+    expect(result.current.status?.activity).toBe(muActivity);
+  });
 });

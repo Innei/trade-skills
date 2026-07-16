@@ -24,8 +24,10 @@ export function useAnalystRun(symbol: string, enabled = true): AnalystRunControl
   const { runs } = useAnalystRuns();
   const serverStatus = enabled ? (runs.get(symbol) ?? null) : null;
   const reconcileTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconcileGenerationRef = useRef(0);
 
   const clearReconcileTimer = useCallback(() => {
+    reconcileGenerationRef.current += 1;
     if (reconcileTimerRef.current === null) return;
     clearTimeout(reconcileTimerRef.current);
     reconcileTimerRef.current = null;
@@ -34,6 +36,7 @@ export function useAnalystRun(symbol: string, enabled = true): AnalystRunControl
   const armReconcileTimer = useCallback(
     (sym: string) => {
       clearReconcileTimer();
+      const generation = reconcileGenerationRef.current;
       reconcileTimerRef.current = setTimeout(async () => {
         reconcileTimerRef.current = null;
         let stillRunning = false;
@@ -42,6 +45,7 @@ export function useAnalystRun(symbol: string, enabled = true): AnalystRunControl
         } catch {
           stillRunning = false;
         }
+        if (generation !== reconcileGenerationRef.current) return;
         if (stillRunning) {
           armReconcileTimer(sym);
         } else {
