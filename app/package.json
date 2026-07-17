@@ -10,6 +10,7 @@
     "build": "pnpm --filter @kansoku/web build",
     "build:desktop": "pnpm --filter @kansoku/desktop build",
     "package:desktop": "pnpm --filter @kansoku/desktop package",
+    "bench": "pnpm --filter @kansoku/bench exec vite-node src/cli.ts",
     "release:desktop:dry-run": "desktop/scripts/release-dry-run.sh",
     "test": "pnpm -r test",
     "test:desktop": "pnpm --filter @kansoku/desktop test",
