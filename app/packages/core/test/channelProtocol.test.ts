@@ -12,6 +12,9 @@ import { createDb, type Db } from "../src/db/index.js";
 import type { Connection } from "../src/realtime/connection.js";
 import { afterEach, describe, expect, it } from "vitest";
 import { handleConnection, parseWsMessage } from "../src/realtime/channelProtocol.js";
+import { registerBuiltinPro } from "../src/pro/builtin.js";
+
+registerBuiltinPro();
 
 const model = { provider: "anthropic", id: "test-model" } as unknown as AiModel;
 const analystSandboxes = new Set<string>();

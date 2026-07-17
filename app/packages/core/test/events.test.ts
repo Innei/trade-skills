@@ -19,6 +19,9 @@ vi.mock("../src/services/longbridgeCli.js", () => ({
 const { getEventRisk } = await import("../src/services/events.js");
 const { createSettingsStore, setActiveSettingsStore } = await import("../src/ai/settingsStore.js");
 const { createDb } = await import("../src/db/index.js");
+const { registerBuiltinPro } = await import("../src/pro/builtin.js");
+
+registerBuiltinPro();
 
 function macroPayload(now: Date) {
   return {

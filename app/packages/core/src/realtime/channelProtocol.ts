@@ -1,15 +1,7 @@
-import type { CockpitComment } from "../../../../shared/types.js";
-import { listAnalystRuns, onAnalystRunChange } from "../ai/analyst.js";
-import { assistantChatTurnState, onAssistantChatEvent } from "../ai/assistantChat.js";
-import { type ChatEvent, chatTurnState, onChatEvent } from "../ai/chat.js";
-import { onResearchChatEvent, researchChatTurnState } from "../ai/researchChat.js";
-import { getLatestResearchRefreshTask, onResearchRefreshEvent } from "../ai/researchRefresh.js";
-import { listComments, onAnyComment, onComment } from "../ai/comments.js";
-import { onAnyNotice } from "../ai/notices.js";
 import { type AnnotationsChangedEvent, loadAnnotations, onAnnotationsChanged } from "../services/annotations.js";
 import { clampViewCount } from "../services/history.js";
-import { easternDate } from "../services/session.js";
 import { normalizeSymbol } from "../services/symbol.utils.js";
+import { getPro } from "../pro/registry.js";
 import { subscribeAnalyses } from "./analyses.js";
 import { subscribeBenchmark } from "./benchmark.js";
 import { subscribeBoard } from "./board.js";
@@ -18,60 +10,23 @@ import type { Connection } from "./connection.js";
 import { subscribePosition } from "./position.js";
 import { subscribeQuotes } from "./quotes.js";
 
-async function attachComments(symbol: string, push: (envelope: string) => void): Promise<() => void> {
-  const buffered: CockpitComment[] = [];
-  let ready = false;
-  const unsubComment = onComment(symbol, (comment) => {
-    if (ready) push(JSON.stringify({ type: "comment", comment }));
-    else buffered.push(comment);
-  });
-  const comments = await listComments(symbol, easternDate());
-  push(JSON.stringify({ type: "init", comments }));
-  const seen = new Set(comments.map((c) => `${c.ts} ${c.text}`));
-  for (const comment of buffered) {
-    if (seen.has(`${comment.ts} ${comment.text}`)) continue;
-    push(JSON.stringify({ type: "comment", comment }));
-  }
-  ready = true;
-  return unsubComment;
-}
-
-function attachNotifications(push: (envelope: string) => void): () => void {
-  const unsubComment = onAnyComment((comment) => push(JSON.stringify({ type: "comment", comment })));
-  const unsubNotice = onAnyNotice((notice) => push(JSON.stringify({ type: "notice", notice })));
-  return () => {
-    unsubComment();
-    unsubNotice();
-  };
-}
-
-function attachAnalystRuns(push: (envelope: string) => void): () => void {
-  const unsub = onAnalystRunChange((symbol, status) => push(JSON.stringify({ type: "update", symbol, status })));
-  push(JSON.stringify({ type: "init", runs: listAnalystRuns() }));
-  return unsub;
-}
-
 const MAX_CHANNELS_PER_SOCKET = 16;
+
+const STATIC_KINDS = [
+  "quotes",
+  "chart",
+  "analyses",
+  "position",
+  "benchmark",
+  "board",
+  "preview",
+  "annotations",
+] as const;
 
 export interface WsSub {
   op: "sub";
   key: string;
-  kind:
-    | "quotes"
-    | "chart"
-    | "comments"
-    | "notifications"
-    | "analyst-runs"
-    | "analyses"
-    | "position"
-    | "benchmark"
-    | "board"
-    | "chat"
-    | "research-chat"
-    | "assistant-chat"
-    | "research-refresh"
-    | "preview"
-    | "annotations";
+  kind: (typeof STATIC_KINDS)[number] | string;
   extra?: string[];
   id?: string;
   count?: number;
@@ -101,16 +56,6 @@ export function parseWsMessage(raw: unknown): WsClientMessage | null {
     const count = typeof msg.count === "number" && Number.isFinite(msg.count) ? msg.count : undefined;
     return { op: "sub", key: msg.key, kind: "chart", id: msg.id, count };
   }
-  if (msg.kind === "comments") {
-    if (typeof msg.symbol !== "string" || !msg.symbol) return null;
-    return { op: "sub", key: msg.key, kind: "comments", symbol: msg.symbol };
-  }
-  if (msg.kind === "notifications") {
-    return { op: "sub", key: msg.key, kind: "notifications" };
-  }
-  if (msg.kind === "analyst-runs") {
-    return { op: "sub", key: msg.key, kind: "analyst-runs" };
-  }
   if (msg.kind === "analyses") {
     if (typeof msg.symbol !== "string" || !msg.symbol) return null;
     return { op: "sub", key: msg.key, kind: "analyses", symbol: msg.symbol };
@@ -130,46 +75,19 @@ export function parseWsMessage(raw: unknown): WsClientMessage | null {
   if (msg.kind === "board") {
     return { op: "sub", key: msg.key, kind: "board" };
   }
-  if (msg.kind === "chat") {
-    if (typeof msg.id !== "string" || !msg.id) return null;
-    return { op: "sub", key: msg.key, kind: "chat", id: msg.id };
-  }
-  if (msg.kind === "research-chat") {
-    if (typeof msg.path !== "string" || !msg.path || msg.path.length > 1_000) return null;
-    return { op: "sub", key: msg.key, kind: "research-chat", path: msg.path };
-  }
-  if (msg.kind === "assistant-chat") {
-    if (typeof msg.id !== "string" || !msg.id) return null;
-    return { op: "sub", key: msg.key, kind: "assistant-chat", id: msg.id };
-  }
-  if (msg.kind === "research-refresh") {
-    if (typeof msg.path !== "string" || !msg.path || msg.path.length > 1_000) return null;
-    return { op: "sub", key: msg.key, kind: "research-refresh", path: msg.path };
-  }
   if (msg.kind === "annotations") {
     if (typeof msg.symbol !== "string" || !msg.symbol) return null;
     return { op: "sub", key: msg.key, kind: "annotations", symbol: msg.symbol };
   }
+  if (typeof msg.kind === "string") {
+    const channel = getPro()?.channels?.find((c) => c.kind === msg.kind);
+    if (channel) {
+      const parsed = channel.parse(msg);
+      if (!parsed) return null;
+      return { op: "sub", key: msg.key, kind: msg.kind, ...parsed };
+    }
+  }
   return null;
-}
-
-function attachConversation(
-  key: string,
-  push: (envelope: string) => void,
-  subscribe: (key: string, listener: (event: ChatEvent) => void) => () => void,
-  turnState: (key: string) => { busy: boolean; partial: string },
-): () => void {
-  const unsub = subscribe(key, (event) => push(JSON.stringify({ type: "event", event })));
-  const { busy, partial } = turnState(key);
-  push(JSON.stringify({ type: "init", busy, partial }));
-  return unsub;
-}
-
-async function attachResearchRefresh(path: string, push: (envelope: string) => void): Promise<() => void> {
-  const unsub = onResearchRefreshEvent(path, (task) => push(JSON.stringify({ type: "task", task })));
-  const task = await getLatestResearchRefreshTask(path);
-  push(JSON.stringify({ type: "init", task }));
-  return unsub;
 }
 
 function pushAnnotationsUpdate(push: (envelope: string) => void, event: AnnotationsChangedEvent): void {
@@ -202,23 +120,14 @@ async function attachChannel(msg: WsSub, push: (envelope: string) => void): Prom
     const count = clampViewCount(msg.count != null ? String(msg.count) : undefined) ?? undefined;
     return subscribeChart(msg.id as string, push, count);
   }
-  if (msg.kind === "comments") {
-    const symbol = normalizeSymbol(msg.symbol as string);
-    return attachComments(symbol, push);
-  }
-  if (msg.kind === "notifications") return attachNotifications(push);
-  if (msg.kind === "analyst-runs") return attachAnalystRuns(push);
   if (msg.kind === "analyses") return subscribeAnalyses(normalizeSymbol(msg.symbol as string), push);
   if (msg.kind === "position") return subscribePosition(normalizeSymbol(msg.symbol as string), push);
   if (msg.kind === "benchmark") return subscribeBenchmark(normalizeSymbol(msg.symbol as string), push);
   if (msg.kind === "preview") return subscribePreview(msg.symbol as string, push);
-  if (msg.kind === "chat") return attachConversation(msg.id as string, push, onChatEvent, chatTurnState);
-  if (msg.kind === "research-chat")
-    return attachConversation(msg.path as string, push, onResearchChatEvent, researchChatTurnState);
-  if (msg.kind === "assistant-chat")
-    return attachConversation(msg.id as string, push, onAssistantChatEvent, assistantChatTurnState);
-  if (msg.kind === "research-refresh") return attachResearchRefresh(msg.path as string, push);
   if (msg.kind === "annotations") return attachAnnotations(msg.symbol as string, push);
+  if (msg.kind === "board") return subscribeBoard(push);
+  const channel = getPro()?.channels?.find((c) => c.kind === msg.kind);
+  if (channel) return channel.attach(msg as unknown as Record<string, unknown>, push);
   return subscribeBoard(push);
 }
 

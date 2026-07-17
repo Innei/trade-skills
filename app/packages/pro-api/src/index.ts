@@ -27,11 +27,20 @@ export interface ProCapabilities {
   licensed: boolean;
 }
 
+export interface ProChannel {
+  kind: string;
+  parse: (raw: Record<string, unknown>) => Record<string, unknown> | null;
+  attach: (
+    msg: Record<string, unknown>,
+    push: (envelope: string) => void,
+  ) => (() => void) | Promise<() => void>;
+}
+
 export interface ProModule {
   hooks: ProHooks;
   tsukiModules?: unknown[];
   ipcServiceClasses?: unknown[];
-  channels?: unknown[];
+  channels?: ProChannel[];
   startScheduler?: (ctx: ProHostContext) => void | (() => void);
   initRuntime?: (db: unknown, secretBox: unknown) => void | Promise<void>;
   migrations?: string;

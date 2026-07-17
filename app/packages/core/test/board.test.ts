@@ -43,6 +43,9 @@ vi.mock("../src/ai/follows.js", () => follows);
 
 const { subscribeBoard } = await import("../src/realtime/board.js");
 const { easternDate } = await import("../src/services/session.js");
+const { registerBuiltinPro } = await import("../src/pro/builtin.js");
+
+registerBuiltinPro();
 
 function meta(): ChartMeta {
   return {

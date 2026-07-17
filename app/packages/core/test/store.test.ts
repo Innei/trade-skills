@@ -24,6 +24,9 @@ const {
 } = await import("../src/services/store.js");
 const { subscribeAnalyses } = await import("../src/realtime/analyses.js");
 const { symbolFollowState } = await import("../src/ai/follows.js");
+const { registerBuiltinPro } = await import("../src/pro/builtin.js");
+
+registerBuiltinPro();
 
 function buildResult(overrides: Partial<BuildResult> = {}): BuildResult {
   return {

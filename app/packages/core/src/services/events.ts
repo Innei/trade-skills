@@ -1,6 +1,5 @@
 import type { IntradayEventRisk, MacroEventItem } from "../../../../shared/types.js";
-import { filterMacroForSymbol } from "../ai/eventFilter.js";
-import { activeSettingsRevision } from "../ai/settingsStore.js";
+import { getProHooks } from "../pro/registry.js";
 import { getProvider } from "./marketdata/registry.js";
 import { easternDate } from "./session.js";
 import { marketOf, type Market } from "./symbol.utils.js";
@@ -52,10 +51,10 @@ async function macroReleases(now: Date, market: Market): Promise<MacroEventItem[
 async function relevantMacro(symbol: string, macro: MacroEventItem[], now: Date): Promise<MacroEventItem[]> {
   const upcoming = macro.filter((m) => Date.parse(m.ts) > now.getTime());
   if (!upcoming.length) return upcoming;
-  const fingerprint = `${activeSettingsRevision()}|${upcoming.map((m) => `${m.ts}|${m.title}`).join("\n")}`;
+  const fingerprint = `${getProHooks().activeSettingsRevision()}|${upcoming.map((m) => `${m.ts}|${m.title}`).join("\n")}`;
   const hit = relevanceCache.get(symbol);
   if (hit && hit.fingerprint === fingerprint && Date.now() - hit.at < MACRO_TTL_MS) return hit.val;
-  const val = await filterMacroForSymbol(symbol, upcoming).catch(() => upcoming);
+  const val = await getProHooks().filterMacroForSymbol(symbol, upcoming).catch(() => upcoming);
   relevanceCache.set(symbol, { at: Date.now(), fingerprint, val });
   return val;
 }
