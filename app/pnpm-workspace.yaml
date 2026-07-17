@@ -1,5 +1,7 @@
 packages:
   - packages/core
+  - packages/pro-api
+  - pro/*
   - server
   - web
   - desktop
