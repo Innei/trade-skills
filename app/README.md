@@ -241,9 +241,9 @@ Pro 包内含一个基于 [Dodo Payments](https://docs.dodopayments.com/features
 - **状态机**：`unlicensed → licensed`(激活/复验成功)、离线 14 天宽限期内算 `grace`(对外仍是 `licensed=true`)、宽限期耗尽降级 `expired`(**之后一次复验成功会自动恢复,不需要重新输入 key**)、Dodo 判定 key 失效(退订/换档)是 `invalid`(需要重新输入新 key)。复验时机：启动后异步一次 + 每 24 小时一次,激活/停用后立即刷新一次。
 - **降级行为**：未授权时 AI 相关 HTTP 路由与 IPC 方法统一返回 **403**、错误码 `LICENSE_REQUIRED`；`reassess`/`deep-dive` 同样 403；`GET /overview/recap` 是例外——它必须始终成功返回,未授权时把里面的 usage 字段降级为全零,不整体报错。图表/行情/journal 完全不受影响。
 - **环境变量**：
-  - `KANSOKU_DODO_TEST=1` —— Dodo client 走 test 环境（`test.dodopayments.com`）而非 live,配合 Dodo 后台的测试模式 key 联调用。
+  - Dodo 环境默认跟随宿主形态：**dev 一律走 test 环境**（`test.dodopayments.com` + test checkout,用测试卡 4242 联调）,打包桌面 / `NODE_ENV=production` 的 server 才走 live。例外开关：`KANSOKU_DODO_LIVE=1` 在 dev 强开 live;`KANSOKU_DODO_TEST=1` 反向强制 test（打包产物 QA 用）。
   - `KANSOKU_LICENSE_BYPASS=1` —— **仅供开发使用**的逃生舱,直接让 `licensed` 判定短路为 `true`,免去每次开发都要走一遍真实激活流程。**打包后的桌面构建里这个开关是死的**：判定逻辑会先检测 Electron 的 `app.isPackaged`,只要是打包产物就无视这个变量强制走真实授权路径；非 Electron 宿主（server）退回看 `NODE_ENV!=="production"` 兜底。
-  - `KANSOKU_SUBSCRIBE_URL` —— 设置页"订阅"按钮的跳转链接,不设置则该入口不出现。
+  - 订阅链接与价格由 pro 侧配置（`app/pro` 的 `subscription`）提供,free 构建不出现订阅入口。
 
 ## 后续规划
 

@@ -4,10 +4,8 @@
   "packageManager": "pnpm@11.10.0",
   "scripts": {
     "dev": "concurrently -n web,server -c blue,green \"pnpm --filter @kansoku/web dev\" \"pnpm --filter @kansoku/server dev\"",
-    "dev:license-test": "KANSOKU_DODO_TEST=1 pnpm dev",
     "dev:unlocked": "KANSOKU_LICENSE_BYPASS=1 pnpm dev",
     "dev:desktop": "concurrently --kill-others -n web,desktop -c blue,magenta \"pnpm --filter @kansoku/web dev\" \"pnpm --filter @kansoku/desktop dev\"",
-    "dev:desktop:license-test": "KANSOKU_DODO_TEST=1 pnpm dev:desktop",
     "dev:desktop:unlocked": "KANSOKU_LICENSE_BYPASS=1 pnpm dev:desktop",
     "start": "pnpm --filter @kansoku/server start",
     "start:desktop": "pnpm --filter @kansoku/web build && pnpm --filter @kansoku/desktop start",

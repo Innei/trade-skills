@@ -4,6 +4,7 @@ import { loadPro } from "../../packages/core/src/pro/loader.js";
 import { getPro } from "../../packages/core/src/pro/registry.js";
 import {
   createWatchedMarketsStore,
+  getActiveWatchedMarketsStore,
   setActiveWatchedMarketsStore,
 } from "../../packages/core/src/services/watchedMarketsStore.js";
 import { loadDotenv } from "./dotenv.js";
@@ -24,6 +25,9 @@ export interface ServerRuntimeOptions {
   // TS source directly (via a tsx loader hook), packaged desktop loads the
   // built output; the Tsuki host leaves this unset and uses the default.
   proEntry?: string;
+  // True when this host is a production artifact (packaged desktop app,
+  // NODE_ENV=production server). Pro uses it to pick Dodo live vs test.
+  productionHost?: boolean;
 }
 
 export async function initServerRuntime(opts?: ServerRuntimeOptions): Promise<void> {
@@ -38,5 +42,8 @@ export async function initServerRuntime(opts?: ServerRuntimeOptions): Promise<vo
   setActiveWatchedMarketsStore(createWatchedMarketsStore(getDb()));
 
   await loadPro(opts?.proAppDir, opts?.proEntry);
-  await getPro()?.initRuntime?.(getDb(), opts?.secretBox);
+  await getPro()?.initRuntime?.(getDb(), opts?.secretBox, {
+    watchedMarkets: getActiveWatchedMarketsStore(),
+    production: opts?.productionHost ?? process.env.NODE_ENV === "production",
+  });
 }

@@ -61,10 +61,19 @@ export interface ProModule {
   hooks: ProHooks;
   aiSettings?: AiSettingsService;
   license?: LicenseService;
+  subscription?: { url: string; priceLabel?: string };
   tsukiModules?: unknown[];
   ipcServiceClasses?: unknown[];
   channels?: ProChannel[];
   startScheduler?: (ctx?: ProHostContext) => void | (() => void);
-  initRuntime?: (db: unknown, secretBox: unknown) => void | Promise<void>;
+  // host carries kernel-owned singletons across the module boundary: the pro
+  // slot loads its own copy of @kansoku/core (tsx in dev, bundled when
+  // packaged), so core's module-level singletons are NOT shared — any state
+  // pro must observe live has to be handed over explicitly here.
+  initRuntime?: (
+    db: unknown,
+    secretBox: unknown,
+    host?: { watchedMarkets?: unknown; production?: boolean },
+  ) => void | Promise<void>;
   migrations?: string;
 }

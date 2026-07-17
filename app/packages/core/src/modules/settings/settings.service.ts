@@ -49,7 +49,10 @@ export const settingsService: SettingsApi = {
   },
 
   async getSubscribeUrl() {
-    const raw = process.env.KANSOKU_SUBSCRIBE_URL?.trim();
-    return { subscribeUrl: raw ? raw : null };
+    const subscription = getPro()?.subscription;
+    return {
+      subscribeUrl: subscription?.url ?? null,
+      priceLabel: subscription?.priceLabel ?? null,
+    };
   },
 };
