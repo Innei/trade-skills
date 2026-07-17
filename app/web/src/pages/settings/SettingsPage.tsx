@@ -173,6 +173,16 @@ export function SettingsPage() {
     reloadLobeHubCredits();
   };
 
+  if (pro === null) {
+    return (
+      <div className="page settings-page">
+        <SettingsBackLink />
+        <h1>设置</h1>
+        <div className="note-block">加载中…</div>
+      </div>
+    );
+  }
+
   if (!pro) {
     return (
       <div className="page settings-page">

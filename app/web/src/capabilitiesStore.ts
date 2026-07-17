@@ -2,11 +2,11 @@ import { useSyncExternalStore } from "react";
 import { client } from "./client";
 
 export interface Capabilities {
-  pro: boolean;
+  pro: boolean | null;
   licensed: boolean;
 }
 
-const DEFAULT: Capabilities = { pro: true, licensed: true };
+const DEFAULT: Capabilities = { pro: null, licensed: false };
 
 let capabilities: Capabilities = DEFAULT;
 let inflight: Promise<void> | null = null;

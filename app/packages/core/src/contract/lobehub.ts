@@ -3,7 +3,7 @@ import type {
   LobeHubCredits,
   LobeHubDeviceLogin,
   LobeHubDevicePollResult,
-} from "../ai/lobehub/types.js";
+} from "@kansoku/pro-api";
 import { defineRoutes } from "./defineRoutes.js";
 
 export interface LobeHubApi {

@@ -1,5 +1,5 @@
 import { defineRoutes } from "./defineRoutes.js";
-import type { ChatDisplayMessage } from "../ai/chat.js";
+import type { ChatDisplayMessage } from "@kansoku/pro-api";
 
 export type ResearchKind = "stock" | "journal";
 

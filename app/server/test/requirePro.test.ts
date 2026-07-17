@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { loadPro } from "../../packages/core/src/pro/loader.js";
 import { unregisterProModuleForTests } from "../../packages/core/src/pro/registry.js";
-import { registerBuiltinProServer } from "../src/pro/registerBuiltin.js";
 import { tsukiRequest } from "./helpers.js";
 
 describe("requirePro guard", () => {
-  afterEach(() => {
-    registerBuiltinProServer();
+  afterEach(async () => {
+    await loadPro();
   });
 
   it("returns 404 for a mixed-module AI sub-route when pro is absent", async () => {

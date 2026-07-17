@@ -2,7 +2,12 @@ import type { ProModule } from "@kansoku/pro-api";
 import { registerProModule } from "./registry.js";
 
 function proPackageSpecifier(): string {
-  return "@kansoku/pro";
+  // Relative filesystem path to the gitignored slot rather than a bare package
+  // specifier: nothing declares @kansoku/pro as a dependency (public code must
+  // not), so pnpm never links it into node_modules and a bare import would not
+  // resolve. Built from a variable so bundlers cannot statically resolve it;
+  // when app/pro is absent the import throws and we fall back to free mode.
+  return ["..", "..", "..", "..", "pro", "src", "index.js"].join("/");
 }
 
 export async function loadPro(): Promise<boolean> {

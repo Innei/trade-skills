@@ -59,8 +59,8 @@ export function Router() {
   }
   const symbol = symbolFromRoute(route);
   if (symbol) return <SymbolCockpit sym={symbol} />;
-  if (pathname === "/research") return pro ? <ResearchPage /> : <ProUnavailablePage />;
-  if (pathname === "/chat") return pro ? <AssistantChatPage /> : <ProUnavailablePage />;
+  if (pathname === "/research") return pro === null ? null : pro ? <ResearchPage /> : <ProUnavailablePage />;
+  if (pathname === "/chat") return pro === null ? null : pro ? <AssistantChatPage /> : <ProUnavailablePage />;
   if (pathname === "/settings") return <SettingsPage />;
   if (pathname === "/about") return <AboutPage />;
   if (pathname === "/logs") return <LogsPage />;

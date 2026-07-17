@@ -7,8 +7,16 @@ import type {
   RelativeVolume,
   SymbolAnalysisRow,
 } from "../../../../shared/types.js";
-import type { DeepDiveState } from "../ai/deepDive.js";
+import type {
+  DeepDiveStartResult,
+  DeepDiveState,
+  ReassessPhase,
+  ReassessResult,
+  ReassessStatus,
+} from "@kansoku/pro-api";
 import { defineRoutes } from "./defineRoutes.js";
+
+export type { DeepDiveStartResult, ReassessPhase, ReassessResult, ReassessStatus } from "@kansoku/pro-api";
 
 export interface JournalListRow {
   name: string;
@@ -25,21 +33,6 @@ export interface NoteResult {
   markdown: string | null;
   mtime?: string;
 }
-
-export type ReassessResult = { started: boolean; reason?: string };
-export type ReassessPhase = "preparing" | "researching" | "writing" | "finalizing";
-export type ReassessStatus =
-  | { running: false }
-  | {
-      running: true;
-      origin: "manual" | "escalation";
-      phase: ReassessPhase;
-      activity: string;
-      startedAt: string;
-      updatedAt: string;
-    };
-
-export type DeepDiveStartResult = { started: true } | { started: false; reason: "busy" | "disabled" };
 
 export interface SymbolFollowStatus {
   symbol: string;

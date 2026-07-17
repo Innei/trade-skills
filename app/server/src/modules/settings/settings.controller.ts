@@ -3,7 +3,6 @@ import { settingsService } from "../../../../packages/core/src/modules/settings/
 import { requirePro } from "../../../../packages/core/src/pro/requirePro.js";
 import { jsonResponse } from "../../httpResponse.js";
 
-export { setSettingsDepsForTests } from "../../../../packages/core/src/modules/settings/settings.deps.js";
 
 @Controller("settings")
 export class SettingsController {

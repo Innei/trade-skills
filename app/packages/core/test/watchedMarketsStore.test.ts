@@ -8,7 +8,7 @@ import {
   getActiveWatchedMarketsStore,
   setActiveWatchedMarketsStore,
   validateWatchedMarkets,
-} from "../src/ai/watchedMarketsStore.js";
+} from "../src/services/watchedMarketsStore.js";
 
 function tempDbPath(): { dir: string; path: string } {
   const dir = mkdtempSync(join(tmpdir(), "watched-markets-store-"));

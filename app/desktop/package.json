@@ -22,7 +22,8 @@
     "better-sqlite3": "^12.11.1",
     "electron-context-menu": "^4.1.2",
     "electron-ipc-decorator": "^1.0.1",
-    "electron-window-state": "5.0.3"
+    "electron-window-state": "5.0.3",
+    "@kansoku/pro-api": "workspace:*"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.2.0",

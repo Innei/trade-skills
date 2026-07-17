@@ -1,4 +1,4 @@
-import type { AgentMessage } from "@earendil-works/pi-agent-core";
+import type { AgentMessagePayload } from "@kansoku/pro-api";
 import type {
   ResearchEditOperation,
   ResearchEditStatus,
@@ -93,7 +93,7 @@ export const chatMessages = sqliteTable(
     sessionId: text("session_id").notNull(),
     ts: text("ts").notNull(),
     role: text("role").notNull(),
-    payload: text("payload", { mode: "json" }).$type<AgentMessage>().notNull(),
+    payload: text("payload", { mode: "json" }).$type<AgentMessagePayload>().notNull(),
   },
   (t) => [index("chat_messages_session").on(t.sessionId)],
 );

@@ -1,5 +1,4 @@
-import type { ChatDisplayMessage } from "../ai/chat.js";
-import type { ChatSession } from "../ai/chatStore.js";
+import type { ChatDisplayMessage, ChatSession } from "@kansoku/pro-api";
 import { defineRoutes } from "./defineRoutes.js";
 
 export interface ChatState {

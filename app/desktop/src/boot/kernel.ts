@@ -5,11 +5,12 @@ import { createDesktopSecretBox } from "../credentials/secretBox.js";
 import { IS_DEV } from "./env.js";
 
 export async function bootKernel() {
-  const { initServerRuntime } = await import("../../../server/src/runtimeInit.js");
-  const { startAiScheduler } = await import("../../../packages/core/src/ai/scheduler.js");
-  const { attachRealtimeBridge } = await import("../realtime/bridge.js");
-  const { CHART_DATA_DIR } = await import("../../../packages/core/src/env.js");
-  const { registerBuiltinProDesktop } = await import("../pro/registerBuiltin.js");
+  const [{ initServerRuntime }, { attachRealtimeBridge }, { CHART_DATA_DIR }, { getPro }] = await Promise.all([
+    import("../../../server/src/runtimeInit.js"),
+    import("../realtime/bridge.js"),
+    import("../../../packages/core/src/env.js"),
+    import("../../../packages/core/src/pro/registry.js"),
+  ]);
 
   // Dev keeps the pre-P3 plaintext keyfile so ELECTRON_DEV workflows are
   // unaffected; packaged builds move the AI master key into safeStorage.
@@ -21,18 +22,21 @@ export async function bootKernel() {
         legacyKeyPath: join(CHART_DATA_DIR, "ai-secret.key"),
       });
 
-  initServerRuntime({
+  await initServerRuntime({
     secretBox,
     openAuthUrl: (url) => {
       shell.openExternal(url).catch(() => {});
     },
   });
-  registerBuiltinProDesktop();
-  // bootstrap.js is imported lazily, after runtime registration above, so
-  // AppModule's registry-derived AI module composition sees builtin present.
+  // bootstrap.js is imported lazily, after initServerRuntime() has awaited
+  // loadPro() above, so AppModule's registry-derived AI module composition
+  // sees the pro module (when present).
   const { createKernel } = await import("../../../server/src/bootstrap.js");
   const kernel = await createKernel();
-  if (startAiScheduler()) console.log("[desktop] ai scheduler started");
+  if (getPro()?.startScheduler) {
+    getPro()!.startScheduler!();
+    console.log("[desktop] ai scheduler started");
+  }
   const apiApp = kernel.app.getInstance();
   attachRealtimeBridge();
   registerCredentialsIpc(ipcMain, createCredentialsBridgeHandlers());

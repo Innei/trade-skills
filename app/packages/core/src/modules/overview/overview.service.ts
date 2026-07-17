@@ -1,6 +1,5 @@
 import type { IntradayPrediction, OverviewRecap, RawBar, RecapSettlementRow } from "../../../../../shared/types.js";
-import { listAllCommentDates, listComments } from "../../ai/comments.js";
-import { listUsage, listUsageDates, summarizeUsage } from "../../ai/usageStore.js";
+import { getProHooks } from "../../pro/registry.js";
 import { chartUrl } from "../../chartUrl.js";
 import type { OverviewApi } from "../../contract/overview.js";
 import { ClientError } from "../../errors.js";
@@ -58,7 +57,7 @@ async function buildRecap(date: string): Promise<OverviewRecap> {
   const metas = (await listCharts({ type: "intraday" })).filter((m) => easternDate(new Date(m.created_at)) === date);
   const bySymbol = latestPerSymbol(metas);
   const symbols = [...bySymbol.keys()];
-  const usage = summarizeUsage(date, await listUsage(date));
+  const usage = await getProHooks().usageSummary(date);
   if (!symbols.length) {
     return { date, settlements: [], alerts: [], usage };
   }
@@ -85,7 +84,7 @@ async function buildRecap(date: string): Promise<OverviewRecap> {
           (entries) => new Map(entries),
         ),
     Promise.all(latestMetas.map((m) => loadChart(m.id))),
-    Promise.all(symbols.map((s) => listComments(s, date))),
+    Promise.all(symbols.map((s) => getProHooks().listComments(s, date))),
     getResolvedOutcomes(latestMetas.map((m) => m.id)),
   ]);
 
@@ -220,13 +219,13 @@ export const overviewService: OverviewApi = {
   async usage(input) {
     const date = input.date ?? easternDate();
     assertDate(date);
-    return summarizeUsage(date, await listUsage(date));
+    return getProHooks().usageSummary(date);
   },
 
   async recapDates() {
     const [usageDates, commentDates, intradayMetas] = await Promise.all([
-      listUsageDates(RECAP_DATES_LIMIT),
-      listAllCommentDates(RECAP_DATES_LIMIT),
+      getProHooks().listUsageDates(RECAP_DATES_LIMIT),
+      getProHooks().listAllCommentDates(RECAP_DATES_LIMIT),
       listCharts({ type: "intraday" }),
     ]);
     const chartDates = intradayMetas.map((m) => easternDate(new Date(m.created_at)));

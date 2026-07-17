@@ -1,183 +1,50 @@
-import { getSupportedThinkingLevels } from "@earendil-works/pi-ai";
-import { SINGLE_KEY_PROVIDERS } from "../../ai/modelsRuntime.js";
-import { LOBEHUB_PROVIDER } from "../../ai/lobehub/types.js";
-import type { AiRole } from "../../ai/settingsStore.js";
-import type { AiUsageRecord } from "../../ai/usageStore.js";
-import { listUsage } from "../../ai/usageStore.js";
-import { validateWatchedMarkets } from "../../ai/watchedMarketsStore.js";
-import type { RoleSettingOut, SettingsApi } from "../../contract/settings.js";
+import { getPro } from "../../pro/registry.js";
+import { getActiveWatchedMarketsStore, validateWatchedMarkets } from "../../services/watchedMarketsStore.js";
+import type { SettingsApi } from "../../contract/settings.js";
 import { ClientError } from "../../errors.js";
-import { easternDate } from "../../services/session.js";
-import { settingsDeps } from "./settings.deps.js";
-import { runTestConnection } from "./settings.testConnection.js";
-import { allowedProviders, CODEX_PROVIDER, parseRole, ROLES, validateRoleSetting } from "./settingsValidation.js";
 
-function usageRole(record: AiUsageRecord): "comment" | "analyst" | "deepDive" | "chat" | null {
-  switch (record.layer) {
-    case "commentator":
-    case "event-filter":
-    case "chat-suggest":
-      return "comment";
-    case "analyst":
-      return record.origin === "deep-dive" ? "deepDive" : "analyst";
-    case "chat":
-    case "research-chat":
-      return "chat";
-    case "research-refresh":
-      return "deepDive";
-    default:
-      return null;
-  }
+function aiSettings() {
+  const svc = getPro()?.aiSettings;
+  if (!svc) throw new ClientError("AI features are not available in this build", undefined, 404);
+  return svc;
 }
 
 export const settingsService: SettingsApi = {
-  async getAi() {
-    const { settingsStore, credentials, secretBox, models } = settingsDeps();
-    const rolesOut = {} as Record<AiRole, RoleSettingOut>;
-    for (const role of ROLES) {
-      const setting = settingsStore.getRole(role);
-      const stale = setting.mode === "custom" && !models.getModel(setting.provider ?? "", setting.modelId ?? "");
-      rolesOut[role] = { ...setting, stale };
-    }
-    return { roles: rolesOut, credentials: credentials.list(), masterKey: secretBox.status() };
+  getAi() {
+    return aiSettings().getAi();
   },
-
-  async putRole(input) {
-    const { settingsStore, models } = settingsDeps();
-    const role = parseRole(input.role);
-    const setting = validateRoleSetting(role, input, models);
-    settingsStore.setRole(role, setting);
-    return { role, ...settingsStore.getRole(role) };
+  putRole(input) {
+    return aiSettings().putRole(input);
   },
-
-  async deleteRole(input) {
-    const { settingsStore } = settingsDeps();
-    const role = parseRole(input.role);
-    settingsStore.setRole(role, { mode: "disabled", provider: null, modelId: null, thinkingLevel: null });
-    return { role, mode: "disabled" };
+  deleteRole(input) {
+    return aiSettings().deleteRole(input);
   },
-
-  async putCredential(input) {
-    const { credentials } = settingsDeps();
-    const provider = input.provider;
-    if (provider === CODEX_PROVIDER) {
-      throw new ClientError(`cannot set an api key for ${CODEX_PROVIDER}`, "managed by codex CLI login");
-    }
-    if (!SINGLE_KEY_PROVIDERS.has(provider)) {
-      throw new ClientError(`unknown provider: ${provider}`, `expected one of ${[...SINGLE_KEY_PROVIDERS].join(", ")}`);
-    }
-    const key = input.key;
-    if (typeof key !== "string" || !key) {
-      throw new ClientError('"key" must be a non-empty string');
-    }
-    credentials.setApiKey(provider, key);
-    const entry = credentials.list().find((e) => e.provider === provider);
-    return { provider, masked: entry?.masked ?? null };
+  putCredential(input) {
+    return aiSettings().putCredential(input);
   },
-
-  async deleteCredential(input) {
-    const { credentials } = settingsDeps();
-    try {
-      await credentials.delete(input.provider);
-    } catch (err) {
-      const hint = input.provider === CODEX_PROVIDER ? "managed by codex CLI login" : undefined;
-      throw new ClientError(err instanceof Error ? err.message : String(err), hint);
-    }
-    return { provider: input.provider, deleted: true };
+  deleteCredential(input) {
+    return aiSettings().deleteCredential(input);
   },
-
-  async getCatalog() {
-    const { credentials, lobehub, models } = settingsDeps();
-    try {
-      await models.refresh(LOBEHUB_PROVIDER);
-    } catch (error) {
-      console.warn(`settings: using cached LobeHub model catalog: ${String(error)}`);
-    }
-    const configuredApiKey = new Set(credentials.list().filter((e) => e.ok).map((e) => e.provider));
-    const providers = [];
-    for (const id of allowedProviders()) {
-      const provider = models.getProvider(id);
-      const name = provider?.name ?? id;
-      const modelList = (provider?.getModels() ?? []).map((m) => ({
-        id: m.id,
-        name: m.name,
-        thinkingLevels: getSupportedThinkingLevels(m),
-      }));
-
-      let auth: { kind: "api_key" | "oauth"; status: "configured" | "missing" | "error" };
-      if (id === LOBEHUB_PROVIDER) {
-        try {
-          const account = await lobehub.getAccount();
-          auth = {
-            kind: "oauth",
-            status:
-              account.status === "connected"
-                ? "configured"
-                : account.status === "refresh_required"
-                  ? "error"
-                  : "missing",
-          };
-        } catch {
-          auth = { kind: "oauth", status: "error" };
-        }
-      } else if (id === CODEX_PROVIDER) {
-        try {
-          const credential = await credentials.read(CODEX_PROVIDER);
-          auth = { kind: "oauth", status: credential ? "configured" : "missing" };
-        } catch {
-          auth = { kind: "oauth", status: "error" };
-        }
-      } else {
-        auth = { kind: "api_key", status: configuredApiKey.has(id) ? "configured" : "missing" };
-      }
-
-      providers.push({ id, name, auth, models: modelList });
-    }
-    return { providers };
+  getCatalog() {
+    return aiSettings().getCatalog();
   },
-
-  async testConnection(input) {
-    return runTestConnection(input, settingsDeps());
+  testConnection(input) {
+    return aiSettings().testConnection(input);
   },
-
-  async getUsageToday() {
-    const { db } = settingsDeps();
-    const records = await listUsage(easternDate(new Date()), db);
-    const roles = {
-      comment: { calls: 0, cost: 0 },
-      analyst: { calls: 0, cost: 0 },
-      deepDive: { calls: 0, cost: 0 },
-      chat: { calls: 0, cost: 0 },
-    };
-    const total = { calls: 0, cost: 0 };
-    for (const record of records) {
-      total.calls += record.calls;
-      total.cost += record.cost_total;
-      const role = usageRole(record);
-      if (!role) continue;
-      roles[role].calls += record.calls;
-      roles[role].cost += record.cost_total;
-    }
-    return { roles, total };
+  getUsageToday() {
+    return aiSettings().getUsageToday();
   },
-
-  async resetCredentials() {
-    const { db, credentials, secretBox } = settingsDeps();
-    db.transaction(() => {
-      credentials.wipeAll();
-    });
-    secretBox.resetKey();
-    return { reset: true };
+  resetCredentials() {
+    return aiSettings().resetCredentials();
   },
 
   async getWatchedMarkets() {
-    const { watchedMarketsStore } = settingsDeps();
-    return { markets: watchedMarketsStore.get() };
+    return { markets: getActiveWatchedMarketsStore().get() };
   },
 
   async putWatchedMarkets(input) {
-    const { watchedMarketsStore } = settingsDeps();
-    watchedMarketsStore.set(validateWatchedMarkets(input.markets));
-    return { markets: watchedMarketsStore.get() };
+    const store = getActiveWatchedMarketsStore();
+    store.set(validateWatchedMarkets(input.markets));
+    return { markets: store.get() };
   },
 };

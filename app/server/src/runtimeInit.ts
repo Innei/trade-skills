@@ -1,8 +1,12 @@
-import type { SecretBox } from "../../packages/core/src/ai/secretBox.js";
-import { initAiSettings } from "../../packages/core/src/ai/initAiSettings.js";
+import type { SecretBox } from "@kansoku/pro-api";
 import { getDb } from "../../packages/core/src/db/index.js";
+import { loadPro } from "../../packages/core/src/pro/loader.js";
+import { getPro } from "../../packages/core/src/pro/registry.js";
+import {
+  createWatchedMarketsStore,
+  setActiveWatchedMarketsStore,
+} from "../../packages/core/src/services/watchedMarketsStore.js";
 import { loadDotenv } from "./dotenv.js";
-import { registerBuiltinProServer } from "./pro/registerBuiltin.js";
 import { initAuthUrlOpener, type AuthUrlOpener } from "../../packages/core/src/services/credentials/authUrlOpener.js";
 import { initCredentialProvider } from "../../packages/core/src/services/credentials/registry.js";
 import type { CredentialProvider } from "../../packages/core/src/services/credentials/types.js";
@@ -13,9 +17,8 @@ export interface ServerRuntimeOptions {
   openAuthUrl?: AuthUrlOpener;
 }
 
-export function initServerRuntime(opts?: ServerRuntimeOptions): void {
+export async function initServerRuntime(opts?: ServerRuntimeOptions): Promise<void> {
   loadDotenv();
-  registerBuiltinProServer();
 
   // 1h prompt-cache TTL: commentator sessions re-run at 5-min heartbeats, the
   // default 5-min ephemeral TTL expires right at the boundary and misses.
@@ -23,5 +26,8 @@ export function initServerRuntime(opts?: ServerRuntimeOptions): void {
 
   initCredentialProvider(opts?.credentialProvider);
   initAuthUrlOpener(opts?.openAuthUrl);
-  initAiSettings(getDb(), { secretBox: opts?.secretBox });
+  setActiveWatchedMarketsStore(createWatchedMarketsStore(getDb()));
+
+  await loadPro();
+  await getPro()?.initRuntime?.(getDb(), opts?.secretBox);
 }

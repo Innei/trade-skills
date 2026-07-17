@@ -30,7 +30,8 @@
     "hono": "4.12.30",
     "reflect-metadata": "0.2.2",
     "tsyringe": "4.10.0",
-    "ws": "^8.21.1"
+    "ws": "^8.21.1",
+    "@kansoku/pro-api": "workspace:*"
   },
   "license": "SEE LICENSE IN LICENSE"
 }

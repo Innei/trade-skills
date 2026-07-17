@@ -1,12 +1,7 @@
 import { promises as fs } from "node:fs";
 import { join } from "node:path";
 import type { IntradayPrediction, RawBar, SymbolAnalysisRow } from "../../../../../shared/types.js";
-import { analystRunStatus, runAnalyst } from "../../ai/analyst.js";
-import { listCommentDates, listComments } from "../../ai/comments.js";
-import { deepDiveState, startDeepDive } from "../../ai/deepDive.js";
-import { setSymbolFollowing, symbolFollowState } from "../../ai/follows.js";
-import { aiConfig } from "../../ai/models.js";
-import { requestImmediateFollow } from "../../ai/scheduler.js";
+import { getProHooks } from "../../pro/registry.js";
 import { chartUrl } from "../../chartUrl.js";
 import type { SymbolsApi } from "../../contract/symbols.js";
 import { JOURNAL_DIR, STOCKS_DIR } from "../../env.js";
@@ -118,27 +113,28 @@ export const symbolsService: SymbolsApi = {
     if (!DATE_RE.test(date)) {
       throw new ClientError(`invalid date: ${date}`, "expected YYYY-MM-DD");
     }
-    return listComments(sym, date);
+    return getProHooks().listComments(sym, date);
   },
 
   async commentDates(input) {
     const sym = normalizeSymbol(input.sym);
-    return listCommentDates(sym);
+    return getProHooks().listCommentDates(sym);
   },
 
   async followStatus(input) {
-    return symbolFollowState(input.sym);
+    return getProHooks().symbolFollowState(input.sym);
   },
 
   async startFollow(input) {
-    const previous = symbolFollowState(input.sym);
-    const state = setSymbolFollowing(input.sym, true);
-    if (!previous.following) requestImmediateFollow(state.symbol);
+    const hooks = getProHooks();
+    const previous = hooks.symbolFollowState(input.sym);
+    const state = hooks.setSymbolFollowing(input.sym, true);
+    if (!previous.following) await hooks.requestImmediateFollow(state.symbol);
     return state;
   },
 
   async stopFollow(input) {
-    return setSymbolFollowing(input.sym, false);
+    return getProHooks().setSymbolFollowing(input.sym, false);
   },
 
   async journal(input) {
@@ -178,19 +174,11 @@ export const symbolsService: SymbolsApi = {
   },
 
   async reassess(input) {
-    const sym = normalizeSymbol(input.sym);
-    const model = aiConfig().analystModel;
-    if (!model) return { started: false, reason: "analyst layer disabled" };
-    const result = runAnalyst({ symbol: sym, origin: "manual", deps: { model } });
-    if (result.started) {
-      void result.done.catch(() => {});
-      return { started: true };
-    }
-    return { started: false, reason: result.reason };
+    return getProHooks().reassessSymbol(normalizeSymbol(input.sym));
   },
 
   async reassessStatus(input) {
-    return analystRunStatus(normalizeSymbol(input.sym));
+    return getProHooks().analystRunStatus(normalizeSymbol(input.sym));
   },
 
   async note(input) {
@@ -207,11 +195,11 @@ export const symbolsService: SymbolsApi = {
 
   async deepDive(input) {
     const name = noteFileName(input.sym);
-    return startDeepDive(name);
+    return getProHooks().startDeepDiveForNote(name);
   },
 
   async deepDiveStatus(_input) {
-    return deepDiveState();
+    return getProHooks().deepDiveStatus();
   },
 
   async latest(input) {

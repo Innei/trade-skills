@@ -1,6 +1,7 @@
 import { chmodSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { randomBytes } from "node:crypto";
-import { decryptWithKey, encryptWithKey, SecretBoxError, type MasterKeyStatus, type SecretBox } from "../../../packages/core/src/ai/secretBox.js";
+import type { MasterKeyStatus, SecretBox } from "@kansoku/pro-api";
+import { decryptWithKey, encryptWithKey, SecretBoxError } from "../../../packages/core/src/services/secretCrypto.js";
 import type { SafeStorageLike } from "./store.js";
 
 const KEY_BYTES = 32;

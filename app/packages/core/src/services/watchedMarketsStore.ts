@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { Db } from "../db/index.js";
 import { watchedMarketsSettings } from "../db/schema.js";
 import { ClientError } from "../errors.js";
-import type { Market } from "../services/symbol.utils.js";
+import type { Market } from "./symbol.utils.js";
 
 export interface WatchedMarketsStore {
   get(): Market[];
