@@ -15,7 +15,7 @@ import { useLiveQuote } from "../useLiveQuote";
 import { AnalysisRunDetails } from "./cockpit/AnalysisRunDetails";
 import { AnalysisTimeline } from "./cockpit/AnalysisTimeline";
 import { ChatDock } from "./cockpit/chat/ChatDock";
-import { LockedChatDock } from "./cockpit/chat/LockedChatDock";
+import { LockedChatBar } from "./cockpit/chat/LockedChatBar";
 import { PreviewCockpit } from "./cockpit/PreviewCockpit";
 import { conclusionOutdated } from "../charts/intraday/ConclusionCard";
 import { PredictionTab } from "../charts/intraday/tabs/PredictionTab";
@@ -294,13 +294,7 @@ export function SymbolCockpit({ sym }: { sym: string }) {
           sidebarTabs={sidebarTabs}
           activeTab={activeTab}
           onTabChange={setActiveTab}
-          dock={
-            pro
-              ? licensed
-                ? <ChatDock chartId={doc.id} docCreatedAt={doc.created_at} />
-                : <LockedChatDock />
-              : null
-          }
+          dock={pro ? (licensed ? <ChatDock chartId={doc.id} docCreatedAt={doc.created_at} /> : <LockedChatBar />) : null}
           liveQuote={live ? liveQuote : null}
         />
       </div>

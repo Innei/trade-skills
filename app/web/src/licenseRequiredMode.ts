@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { openLicenseModal } from "./licenseModalStore";
 
 let active = false;
 const listeners = new Set<() => void>();
@@ -15,6 +16,7 @@ export function markLicenseRequired(): void {
   if (active) return;
   active = true;
   emit();
+  openLicenseModal("runtime-403");
 }
 
 export function clearLicenseRequired(): void {

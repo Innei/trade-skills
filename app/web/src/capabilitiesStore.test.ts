@@ -10,6 +10,7 @@ vi.mock("./client", () => ({
 
 const store = await import("./capabilitiesStore");
 const licenseRequiredMode = await import("./licenseRequiredMode");
+const licenseModalStore = await import("./licenseModalStore");
 
 describe("capabilitiesStore", () => {
   beforeEach(() => {
@@ -21,6 +22,7 @@ describe("capabilitiesStore", () => {
     cleanup();
     store.resetCapabilitiesStoreForTests();
     licenseRequiredMode.resetLicenseRequiredModeForTests();
+    licenseModalStore.resetLicenseModalStoreForTests();
     vi.useRealTimers();
   });
 
@@ -69,18 +71,20 @@ describe("capabilitiesStore", () => {
     await vi.waitFor(() => expect(result.current.licensed).toBe(false));
   });
 
-  it("refreshCapabilities clears the license-required flag and refetches", async () => {
+  it("refreshCapabilities clears the license-required flag, closes the license modal, and refetches", async () => {
     get.mockResolvedValueOnce({ pro: true, licensed: true, license: { state: "licensed" } });
     const { result } = renderHook(() => store.useCapabilities());
     await vi.waitFor(() => expect(result.current.licensed).toBe(true));
 
     licenseRequiredMode.markLicenseRequired();
     await vi.waitFor(() => expect(result.current.licensed).toBe(false));
+    expect(licenseModalStore.getLicenseModalStateForTests().open).toBe(true);
 
     get.mockResolvedValueOnce({ pro: true, licensed: true, license: { state: "licensed" } });
     await store.refreshCapabilities();
 
     expect(licenseRequiredMode.getLicenseRequiredModeSnapshotForTests()).toBe(false);
+    expect(licenseModalStore.getLicenseModalStateForTests().open).toBe(false);
     await vi.waitFor(() => expect(result.current.licensed).toBe(true));
   });
 });

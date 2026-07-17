@@ -1025,6 +1025,11 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 }
 .locked-ai-notice-cta:hover { background: var(--accent); color: var(--bg-surface); }
 
+.license-modal-runtime-notice {
+  margin-bottom: 10px; padding: 8px 9px; border-left: 2px solid var(--accent);
+  background: var(--bg-element); color: var(--text-secondary); font-size: var(--fs-sm);
+}
+
 .chat-shell {
   z-index: 20; display: flex; flex-direction: column; min-height: 0;
   background: var(--bg-surface); border: 1px solid var(--border-strong); border-radius: var(--radius-lg);
@@ -1155,10 +1160,11 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 .icon-action {
   display: inline-flex; align-items: center; justify-content: center;
   width: 26px; height: 26px; color: var(--text-secondary);
+  border: none; background: none; padding: 0; font: inherit; cursor: pointer;
   border-radius: var(--radius);
 }
 .icon-action:hover { color: var(--text-primary); background: var(--bg-hover); }
-.icon-action--locked { position: relative; border: none; cursor: pointer; opacity: 0.55; }
+.icon-action--locked { position: relative; opacity: 0.55; }
 .icon-action--locked:hover { opacity: 1; }
 .icon-action-lock-badge {
   position: absolute; right: 1px; bottom: 1px; color: var(--accent);

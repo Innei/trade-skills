@@ -1,5 +1,5 @@
 import { Lock } from "lucide-react";
-import { navigate } from "../router";
+import { openLicenseModal } from "../licenseModalStore";
 
 export function LockedAiNotice({
   message = "AI 功能需要有效授权才能使用",
@@ -15,7 +15,7 @@ export function LockedAiNotice({
       <button
         type="button"
         className="locked-ai-notice-cta"
-        onClick={() => navigate("/settings#license-section")}
+        onClick={() => openLicenseModal("guard")}
       >
         订阅解锁
       </button>

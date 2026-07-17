@@ -3,6 +3,7 @@ import { Library, Lock, MessageCircle, Settings } from "lucide-react";
 import { useCapabilities } from "../../capabilitiesStore";
 import { normalizeSymbol } from "../../lib/symbol";
 import { navigate } from "../../router";
+import { useLicenseGuard } from "../../useLicenseGuard";
 import { listRecentSymbols } from "../../recentCharts";
 import { Chip, Input, Tooltip } from "../../ui";
 
@@ -14,8 +15,8 @@ export function QuickBar({
   showGlobalActions?: boolean;
 }) {
   const [input, setInput] = useState("");
-  const { pro, licensed } = useCapabilities();
-  const locked = pro && !licensed;
+  const { pro } = useCapabilities();
+  const { locked, guard } = useLicenseGuard();
   const shortcutSet = new Set(shortcuts);
   const recent = listRecentSymbols().filter((s) => !shortcutSet.has(s.symbol));
 
@@ -54,39 +55,29 @@ export function QuickBar({
       )}
       {showGlobalActions ? (
         <span className="quickbar-actions">
-          {pro && licensed && (
-            <a className="icon-action" href="/research?view=journal" aria-label="研究库" title="研究库">
-              <Library size={16} />
-            </a>
-          )}
-          {pro && licensed && (
-            <a className="icon-action" href="/chat" aria-label="AI 对话" title="AI 对话">
-              <MessageCircle size={16} />
-            </a>
-          )}
-          {locked && (
-            <Tooltip content="订阅解锁 AI 功能">
+          {pro && (
+            <Tooltip content={locked ? "订阅解锁 AI 功能" : undefined}>
               <button
                 type="button"
-                className="icon-action icon-action--locked"
-                aria-label="研究库（需订阅授权）"
-                onClick={() => navigate("/settings#license-section")}
+                className={`icon-action${locked ? " icon-action--locked" : ""}`}
+                aria-label={locked ? "研究库（需订阅授权）" : "研究库"}
+                onClick={() => guard(() => navigate("/research?view=journal"))}
               >
                 <Library size={16} />
-                <Lock className="icon-action-lock-badge" size={9} />
+                {locked && <Lock className="icon-action-lock-badge" size={9} />}
               </button>
             </Tooltip>
           )}
-          {locked && (
-            <Tooltip content="订阅解锁 AI 功能">
+          {pro && (
+            <Tooltip content={locked ? "订阅解锁 AI 功能" : undefined}>
               <button
                 type="button"
-                className="icon-action icon-action--locked"
-                aria-label="AI 对话（需订阅授权）"
-                onClick={() => navigate("/settings#license-section")}
+                className={`icon-action${locked ? " icon-action--locked" : ""}`}
+                aria-label={locked ? "AI 对话（需订阅授权）" : "AI 对话"}
+                onClick={() => guard(() => navigate("/chat"))}
               >
                 <MessageCircle size={16} />
-                <Lock className="icon-action-lock-badge" size={9} />
+                {locked && <Lock className="icon-action-lock-badge" size={9} />}
               </button>
             </Tooltip>
           )}

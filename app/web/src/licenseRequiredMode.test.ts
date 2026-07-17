@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { closeLicenseModal, getLicenseModalStateForTests, resetLicenseModalStoreForTests } from "./licenseModalStore";
 import {
   clearLicenseRequired,
   getLicenseRequiredModeSnapshotForTests,
@@ -26,6 +27,7 @@ describe("isLicenseRequiredErrorCode", () => {
 describe("license-required mode store", () => {
   afterEach(() => {
     resetLicenseRequiredModeForTests();
+    resetLicenseModalStoreForTests();
   });
 
   it("starts inactive", () => {
@@ -47,5 +49,20 @@ describe("license-required mode store", () => {
     markLicenseRequired();
     clearLicenseRequired();
     expect(getLicenseRequiredModeSnapshotForTests()).toBe(false);
+  });
+
+  it("markLicenseRequired opens the license modal with the runtime-403 trigger", () => {
+    markLicenseRequired();
+    expect(getLicenseModalStateForTests()).toEqual({ open: true, trigger: "runtime-403" });
+  });
+
+  it("does not reopen the modal for a second 403 within the same trip, even after the user closed it", () => {
+    markLicenseRequired();
+    closeLicenseModal();
+
+    markLicenseRequired();
+
+    expect(getLicenseRequiredModeSnapshotForTests()).toBe(true);
+    expect(getLicenseModalStateForTests().open).toBe(false);
   });
 });

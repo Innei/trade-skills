@@ -8,7 +8,7 @@ import { symbolFromRoute } from "./lib/symbol";
 import { AboutPage } from "./pages/about/AboutPage";
 import { AssistantChatPage } from "./pages/assistant/AssistantChatPage";
 import { Home } from "./pages/Home";
-import { LicenseLockedPage } from "./pages/LicenseLockedPage";
+import { LicenseGateEmptyState } from "./pages/LicenseGateEmptyState";
 import { LogsPage } from "./pages/logViewer/LogsPage";
 import { PopoutChartWindow } from "./pages/PopoutChartWindow";
 import { ProUnavailablePage } from "./pages/ProUnavailablePage";
@@ -63,12 +63,12 @@ export function Router() {
   if (pathname === "/research") {
     if (pro === null) return null;
     if (!pro) return <ProUnavailablePage />;
-    return licensed ? <ResearchPage /> : <LicenseLockedPage />;
+    return licensed ? <ResearchPage /> : <LicenseGateEmptyState />;
   }
   if (pathname === "/chat") {
     if (pro === null) return null;
     if (!pro) return <ProUnavailablePage />;
-    return licensed ? <AssistantChatPage /> : <LicenseLockedPage />;
+    return licensed ? <AssistantChatPage /> : <LicenseGateEmptyState />;
   }
   if (pathname === "/settings") return <SettingsPage />;
   if (pathname === "/about") return <AboutPage />;
