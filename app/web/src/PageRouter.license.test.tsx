@@ -23,8 +23,8 @@ afterEach(() => {
   resetLicenseModalStoreForTests();
 });
 
-describe("Router AI-route licensing gate", () => {
-  it("renders the pro-unavailable page when pro is false, unchanged from before licensing", () => {
+describe("Router AI-route pro gate", () => {
+  it("renders the pro-unavailable page when pro is false, regardless of licensed", () => {
     capabilities = { pro: false, licensed: false };
     window.history.replaceState({}, "", "/research");
 
@@ -34,25 +34,25 @@ describe("Router AI-route licensing gate", () => {
     expect(getLicenseModalStateForTests().open).toBe(false);
   });
 
-  it("renders a neutral empty state (not the pro-unavailable page) and auto-opens the license modal once for /research when pro but unlicensed", () => {
+  it("renders the real research page when pro but unlicensed, without gating on license", () => {
     capabilities = { pro: true, licensed: false };
     window.history.replaceState({}, "", "/research");
 
     render(<Router />);
 
     expect(screen.queryByText("此构建不含 AI 功能")).toBeNull();
-    expect(screen.getByText("需要有效授权才能使用该功能")).toBeTruthy();
-    expect(getLicenseModalStateForTests()).toEqual({ open: true, trigger: "guard" });
+    expect(screen.getByTestId("research-page")).toBeTruthy();
+    expect(getLicenseModalStateForTests().open).toBe(false);
   });
 
-  it("renders the neutral empty state and auto-opens the license modal for /chat when pro but unlicensed", () => {
+  it("renders the real chat page when pro but unlicensed, without gating on license", () => {
     capabilities = { pro: true, licensed: false };
     window.history.replaceState({}, "", "/chat");
 
     render(<Router />);
 
-    expect(screen.getByText("需要有效授权才能使用该功能")).toBeTruthy();
-    expect(getLicenseModalStateForTests()).toEqual({ open: true, trigger: "guard" });
+    expect(screen.getByTestId("chat-page")).toBeTruthy();
+    expect(getLicenseModalStateForTests().open).toBe(false);
   });
 
   it("renders the real research page when pro and licensed", () => {

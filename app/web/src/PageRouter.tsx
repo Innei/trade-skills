@@ -8,7 +8,6 @@ import { symbolFromRoute } from "./lib/symbol";
 import { AboutPage } from "./pages/about/AboutPage";
 import { AssistantChatPage } from "./pages/assistant/AssistantChatPage";
 import { Home } from "./pages/Home";
-import { LicenseGateEmptyState } from "./pages/LicenseGateEmptyState";
 import { LogsPage } from "./pages/logViewer/LogsPage";
 import { PopoutChartWindow } from "./pages/PopoutChartWindow";
 import { ProUnavailablePage } from "./pages/ProUnavailablePage";
@@ -47,7 +46,7 @@ function ChartRedirect({ id }: { id: string }) {
 export function Router() {
   const route = useRoute();
   const pathname = routePathname(route);
-  const { pro, licensed } = useCapabilities();
+  const { pro } = useCapabilities();
 
   if (pathname === "/overview" || pathname === "/charts") {
     return <Redirect to="/" />;
@@ -62,13 +61,11 @@ export function Router() {
   if (symbol) return <SymbolCockpit sym={symbol} />;
   if (pathname === "/research") {
     if (pro === null) return null;
-    if (!pro) return <ProUnavailablePage />;
-    return licensed ? <ResearchPage /> : <LicenseGateEmptyState />;
+    return pro ? <ResearchPage /> : <ProUnavailablePage />;
   }
   if (pathname === "/chat") {
     if (pro === null) return null;
-    if (!pro) return <ProUnavailablePage />;
-    return licensed ? <AssistantChatPage /> : <LicenseGateEmptyState />;
+    return pro ? <AssistantChatPage /> : <ProUnavailablePage />;
   }
   if (pathname === "/settings") return <SettingsPage />;
   if (pathname === "/about") return <AboutPage />;
