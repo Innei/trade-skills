@@ -3083,25 +3083,11 @@
         "source": "gdelt-arch:tickerreport.com"
       },
       {
-        "id": "gdelt-arch-10l8azg",
-        "title": "Marketminute 2026 1 2 Silicon Surge Semiconductor Giants Propel Nasdaq To Record Highs To Kick Off",
-        "published_at": "2026-01-02T20:00:00Z",
-        "url": "https://markets.financialcontent.com/stocks/article/marketminute-2026-1-2-silicon-surge-semiconductor-giants-propel-nasdaq-to-record-highs-to-kick-off-2026",
-        "source": "gdelt-arch:financialcontent.com"
-      },
-      {
         "id": "gdelt-arch-1r5dbt4",
         "title": "10 Stock Market Predictions 2026",
         "published_at": "2026-01-02T18:45:00Z",
         "url": "https://finance.yahoo.com/news/10-stock-market-predictions-2026-092600693.html",
         "source": "gdelt-arch:yahoo.com"
-      },
-      {
-        "id": "gdelt-arch-1hznz43",
-        "title": "Marketminute 2026 1 2 Chip Stocks Surge To Start 2026 Nvidia And Amd Drive Nasdaq To Record Highs",
-        "published_at": "2026-01-02T17:00:00Z",
-        "url": "https://markets.financialcontent.com/stocks/article/marketminute-2026-1-2-chip-stocks-surge-to-start-2026-nvidia-and-amd-drive-nasdaq-to-record-highs",
-        "source": "gdelt-arch:financialcontent.com"
       },
       {
         "id": "gdelt-arch-x3f6rz",
@@ -3123,6 +3109,20 @@
         "published_at": "2026-01-02T15:15:00Z",
         "url": "https://www.cnbc.com/2026/01/02/stocks-from-analyst-calls-friday-like-nvidia.html",
         "source": "gdelt-arch:cnbc.com"
+      },
+      {
+        "id": "gdelt-arch-n6wdia",
+        "title": "Nvidia Nvda Expands Ai Leadership",
+        "published_at": "2026-01-02T15:00:00Z",
+        "url": "https://finance.yahoo.com/news/nvidia-nvda-expands-ai-leadership-141028114.html",
+        "source": "gdelt-arch:yahoo.com"
+      },
+      {
+        "id": "gdelt-arch-4wgn0c",
+        "title": "U S Stock Market Prediction For January 2 Dow Jones Sp 500 Nasdaq Futures Gain Nvidia Broadcom Share Prices Up In Pre Market",
+        "published_at": "2026-01-02T13:15:00Z",
+        "url": "https://economictimes.indiatimes.com/news/international/us/u-s-stock-market-prediction-for-january-2-dow-jones-sp-500-nasdaq-futures-gain-nvidia-broadcom-share-prices-up-in-pre-market/articleshow/126306471.cms",
+        "source": "gdelt-arch:indiatimes.com"
       }
     ],
     "fundamentals": {},

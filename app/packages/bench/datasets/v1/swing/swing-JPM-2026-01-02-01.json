@@ -3055,10 +3055,10 @@
     "capitalFlow": {},
     "news": [
       {
-        "id": "gdelt-arch-sxrtlu",
+        "id": "gdelt-arch-ho3ehx",
         "title": "Transaction In Own Shares",
         "published_at": "2026-01-02T19:00:00Z",
-        "url": "https://www.investegate.co.uk/announcement/rns/jpmorgan-japanese-inv-trust--jfj/transaction-in-own-shares/9330889",
+        "url": "https://www.investegate.co.uk/announcement/rns/jpmorgan-us-smaller-co-inv-tst--jusc/transaction-in-own-shares/9330885",
         "source": "gdelt-arch:investegate.co.uk"
       },
       {
@@ -3069,20 +3069,6 @@
         "source": "gdelt-arch:cnbc.com"
       },
       {
-        "id": "gdelt-arch-9vpzxl",
-        "title": "Retirement Guys Formula Llc Buys 24616 Shares Of Jpmorgan Ultra Short Income Etf Jpst",
-        "published_at": "2026-01-02T12:45:00Z",
-        "url": "https://www.dailypolitical.com/2026/01/02/retirement-guys-formula-llc-buys-24616-shares-of-jpmorgan-ultra-short-income-etf-jpst.html",
-        "source": "gdelt-arch:dailypolitical.com"
-      },
-      {
-        "id": "gdelt-arch-1vvym7h",
-        "title": "Jpmorgan Core Plus Bond Etf Jcpb Shares Acquired By Sentinel Pension Advisors Llc",
-        "published_at": "2026-01-02T12:30:00Z",
-        "url": "https://www.tickerreport.com/banking-finance/13306936/jpmorgan-core-plus-bond-etf-jcpb-shares-acquired-by-sentinel-pension-advisors-llc.html",
-        "source": "gdelt-arch:tickerreport.com"
-      },
-      {
         "id": "gdelt-arch-1w01d5b",
         "title": "Dividend Declaration",
         "published_at": "2026-01-02T12:30:00Z",
@@ -3090,38 +3076,17 @@
         "source": "gdelt-arch:investegate.co.uk"
       },
       {
-        "id": "gdelt-arch-147gsjs",
-        "title": "Salomon Ludwin Llc Has 58 56 Million Stock Holdings In Jpmorgan Ultra Short Municipal Etf Jmst",
-        "published_at": "2026-01-02T11:45:00Z",
-        "url": "https://www.dailypolitical.com/2026/01/02/salomon-ludwin-llc-has-58-56-million-stock-holdings-in-jpmorgan-ultra-short-municipal-etf-jmst.html",
-        "source": "gdelt-arch:dailypolitical.com"
-      },
-      {
-        "id": "gdelt-arch-6rxrg6",
-        "title": "Jpmorgan Nasdaq Equity Premium Income Etf Jepq Shares Bought By Pinnacle Wealth Management Advisory Group Llc",
-        "published_at": "2026-01-01T13:30:00Z",
-        "url": "https://www.themarketsdaily.com/2026/01/01/jpmorgan-nasdaq-equity-premium-income-etf-jepq-shares-bought-by-pinnacle-wealth-management-advisory-group-llc.html",
+        "id": "gdelt-arch-tp8kac",
+        "title": "Regent Peak Wealth Advisors Llc Buys Shares Of 7380 Jpmorgan Chase Co Jpm",
+        "published_at": "2026-01-01T11:15:00Z",
+        "url": "https://www.themarketsdaily.com/2026/01/01/regent-peak-wealth-advisors-llc-buys-shares-of-7380-jpmorgan-chase-co-jpm.html",
         "source": "gdelt-arch:themarketsdaily.com"
       },
       {
-        "id": "gdelt-arch-mgnke4",
-        "title": "10409 Shares In Jpmorgan Ultra Short Income Etf Jpst Acquired By Rvw Wealth Llc",
-        "published_at": "2026-01-01T13:30:00Z",
-        "url": "https://www.dailypolitical.com/2026/01/01/10409-shares-in-jpmorgan-ultra-short-income-etf-jpst-acquired-by-rvw-wealth-llc.html",
-        "source": "gdelt-arch:dailypolitical.com"
-      },
-      {
-        "id": "gdelt-arch-1xwduh9",
-        "title": "Rvw Wealth Llc Boosts Stock Position In Jpmorgan U S Quality Factor Etf Jqua",
-        "published_at": "2026-01-01T13:00:00Z",
-        "url": "https://www.dailypolitical.com/2026/01/01/rvw-wealth-llc-boosts-stock-position-in-jpmorgan-u-s-quality-factor-etf-jqua.html",
-        "source": "gdelt-arch:dailypolitical.com"
-      },
-      {
-        "id": "gdelt-arch-1ukjlm6",
-        "title": "Pinnacle Wealth Management Advisory Group Llc Acquires 19385 Shares Of Jpmorgan Hedged Equity Laddered Overlay Etf Helo",
-        "published_at": "2026-01-01T13:00:00Z",
-        "url": "https://www.dailypolitical.com/2026/01/01/pinnacle-wealth-management-advisory-group-llc-acquires-19385-shares-of-jpmorgan-hedged-equity-laddered-overlay-etf-helo.html",
+        "id": "gdelt-arch-1wldami",
+        "title": "Orange Investment Advisors Inc Sells 2016 Shares Of Jpmorgan Chase Co Jpm",
+        "published_at": "2026-01-01T11:15:00Z",
+        "url": "https://www.dailypolitical.com/2026/01/01/orange-investment-advisors-inc-sells-2016-shares-of-jpmorgan-chase-co-jpm.html",
         "source": "gdelt-arch:dailypolitical.com"
       }
     ],

@@ -3055,39 +3055,11 @@
     "capitalFlow": {},
     "news": [
       {
-        "id": "gdelt-arch-uu48ma",
+        "id": "gdelt-arch-67k67r",
         "title": "Transaction In Own Shares",
         "published_at": "2026-06-15T19:15:00Z",
-        "url": "https://www.investegate.co.uk/announcement/rns/jpmorgan-japanese-inv-trust--jfj/transaction-in-own-shares/9619263",
+        "url": "https://www.investegate.co.uk/announcement/rns/jpmorgan-european-discovery-trust--jedt/transaction-in-own-shares/9619246",
         "source": "gdelt-arch:investegate.co.uk"
-      },
-      {
-        "id": "gdelt-arch-1n60hik",
-        "title": "Caci International Nysecaci Price Target Lowered To 645 00 At Jpmorgan Chase Co",
-        "published_at": "2026-06-15T15:45:00Z",
-        "url": "https://www.themarketsdaily.com/2026/06/15/caci-international-nysecaci-price-target-lowered-to-645-00-at-jpmorgan-chase-co.html",
-        "source": "gdelt-arch:themarketsdaily.com"
-      },
-      {
-        "id": "gdelt-arch-tix2fk",
-        "title": "Jpmorgan Chase Co Forecasts Strong Price Appreciation For Corporacion America Airports Nysecaap Stock",
-        "published_at": "2026-06-15T15:45:00Z",
-        "url": "https://www.dailypolitical.com/2026/06/15/jpmorgan-chase-co-forecasts-strong-price-appreciation-for-corporacion-america-airports-nysecaap-stock.html",
-        "source": "gdelt-arch:dailypolitical.com"
-      },
-      {
-        "id": "gdelt-arch-f34pb9",
-        "title": "Jpmorgan Chase Co Issues Positive Forecast For Transdigm Group Nysetdg Stock Price",
-        "published_at": "2026-06-15T15:15:00Z",
-        "url": "https://www.themarketsdaily.com/2026/06/15/jpmorgan-chase-co-issues-positive-forecast-for-transdigm-group-nysetdg-stock-price.html",
-        "source": "gdelt-arch:themarketsdaily.com"
-      },
-      {
-        "id": "gdelt-arch-gr3rs9",
-        "title": "Tableaux Llc Acquires 1407660 Shares Of Jpmorgan Equity Premium Income Etf Jepi",
-        "published_at": "2026-06-15T14:30:00Z",
-        "url": "https://www.dailypolitical.com/2026/06/15/tableaux-llc-acquires-1407660-shares-of-jpmorgan-equity-premium-income-etf-jepi.html",
-        "source": "gdelt-arch:dailypolitical.com"
       },
       {
         "id": "gdelt-arch-1y09968",
@@ -3097,32 +3069,46 @@
         "source": "gdelt-arch:themarketsdaily.com"
       },
       {
-        "id": "gdelt-arch-19eawli",
-        "title": "32665 Shares In Jpmorgan Equity Premium Income Etf Jepi Acquired By Perryman Financial Advisory Inc Ad",
-        "published_at": "2026-06-15T13:45:00Z",
-        "url": "https://www.tickerreport.com/banking-finance/13476103/32665-shares-in-jpmorgan-equity-premium-income-etf-jepi-acquired-by-perryman-financial-advisory-inc-ad.html",
-        "source": "gdelt-arch:tickerreport.com"
+        "id": "gdelt-arch-g7o46f",
+        "title": "Article Jpmorgan Chase Financing Canadian Companies",
+        "published_at": "2026-06-15T10:45:00Z",
+        "url": "https://www.theglobeandmail.com/business/article-jpmorgan-chase-financing-canadian-companies/",
+        "source": "gdelt-arch:theglobeandmail.com"
       },
       {
-        "id": "gdelt-arch-1y59f2f",
-        "title": "Intercorp Financial Services Nyseifs Downgraded To Neutral Rating By Jpmorgan Chase Co",
-        "published_at": "2026-06-15T13:30:00Z",
-        "url": "https://www.tickerreport.com/banking-finance/13476078/intercorp-financial-services-nyseifs-downgraded-to-neutral-rating-by-jpmorgan-chase-co.html",
-        "source": "gdelt-arch:tickerreport.com"
+        "id": "gdelt-arch-19ub4g7",
+        "title": "Jim Cramer Jpmorgan Bought Not",
+        "published_at": "2026-06-15T09:30:00Z",
+        "url": "https://finance.yahoo.com/markets/stocks/articles/jim-cramer-jpmorgan-bought-not-082845004.html",
+        "source": "gdelt-arch:yahoo.com"
       },
       {
-        "id": "gdelt-arch-1h1tvg1",
-        "title": "Credicorp Nysebap Stock Rating Lowered By Jpmorgan Chase Co",
-        "published_at": "2026-06-15T13:30:00Z",
-        "url": "https://www.tickerreport.com/banking-finance/13476079/credicorp-nysebap-stock-rating-lowered-by-jpmorgan-chase-co.html",
-        "source": "gdelt-arch:tickerreport.com"
+        "id": "gdelt-arch-mr6eq1",
+        "title": "Chinese Consumer Stock Could Double If Industrial Pivot Works Jpmorgan Says",
+        "published_at": "2026-06-14T13:00:00Z",
+        "url": "https://www.cnbc.com/2026/06/14/chinese-consumer-stock-could-double-if-industrial-pivot-works-jpmorgan-says.html",
+        "source": "gdelt-arch:cnbc.com"
       },
       {
-        "id": "gdelt-arch-1hhhkwz",
-        "title": "Jpmorgan Chase Co Begins Coverage On Esco Technologies Nyseese",
-        "published_at": "2026-06-15T13:30:00Z",
-        "url": "https://www.themarketsdaily.com/2026/06/15/jpmorgan-chase-co-begins-coverage-on-esco-technologies-nyseese.html",
-        "source": "gdelt-arch:themarketsdaily.com"
+        "id": "gdelt-arch-sqy146",
+        "title": "Evelyn Partners Investment Management Llp Sells 4210 Shares Of Jpmorgan Chase Co Jpm",
+        "published_at": "2026-06-14T12:15:00Z",
+        "url": "https://www.dailypolitical.com/2026/06/14/evelyn-partners-investment-management-llp-sells-4210-shares-of-jpmorgan-chase-co-jpm.html",
+        "source": "gdelt-arch:dailypolitical.com"
+      },
+      {
+        "id": "gdelt-arch-1hkg4f",
+        "title": "Jpmorgan Chase Eyeing 7 Net",
+        "published_at": "2026-06-14T09:30:00Z",
+        "url": "https://finance.yahoo.com/markets/stocks/articles/jpmorgan-chase-eyeing-7-net-053500322.html",
+        "source": "gdelt-arch:yahoo.com"
+      },
+      {
+        "id": "gdelt-arch-1oqkm1a",
+        "title": "Jpmorgan Raises Nucor Nue Forecast",
+        "published_at": "2026-06-14T04:00:00Z",
+        "url": "https://finance.yahoo.com/markets/stocks/articles/jpmorgan-raises-nucor-nue-forecast-033419708.html",
+        "source": "gdelt-arch:yahoo.com"
       },
       {
         "id": "edgar-0001193125-26-253533",

@@ -1,6 +1,7 @@
 export interface ArchiveTermSpec {
   strongTerms: string[];
   weakTerm: string;
+  bankOrAssetManagerBrand?: boolean;
 }
 
 export interface SymbolSpec {
@@ -80,7 +81,11 @@ export const DEFAULT_SYMBOLS: SymbolSpec[] = [
     layer: "mega-blue-chip",
     companyQuery: "JPMorgan Chase",
     cik: "0000019617",
-    archiveTerms: { strongTerms: ["jpmorgan chase", "jp morgan chase"], weakTerm: "jpmorgan" },
+    archiveTerms: {
+      strongTerms: ["jpmorgan chase", "jp morgan chase"],
+      weakTerm: "jpmorgan",
+      bankOrAssetManagerBrand: true,
+    },
   },
   {
     symbol: "UNH.US",

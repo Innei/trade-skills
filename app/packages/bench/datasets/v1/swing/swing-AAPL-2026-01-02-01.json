@@ -3055,13 +3055,6 @@
     "capitalFlow": {},
     "news": [
       {
-        "id": "gdelt-arch-cy81l5",
-        "title": "4 Of Our Stocks Are Helping Nasdaqs Rise Friday Why Apple Isnt One",
-        "published_at": "2026-01-02T19:30:00Z",
-        "url": "https://www.cnbc.com/2026/01/02/4-of-our-stocks-are-helping-nasdaqs-rise-friday-why-apple-isnt-one-.html",
-        "source": "gdelt-arch:cnbc.com"
-      },
-      {
         "id": "gdelt-arch-uik2m9",
         "title": "Is It Time To Reduce Exposure To Apple Stock",
         "published_at": "2026-01-02T17:00:00Z",
@@ -3123,6 +3116,13 @@
         "published_at": "2026-01-01T15:00:00Z",
         "url": "https://finance.yahoo.com/news/berkshire-selling-apple-stock-buying-142700398.html",
         "source": "gdelt-arch:yahoo.com"
+      },
+      {
+        "id": "gdelt-arch-1pkgkg",
+        "title": "Deane Retirement Strategies Inc Buys 20168 Shares Of Apple Inc Aapl",
+        "published_at": "2026-01-01T14:00:00Z",
+        "url": "https://insurancenewsnet.com/oarticle/deane-retirement-strategies-inc-buys-20168-shares-of-apple-inc-aapl",
+        "source": "gdelt-arch:insurancenewsnet.com"
       },
       {
         "id": "edgar-0001140361-26-000199",

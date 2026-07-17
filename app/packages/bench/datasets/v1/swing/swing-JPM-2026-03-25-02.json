@@ -3062,13 +3062,6 @@
         "source": "gdelt-arch:moneycontrol.com"
       },
       {
-        "id": "gdelt-arch-yp21qx",
-        "title": "Kraft Heinz Nasdaqkhc Given New 21 00 Price Target At Jpmorgan Chase Co",
-        "published_at": "2026-03-25T15:30:00Z",
-        "url": "https://www.tickerreport.com/banking-finance/13390775/kraft-heinz-nasdaqkhc-given-new-21-00-price-target-at-jpmorgan-chase-co.html",
-        "source": "gdelt-arch:tickerreport.com"
-      },
-      {
         "id": "gdelt-arch-bi738c",
         "title": "Jpmorgan Cuts Pt Conagra Brands",
         "published_at": "2026-03-25T15:30:00Z",
@@ -3076,53 +3069,60 @@
         "source": "gdelt-arch:yahoo.com"
       },
       {
-        "id": "gdelt-arch-4i0zqy",
-        "title": "Jpmorgan Chase Co Lowers Kraft Heinz Nasdaqkhc Price Target To 21",
-        "published_at": "2026-03-25T15:30:00Z",
-        "url": "https://www.dailypolitical.com/2026/03/25/jpmorgan-chase-co-lowers-kraft-heinz-nasdaqkhc-price-target-to-21-00.html",
-        "source": "gdelt-arch:dailypolitical.com"
-      },
-      {
-        "id": "gdelt-arch-1w21xgo",
-        "title": "Evgo Nasdaqevgo Earns Neutral Rating From Jpmorgan Chase Co",
-        "published_at": "2026-03-25T13:00:00Z",
-        "url": "https://www.tickerreport.com/banking-finance/13390602/evgo-nasdaqevgo-earns-neutral-rating-from-jpmorgan-chase-co.html",
-        "source": "gdelt-arch:tickerreport.com"
-      },
-      {
-        "id": "gdelt-arch-argxhp",
-        "title": "Evgo Nasdaqevgo Given Neutral Rating At Jpmorgan Chase Co",
-        "published_at": "2026-03-25T13:00:00Z",
-        "url": "https://www.dailypolitical.com/2026/03/25/evgo-nasdaqevgo-given-neutral-rating-at-jpmorgan-chase-co.html",
-        "source": "gdelt-arch:dailypolitical.com"
-      },
-      {
-        "id": "gdelt-arch-1sxd8ch",
-        "title": "Jpmorgan Fundamental Data Science Small Core Etf Scds To Issue Quarterly Dividend Of 0 05 On March 26th",
-        "published_at": "2026-03-25T12:45:00Z",
-        "url": "https://www.tickerreport.com/banking-finance/13390569/jpmorgan-fundamental-data-science-small-core-etf-scds-to-issue-quarterly-dividend-of-0-05-on-march-26th.html",
-        "source": "gdelt-arch:tickerreport.com"
-      },
-      {
-        "id": "gdelt-arch-1wxu9jm",
-        "title": "Jpmorgan Fundamental Data Science Mid Core Etf Mcds To Issue Quarterly Dividend Of 0 07 On March 26th",
-        "published_at": "2026-03-25T12:45:00Z",
-        "url": "https://www.dailypolitical.com/2026/03/25/jpmorgan-fundamental-data-science-mid-core-etf-mcds-to-issue-quarterly-dividend-of-0-07-on-march-26th.html",
-        "source": "gdelt-arch:dailypolitical.com"
-      },
-      {
-        "id": "gdelt-arch-12szza0",
-        "title": "Jpmorgan Chase Co Cuts Yougov Lonyou Price Target To Gbx",
-        "published_at": "2026-03-25T12:30:00Z",
-        "url": "https://www.themarketsdaily.com/2026/03/25/jpmorgan-chase-co-cuts-yougov-lonyou-price-target-to-gbx-350.html",
+        "id": "gdelt-arch-16omytb",
+        "title": "Gradient Investments Llc Increases Stock Position In Jpmorgan Chase Co Jpm",
+        "published_at": "2026-03-25T10:30:00Z",
+        "url": "https://www.themarketsdaily.com/2026/03/25/gradient-investments-llc-increases-stock-position-in-jpmorgan-chase-co-jpm.html",
         "source": "gdelt-arch:themarketsdaily.com"
       },
       {
-        "id": "gdelt-arch-m75b2p",
-        "title": "Jpmorgan Raises Its Price Target On Edison International Eix To 74 From 66",
-        "published_at": "2026-03-25T11:45:00Z",
-        "url": "https://www.insidermonkey.com/blog/jpmorgan-raises-its-price-target-on-edison-international-eix-to-74-from-66-1724327/",
-        "source": "gdelt-arch:insidermonkey.com"
+        "id": "gdelt-arch-41kxlm",
+        "title": "Hyatt Hotels Corporation H Shares Acquired By Jpmorgan Chase Co",
+        "published_at": "2026-03-25T10:00:00Z",
+        "url": "https://www.dailypolitical.com/2026/03/25/hyatt-hotels-corporation-h-shares-acquired-by-jpmorgan-chase-co.html",
+        "source": "gdelt-arch:dailypolitical.com"
+      },
+      {
+        "id": "gdelt-arch-1sg5lwp",
+        "title": "Americold Realty Trust Inc Cold Shares Purchased By Jpmorgan Chase Co",
+        "published_at": "2026-03-25T10:00:00Z",
+        "url": "https://www.themarketsdaily.com/2026/03/25/americold-realty-trust-inc-cold-shares-purchased-by-jpmorgan-chase-co.html",
+        "source": "gdelt-arch:themarketsdaily.com"
+      },
+      {
+        "id": "gdelt-arch-efvj2s",
+        "title": "Jpmorgan Chase Co Has 23 20 Million Stake In Nelnet Inc Nni",
+        "published_at": "2026-03-25T09:30:00Z",
+        "url": "https://www.themarketsdaily.com/2026/03/25/jpmorgan-chase-co-has-23-20-million-stake-in-nelnet-inc-nni.html",
+        "source": "gdelt-arch:themarketsdaily.com"
+      },
+      {
+        "id": "gdelt-arch-4r28kl",
+        "title": "Jpmorgan Chase Co Buys 50946 Shares Of Sixth Street Specialty Lending Inc Tslx",
+        "published_at": "2026-03-25T09:30:00Z",
+        "url": "https://www.themarketsdaily.com/2026/03/25/jpmorgan-chase-co-buys-50946-shares-of-sixth-street-specialty-lending-inc-tslx.html",
+        "source": "gdelt-arch:themarketsdaily.com"
+      },
+      {
+        "id": "gdelt-arch-cwinkp",
+        "title": "Jpmorgan Chase Co Has 23 70 Million Position In American States Water Company Awr",
+        "published_at": "2026-03-25T09:30:00Z",
+        "url": "https://www.themarketsdaily.com/2026/03/25/jpmorgan-chase-co-has-23-70-million-position-in-american-states-water-company-awr.html",
+        "source": "gdelt-arch:themarketsdaily.com"
+      },
+      {
+        "id": "gdelt-arch-1h09r20",
+        "title": "Jpmorgan Chase Co Increases Stock Position In Legalzoom Com Inc Lz",
+        "published_at": "2026-03-25T09:30:00Z",
+        "url": "https://www.themarketsdaily.com/2026/03/25/jpmorgan-chase-co-increases-stock-position-in-legalzoom-com-inc-lz.html",
+        "source": "gdelt-arch:themarketsdaily.com"
+      },
+      {
+        "id": "gdelt-arch-1kwcepb",
+        "title": "Jpmorgan Chase Co Has 21 65 Million Stock Position In Procore Technologies Inc Pcor",
+        "published_at": "2026-03-25T09:30:00Z",
+        "url": "https://www.themarketsdaily.com/2026/03/25/jpmorgan-chase-co-has-21-65-million-stock-position-in-procore-technologies-inc-pcor.html",
+        "source": "gdelt-arch:themarketsdaily.com"
       }
     ],
     "fundamentals": {},

@@ -3104,13 +3104,6 @@
         "source": "gdelt-arch:themarketsdaily.com"
       },
       {
-        "id": "gdelt-arch-ut2w2k",
-        "title": "Us Stock Market Live Dow Jones Sp 500 Nasdaq Trump Us Iran Israel War Hormuz Crude Brent Oil Nvidia Apple Ai Stock Price News",
-        "published_at": "2026-03-25T13:00:00Z",
-        "url": "https://economictimes.indiatimes.com/markets/us-stocks/news/us-stock-market-live-dow-jones-sp-500-nasdaq-trump-us-iran-israel-war-hormuz-crude-brent-oil-nvidia-apple-ai-stock-price-news/liveblog/129801128.cms",
-        "source": "gdelt-arch:indiatimes.com"
-      },
-      {
         "id": "gdelt-arch-yvhqpc",
         "title": "Rep Thomas R Suozzi Sells Apple Inc Nasdaqaapl Stock",
         "published_at": "2026-03-25T00:00:00Z",
@@ -3123,6 +3116,13 @@
         "published_at": "2026-03-25T00:00:00Z",
         "url": "https://www.defenseworld.net/2026/03/24/apple-inc-aapl-is-avior-wealth-management-llcs-10th-largest-position.html",
         "source": "gdelt-arch:defenseworld.net"
+      },
+      {
+        "id": "gdelt-arch-g5q3cm",
+        "title": "Apple Tv Homepod Stock Running Low Worldwide Possible Upgrade Coming Soon 2026 03 24",
+        "published_at": "2026-03-24T19:30:00Z",
+        "url": "https://www.indiatvnews.com/technology/news/apple-tv-homepod-stock-running-low-worldwide-possible-upgrade-coming-soon-2026-03-24-1034909",
+        "source": "gdelt-arch:indiatvnews.com"
       }
     ],
     "fundamentals": {},

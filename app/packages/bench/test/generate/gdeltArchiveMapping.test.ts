@@ -63,6 +63,12 @@ const FCX_TERMS: ArchiveTerms = { strongTerms: ["freeport mcmoran"], weakTerm: "
 const PG_TERMS: ArchiveTerms = { strongTerms: ["procter gamble", "procter and gamble"], weakTerm: "procter" };
 const MRVL_TERMS: ArchiveTerms = { strongTerms: ["marvell technology"], weakTerm: "marvell" };
 const CAT_TERMS: ArchiveTerms = { strongTerms: ["caterpillar inc"], weakTerm: "caterpillar" };
+const JPM_TERMS: ArchiveTerms = {
+  strongTerms: ["jpmorgan chase", "jp morgan chase"],
+  weakTerm: "jpmorgan",
+  bankOrAssetManagerBrand: true,
+};
+const GOOGL_TERMS: ArchiveTerms = { strongTerms: ["alphabet inc"], weakTerm: "google" };
 
 function rowFrom(overrides: { org?: string; url?: string }): GkgRow {
   const cols = new Array(26).fill("");
@@ -134,6 +140,94 @@ describe("rowMatchesCompany", () => {
     const amdTerms: ArchiveTerms = { strongTerms: ["advanced micro devices"], weakTerm: "amd" };
     const row = rowFrom({ org: "amdocs ltd", url: "https://example.com/tech/amdocs-quarterly-report" });
     expect(rowMatchesCompany(row, amdTerms, "AMD.US")).toBe(false);
+  });
+
+  it("rejects: Jpmorgan Chase Co Cuts Yougov Price Target (JPM-as-analyst, own ticker absent)", () => {
+    const row = rowFrom({
+      org: "jpmorgan chase;yougov",
+      url: "https://example.com/investing/jpmorgan-chase-co-cuts-yougov-price-target-to-gbx-630",
+    });
+    expect(rowMatchesCompany(row, JPM_TERMS, "JPM.US")).toBe(false);
+  });
+
+  it("rejects: Caci International Nysecaci Price Target Lowered At Jpmorgan Chase Co (JPM-as-analyst + other-ticker)", () => {
+    const row = rowFrom({
+      org: "caci international;jpmorgan chase co",
+      url: "https://example.com/investing/caci-international-nysecaci-price-target-lowered-to-645-00-at-jpmorgan-chase-co",
+    });
+    expect(rowMatchesCompany(row, JPM_TERMS, "JPM.US")).toBe(false);
+  });
+
+  it("rejects: Jpmorgan Ultra Short Income Etf Jpst Acquired By Rvw Wealth Llc (fund-product rule)", () => {
+    const row = rowFrom({
+      org: "jpmorgan chase;rvw wealth llc",
+      url: "https://example.com/funds/jpmorgan-ultra-short-income-etf-jpst-acquired-by-rvw-wealth-llc",
+    });
+    expect(rowMatchesCompany(row, JPM_TERMS, "JPM.US")).toBe(false);
+  });
+
+  it("rejects a JCGI-style investment-trust Transaction In Own Shares notice (fund-product rule)", () => {
+    const row = rowFrom({
+      org: "jpmorgan chase;jcgi",
+      url: "https://example.com/investing/jcgi-jpmorgan-global-growth-income-trust-transaction-in-own-shares",
+    });
+    expect(rowMatchesCompany(row, JPM_TERMS, "JPM.US")).toBe(false);
+  });
+
+  it("accepts: Jpmorgan Chase Co Jpm Shares Sold By Seven Mile Advisory (own ticker present)", () => {
+    const row = rowFrom({
+      org: "jpmorgan chase;seven mile advisory",
+      url: "https://example.com/investing/jpmorgan-chase-co-jpm-shares-sold-by-seven-mile-advisory",
+    });
+    expect(rowMatchesCompany(row, JPM_TERMS, "JPM.US")).toBe(true);
+  });
+
+  it("rejects an other-exchange-ticker mention with no standalone own ticker (universal rule, non-JPM symbol)", () => {
+    const row = rowFrom({
+      org: "caci international",
+      url: "https://example.com/investing/caci-international-nysecaci-price-target-raised",
+    });
+    expect(rowMatchesCompany(row, JPM_TERMS, "JPM.US")).toBe(false);
+  });
+
+  it("rejects: Silver One exploration update tagged with a compound freeport-mcmoran-miami org (strong-term orgs-only tightening)", () => {
+    const row = rowFrom({
+      org: "freeport mcmoran miami;silver one resources",
+      url: "https://example.com/mining/silver-one-provides-update-on-la-joya-project-and-metallurgical-results",
+    });
+    expect(rowMatchesCompany(row, FCX_TERMS, "FCX.US")).toBe(false);
+  });
+
+  it("rejects a second Silver One item tagged the same compound-NER way", () => {
+    const row = rowFrom({
+      org: "freeport mcmoran miami;silver one resources",
+      url: "https://example.com/mining/silver-one-announces-exploration-budget-for-upcoming-field-season",
+    });
+    expect(rowMatchesCompany(row, FCX_TERMS, "FCX.US")).toBe(false);
+  });
+
+  it("still accepts a genuine FCX article with freeport-mcmoran in the URL slug", () => {
+    const row = rowFrom({
+      org: "",
+      url: "https://example.com/mining/freeport-mcmoran-copper-q1-results",
+    });
+    expect(rowMatchesCompany(row, FCX_TERMS, "FCX.US")).toBe(true);
+  });
+
+  it("accepts a genuine FCX item via an exact org tag with a corporate suffix (rule 4 positive path)", () => {
+    const row = rowFrom({
+      org: "Freeport-McMoRan Inc;copper",
+      url: "https://example.com/markets/copper-miners-see-strong-quarter-amid-rally",
+    });
+    expect(rowMatchesCompany(row, FCX_TERMS, "FCX.US")).toBe(true);
+  });
+
+  it("known residual gap: the google-notre-dame compound-NER weak-term false positive is not caught by the new rules", () => {
+    const row = rowFrom({
+      org: "google notre dame;deion burks;jeff grimes",
+      url: "https://badgerofhonor.example.com/former-wisconsin-fan-favorite-boosts-his-draft-stock-at-notre-dame-pro-day",
+    });
+    expect(rowMatchesCompany(row, GOOGL_TERMS, "GOOGL.US")).toBe(true);
   });
 });
 

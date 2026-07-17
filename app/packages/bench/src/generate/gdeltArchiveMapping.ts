@@ -26,6 +26,7 @@ export interface ArchiveMatch {
 export interface ArchiveTerms {
   strongTerms: string[];
   weakTerm: string;
+  bankOrAssetManagerBrand?: boolean;
 }
 
 export interface ArchiveWindowRequest {
@@ -45,6 +46,15 @@ const FINANCE_CONTEXT_TERMS = [
   "analyst",
   "price target",
 ];
+
+const OTHER_EXCHANGE_TICKER_PATTERN = /(?:nyse|nasdaq)\s*:?\s*([a-z]{1,5})\b/g;
+
+const ANALYST_ACTION_PATTERN =
+  /(price target|pt (?:lowered|raised)|rating|upgrad|downgrad|initiates coverage|forecasts|reiterat|overweight|underweight)/;
+
+const FUND_PRODUCT_PATTERN = /\b(?:etf|fund|inv(?:estment)?\s+trust|income trust|growth income trust)\b/;
+
+const CORPORATE_SUFFIXES = ["inc", "inc.", "corp", "co", "co.", "plc"];
 
 export function parseGkgRow(line: string): GkgRow | null {
   if (!line) return null;
@@ -92,19 +102,65 @@ function hasFinanceCorroborator(url: string, organizations: string, derivedTitle
   return false;
 }
 
+function extractOtherExchangeTickers(text: string): string[] {
+  const tickers: string[] = [];
+  for (const match of text.toLowerCase().matchAll(OTHER_EXCHANGE_TICKER_PATTERN)) {
+    tickers.push(match[1]);
+  }
+  return tickers;
+}
+
+function hasOtherTickerWithoutOwnTicker(text: string, ownTicker: string): boolean {
+  const tickers = extractOtherExchangeTickers(text);
+  const hasForeignTicker = tickers.some((ticker) => ticker !== ownTicker);
+  if (!hasForeignTicker) return false;
+  return !matchesTerm(text, ownTicker);
+}
+
+function orgTagEqualsStrongTerm(orgTag: string, term: string): boolean {
+  const tag = normalizeForMatch(orgTag.trim().toLowerCase());
+  const normalizedTerm = term.trim().toLowerCase();
+  if (tag === normalizedTerm) return true;
+  return CORPORATE_SUFFIXES.some((suffix) => tag === `${normalizedTerm} ${suffix}`);
+}
+
+function strongTermHasExactOrgTag(organizations: string, strongTerms: string[]): boolean {
+  const orgTags = organizations
+    .split(";")
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+  return orgTags.some((tag) => strongTerms.some((term) => orgTagEqualsStrongTerm(tag, term)));
+}
+
 export function rowMatchesCompany(row: GkgRow, terms: ArchiveTerms, symbol: string): boolean {
   const normalizedUrl = normalizeForMatch(row.url);
   const normalizedOrgs = normalizeForMatch(row.organizations);
+  const derivedTitle = deriveTitleFromUrl(row.url);
+  const normalizedTitle = normalizeForMatch((derivedTitle ?? "").toLowerCase());
+  const titleAndUrl = `${normalizedTitle} ${normalizedUrl}`;
+  const ownTicker = tickerToken(symbol).toLowerCase();
 
-  const strongHit = terms.strongTerms.some(
-    (term) => matchesTerm(normalizedUrl, term) || matchesTerm(normalizedOrgs, term),
+  if (hasOtherTickerWithoutOwnTicker(titleAndUrl, ownTicker)) return false;
+
+  if (terms.bankOrAssetManagerBrand) {
+    const ownTickerPresent = matchesTerm(titleAndUrl, ownTicker);
+    if (ANALYST_ACTION_PATTERN.test(titleAndUrl) && !ownTickerPresent) return false;
+    if (FUND_PRODUCT_PATTERN.test(titleAndUrl) && !ownTickerPresent) return false;
+  }
+
+  const strongTermInTitleOrUrl = terms.strongTerms.some(
+    (term) => matchesTerm(normalizedUrl, term) || matchesTerm(normalizedTitle, term),
   );
-  if (strongHit) return true;
+  if (strongTermInTitleOrUrl) return true;
+
+  const strongTermInOrgsOnly = terms.strongTerms.some((term) => matchesTerm(normalizedOrgs, term));
+  if (strongTermInOrgsOnly && strongTermHasExactOrgTag(row.organizations, terms.strongTerms)) {
+    return true;
+  }
 
   const weakHit = matchesTerm(normalizedOrgs, terms.weakTerm) || matchesTerm(normalizedUrl, terms.weakTerm);
   if (!weakHit) return false;
 
-  const derivedTitle = deriveTitleFromUrl(row.url);
   return hasFinanceCorroborator(row.url, row.organizations, derivedTitle, symbol);
 }
 

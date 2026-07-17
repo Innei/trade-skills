@@ -3111,18 +3111,18 @@
         "source": "gdelt-arch:oedigital.com"
       },
       {
-        "id": "gdelt-arch-18ihqun",
-        "title": "Search For Safety",
-        "published_at": "2026-06-15T08:15:00Z",
-        "url": "https://maritime-executive.com/magazine/search-for-safety",
-        "source": "gdelt-arch:maritime-executive.com"
-      },
-      {
         "id": "gdelt-arch-1585e31",
         "title": "Exxonmobil Png Marks 10 Years Of The Png Lng Projects Focus On Biodiversity",
         "published_at": "2026-06-15T06:00:00Z",
         "url": "https://www.postcourier.com.pg/exxonmobil-png-marks-10-years-of-the-png-lng-projects-focus-on-biodiversity/",
         "source": "gdelt-arch:postcourier.com.pg"
+      },
+      {
+        "id": "gdelt-arch-9fphet",
+        "title": "68762481 Woodside Denies Talks With Exxon Mobil Amid Media Speculation",
+        "published_at": "2026-06-15T03:15:00Z",
+        "url": "https://www.finanznachrichten.de/nachrichten-2026-06/68762481-woodside-denies-talks-with-exxon-mobil-amid-media-speculation-020.htm",
+        "source": "gdelt-arch:finanznachrichten.de"
       }
     ],
     "fundamentals": {},

@@ -3097,13 +3097,6 @@
         "source": "gdelt-arch:yahoo.com"
       },
       {
-        "id": "gdelt-arch-94pva",
-        "title": "Alphabet Inc Nasdaqgoog Sees Significant Increase In Short Interest",
-        "published_at": "2026-01-01T19:30:00Z",
-        "url": "https://www.dailypolitical.com/2026/01/01/alphabet-inc-nasdaqgoog-sees-significant-increase-in-short-interest.html",
-        "source": "gdelt-arch:dailypolitical.com"
-      },
-      {
         "id": "gdelt-arch-pfa5p8",
         "title": "Wallace Advisory Group Llc Sells 1635 Shares Of Alphabet Inc Googl",
         "published_at": "2026-01-01T14:30:00Z",
@@ -3123,6 +3116,13 @@
         "published_at": "2026-01-01T14:30:00Z",
         "url": "https://www.tickerreport.com/banking-finance/13306478/worth-asset-management-llc-makes-new-558000-investment-in-alphabet-inc-goog.html",
         "source": "gdelt-arch:tickerreport.com"
+      },
+      {
+        "id": "gdelt-arch-14jk31x",
+        "title": "J L Bainbridge Co Inc Has 51 87 Million Stock Position In Alphabet Inc Goog",
+        "published_at": "2026-01-01T13:00:00Z",
+        "url": "https://www.themarketsdaily.com/2026/01/01/j-l-bainbridge-co-inc-has-51-87-million-stock-position-in-alphabet-inc-goog.html",
+        "source": "gdelt-arch:themarketsdaily.com"
       }
     ],
     "fundamentals": {},
