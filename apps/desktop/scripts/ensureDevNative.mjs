@@ -13,11 +13,11 @@ const bridgeReady =
   existsSync(join(bridgeRoot, "build", "Release", "sparkle_bridge.node")) &&
   existsSync(join(bridgeRoot, "vendor", "Sparkle.framework"));
 if (!bridgeReady) {
-  console.log("[ensureDevNative] sparkle-bridge addon missing — building");
+  console.log("[ensureDevNative] electron-sparkle-updater native addon missing — building");
   const result = spawnSync("pnpm", ["run", "build:native"], { cwd: desktopRoot, stdio: "inherit" });
   if (result.status !== 0) process.exit(result.status ?? 1);
 } else {
   console.log(
-    "[ensureDevNative] sparkle-bridge addon present, skipping build (run `pnpm build:native` after changing its sources)",
+    "[ensureDevNative] electron-sparkle-updater native addon present, skipping build (run `pnpm build:native` after changing its sources)",
   );
 }
