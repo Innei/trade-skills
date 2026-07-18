@@ -1,6 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Post, Put } from "@tsuki-hono/common";
 import { settingsService } from "@kansoku/core/modules/settings/settings.service";
-import { jsonResponse } from "@server/httpResponse.js";
+import { jsonResponse } from "../../httpResponse.js";
 
 
 @Controller("settings")
