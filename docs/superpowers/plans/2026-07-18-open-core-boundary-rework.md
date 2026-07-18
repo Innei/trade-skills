@@ -254,7 +254,14 @@ export const ipcServiceClasses = [
 - [ ] **Step 4:** Run: `cd app && pnpm test && cd pro && pnpm test`。Expected: PASS。
 - [ ] **Step 5:** 双仓 commit：core `"feat: research browse in open core"`；pro `"refactor: research module keeps AI routes only"`。
 
-### Task B4: pro-api 契约收窄 + hooks 直调化
+### Task B4: pro-api 契约收窄 + hooks 直调化 + 免费频道归 core + desktop IPC 平权
+
+> **侦察补充（2026-07-18，B3 之后）**：
+> - core 内 15 个 `getProHooks().` 调用点：**直调化 12 个**——`usageSummary/listUsageDates`（usage*）、`listComments/listCommentDates/listAllCommentDates`（comments）、`symbolFollowState/setSymbolFollowing/listFollowedSymbols`（follows；含 `store.ts:168` 与 `cockpit/board.ts`）、`reassessSymbol/analystRunStatus`（body 从 pro index.ts 移入 core：`aiConfig().analystModel` + `runAnalyst`，与 `listAnalystRuns` 状态同在 core analyst）、`activeSettingsRevision`（settingsStore）、`filterMacroForSymbol`（eventFilter；无模型时原样返回，pro 缺席行为不变）。**保留 hook 3 个**：`requestImmediateFollow`、`startDeepDiveForNote`、`deepDiveStatus`（付费）。
+> - `store.ts:168` 的 intraday 建图自动 setSymbolFollowing 保持现状（服务端写标记 = 纵深防御层面免费，付费引擎 scheduler 自守门）。
+> - **频道**：`channelProtocol.ts:83,129` 目前只查 `getPro()?.channels`。改为 core 频道优先合并：`[...coreAiChannels, ...(getPro()?.channels ?? [])]`。免费频道（comments/notifications/analyst-runs/chat/assistant-chat 及其 attach 逻辑）从 pro index.ts 移入 core（新文件如 `packages/core/src/realtime/aiChannels.ts`）;pro 只留 `research-chat`、`research-refresh`（付费）。
+> - **pro-api 收窄**：`ProHooks` 剩 3 个付费钩子；`freeHooks` 同步缩；`ProModule` 删 `aiSettings` 字段（B2 后 core 无消费者）。破坏性变更，两仓同批落地。
+> - **desktop IPC 平权（B2 遗留）**：`desktop/src/ipc/{settingsIpc,overviewIpc,symbolsIpc}.ts` 摘免费面的 `requirePro()`（settings AI 全部、overview usage、symbols reassess），deep-dive 的保留;顺带补 IPC 侧付费门等价断言（B2 review 的 Minor）。
 
 **Files:**
 - Modify: `app/packages/pro-api/aiTypes.ts`、`index.ts`（`ProHooks` 只剩：`requestImmediateFollow`、`startDeepDiveForNote`、`deepDiveStatus`、`filterMacroForSymbol` 若经确认仍走 hook 则保留否则删除——core 已有 eventFilter，删除）
