@@ -20,6 +20,8 @@ import { runGenerate } from "./generate/pipeline.js";
 import { fetchCalendarLive, fetchKlineHistoryLive } from "./generate/source.js";
 import { DEFAULT_SYMBOLS, layerForSymbol, type SymbolSpec } from "./generate/symbols.js";
 import { listQuestions, loadQuestionForScorer } from "./dataset/loader.js";
+import { parseDatasetPathOptions, type DatasetPaths } from "./dataset/paths.js";
+import { syncDataset } from "./dataset/sync.js";
 import { type ReportConfigSnapshot, renderReport } from "./report/render.js";
 import { parseBaselineArgs } from "./baseline/args.js";
 import { runBenchBaseline } from "./baseline/run.js";
@@ -37,6 +39,7 @@ const SUBCOMMANDS = [
   "gold",
   "report",
   "backfill-news",
+  "sync-dataset",
 ] as const;
 type Subcommand = (typeof SUBCOMMANDS)[number];
 
@@ -54,13 +57,19 @@ Commands:
   gold           Emit hindsight-optimal gold answer sheets
   report         Render a leaderboard report
   backfill-news  Backfill fixtures.news from GDELT + SEC EDGAR
+  sync-dataset   Download and verify an immutable dataset release
 
-Options:
-  -h, --help   Show this help message
+Global options:
+  --dataset-dir <path>       dataset installation root
+  --source-cache-dir <path>  raw market/news source cache root
+  -h, --help                 show this help message
+
+Environment:
+  KANSOKU_BENCH_DATA_DIR          fallback dataset installation root
+  KANSOKU_BENCH_SOURCE_CACHE_DIR  fallback raw source cache root
 `;
 
 const PACKAGE_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-const DEFAULT_DATASETS_ROOT = join(PACKAGE_ROOT, "datasets");
 const DEFAULT_RESULTS_ROOT = join(PACKAGE_ROOT, "results");
 
 function gitSha(): string | null {
@@ -83,7 +92,7 @@ function runRunCommand(): void {
   process.exit(1);
 }
 
-async function runBaselineCommand(argv: string[]): Promise<void> {
+async function runBaselineCommand(argv: string[], paths: DatasetPaths): Promise<void> {
   const args = parseBaselineArgs(argv);
   const result = await runBenchBaseline({
     strategies: args.strategies,
@@ -92,7 +101,7 @@ async function runBaselineCommand(argv: string[]): Promise<void> {
     modes: args.modes,
     runId: args.runId,
     resultsRoot: DEFAULT_RESULTS_ROOT,
-    datasetsRoot: DEFAULT_DATASETS_ROOT,
+    datasetsRoot: paths.datasetsRoot,
     questionIds: args.questionIds,
     gitSha: gitSha() ?? undefined,
     log: (line) => process.stdout.write(`${line}\n`),
@@ -185,14 +194,14 @@ function parseScoreArgs(argv: string[]): { runId: string; datasetVersion: string
   return { runId, datasetVersion, bank };
 }
 
-async function runScoreCommand(argv: string[]): Promise<void> {
+async function runScoreCommand(argv: string[], paths: DatasetPaths): Promise<void> {
   const args = parseScoreArgs(argv);
   const scores = await runScore({
     runId: args.runId,
     datasetVersion: args.datasetVersion,
     bank: args.bank,
     resultsRoot: DEFAULT_RESULTS_ROOT,
-    datasetsRoot: DEFAULT_DATASETS_ROOT,
+    datasetsRoot: paths.datasetsRoot,
   });
   process.stdout.write(
     `scored ${args.runId}: ${scores.cells.length} cells, ${scores.models.length} models -> scores.json\n`,
@@ -223,14 +232,14 @@ function parseGoldArgs(argv: string[]): { datasetVersion: string; bank?: string;
   return { datasetVersion, bank, check };
 }
 
-async function runGoldCommand(argv: string[]): Promise<void> {
+async function runGoldCommand(argv: string[], paths: DatasetPaths): Promise<void> {
   const args = parseGoldArgs(argv);
   const result = await runGold({
     datasetVersion: args.datasetVersion,
     bank: args.bank,
     check: args.check,
     resultsRoot: DEFAULT_RESULTS_ROOT,
-    datasetsRoot: DEFAULT_DATASETS_ROOT,
+    datasetsRoot: paths.datasetsRoot,
   });
   process.stdout.write(
     `gold ${args.datasetVersion}: ${result.total} questions, ${result.directional} directional (${(result.directionalFraction * 100).toFixed(0)}%)\n`,
@@ -249,7 +258,7 @@ async function runGoldCommand(argv: string[]): Promise<void> {
   }
 }
 
-async function runGenerateCommand(argv: string[]): Promise<void> {
+async function runGenerateCommand(argv: string[], paths: DatasetPaths): Promise<void> {
   const args = parseGenerateArgs(argv);
   const result = await runGenerate({
     bank: "swing",
@@ -258,7 +267,8 @@ async function runGenerateCommand(argv: string[]): Promise<void> {
     windowsPerSymbol: args.windowsPerSymbol,
     dryRun: args.dryRun,
     fresh: args.fresh,
-    datasetsRoot: DEFAULT_DATASETS_ROOT,
+    datasetsRoot: paths.datasetsRoot,
+    sourceCacheRoot: paths.sourceCacheRoot,
     fetchKlineHistory: fetchKlineHistoryLive,
     fetchCalendar: fetchCalendarLive,
     now: () => new Date(),
@@ -314,7 +324,7 @@ function parseGenerateEpisodeCaseArgs(argv: string[]): GenerateEpisodeCaseArgs {
   return { symbol, cutoffDate, version, horizonSessions };
 }
 
-async function runGenerateEpisodeCaseCommand(argv: string[]): Promise<void> {
+async function runGenerateEpisodeCaseCommand(argv: string[], paths: DatasetPaths): Promise<void> {
   const args = parseGenerateEpisodeCaseArgs(argv);
   const result = await generateEpisodeCase({
     symbol: args.symbol,
@@ -322,7 +332,7 @@ async function runGenerateEpisodeCaseCommand(argv: string[]): Promise<void> {
     cutoffDate: args.cutoffDate,
     version: args.version,
     horizonSessions: args.horizonSessions,
-    datasetsRoot: DEFAULT_DATASETS_ROOT,
+    datasetsRoot: paths.datasetsRoot,
     fetchKlineHistory: fetchKlineHistoryLive,
     fetchCalendar: fetchCalendarLive,
     log: (line) => process.stdout.write(`${line}\n`),
@@ -366,10 +376,10 @@ function parseVerifyEpisodeCaseArgs(argv: string[]): VerifyEpisodeCaseArgs {
   return { datasetVersion, bank, questionId, runId };
 }
 
-async function runVerifyEpisodeCaseCommand(argv: string[]): Promise<void> {
+async function runVerifyEpisodeCaseCommand(argv: string[], paths: DatasetPaths): Promise<void> {
   const args = parseVerifyEpisodeCaseArgs(argv);
   const question = await loadQuestionForScorer(
-    DEFAULT_DATASETS_ROOT,
+    paths.datasetsRoot,
     args.datasetVersion,
     args.bank,
     args.questionId,
@@ -445,10 +455,11 @@ function parseBackfillNewsArgs(argv: string[]): BackfillNewsArgs {
   return { version, bank, symbols, dryRun, fresh, newsSource };
 }
 
-async function runBackfillNewsCommand(argv: string[]): Promise<void> {
+async function runBackfillNewsCommand(argv: string[], paths: DatasetPaths): Promise<void> {
   const args = parseBackfillNewsArgs(argv);
   const result = await runBackfillNews({
-    datasetsRoot: DEFAULT_DATASETS_ROOT,
+    datasetsRoot: paths.datasetsRoot,
+    sourceCacheRoot: paths.sourceCacheRoot,
     resultsRoot: DEFAULT_RESULTS_ROOT,
     version: args.version,
     bank: args.bank,
@@ -510,7 +521,7 @@ async function readEpisodeTraceLines(file: string): Promise<EpisodeReportTraceLi
   return lines;
 }
 
-async function runReportCommand(argv: string[]): Promise<void> {
+async function runReportCommand(argv: string[], paths: DatasetPaths): Promise<void> {
   const args = parseReportArgs(argv);
   const runDir = join(DEFAULT_RESULTS_ROOT, args.runId);
   const config = ((await readJsonFile(join(runDir, "config.json"))) ?? {}) as ReportConfigSnapshot & EpisodeReportConfigSnapshot;
@@ -525,7 +536,7 @@ async function runReportCommand(argv: string[]): Promise<void> {
     for (const questionId of new Set(answers.map((answer) => answer.questionId))) {
       questions.set(
         questionId,
-        await loadQuestionForScorer(DEFAULT_DATASETS_ROOT, datasetVersion, bank, questionId),
+        await loadQuestionForScorer(paths.datasetsRoot, datasetVersion, bank, questionId),
       );
     }
     const rawAudit = await readJsonFile(join(runDir, "data-audit.json"));
@@ -563,8 +574,40 @@ function printUsage(): void {
   process.stdout.write(USAGE);
 }
 
+function parseSyncDatasetArgs(argv: string[]): { datasetVersion: string } {
+  let datasetVersion: string | undefined;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--dataset-version") {
+      datasetVersion = argv[++i];
+      continue;
+    }
+    throw new Error(`unknown sync-dataset option: ${arg}`);
+  }
+  if (!datasetVersion) throw new Error("--dataset-version is required");
+  return { datasetVersion };
+}
+
+async function runSyncDatasetCommand(argv: string[], paths: DatasetPaths): Promise<void> {
+  const args = parseSyncDatasetArgs(argv);
+  const result = await syncDataset({ id: args.datasetVersion, datasetsRoot: paths.datasetsRoot });
+  const verb = result.status === "installed" ? "installed" : "already present";
+  process.stdout.write(
+    `dataset ${result.manifest.id}@${result.manifest.revision} ${verb}: ${result.target}\n`,
+  );
+}
+
 async function main(argv: string[]): Promise<void> {
-  const [command, ...rest] = argv;
+  let parsedPaths;
+  try {
+    parsedPaths = parseDatasetPathOptions(argv);
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+    return;
+  }
+  const { argv: commandArgs, datasetsRoot, sourceCacheRoot } = parsedPaths;
+  const [command, ...rest] = commandArgs;
 
   if (!command || command === "--help" || command === "-h") {
     printUsage();
@@ -577,7 +620,7 @@ async function main(argv: string[]): Promise<void> {
     process.exit(1);
   }
 
-  const handlers: Partial<Record<Subcommand, (argv: string[]) => Promise<void>>> = {
+  const handlers: Partial<Record<Subcommand, (argv: string[], paths: DatasetPaths) => Promise<void>>> = {
     generate: runGenerateCommand,
     "generate-episode-case": runGenerateEpisodeCaseCommand,
     "verify-episode-case": runVerifyEpisodeCaseCommand,
@@ -587,6 +630,7 @@ async function main(argv: string[]): Promise<void> {
     gold: runGoldCommand,
     report: runReportCommand,
     "backfill-news": runBackfillNewsCommand,
+    "sync-dataset": runSyncDatasetCommand,
   };
   const handler = handlers[command];
   if (!handler) {
@@ -594,7 +638,7 @@ async function main(argv: string[]): Promise<void> {
     process.exit(1);
   }
   try {
-    await handler(rest);
+    await handler(rest, { datasetsRoot, sourceCacheRoot });
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);

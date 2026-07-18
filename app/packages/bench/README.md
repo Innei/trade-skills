@@ -4,7 +4,7 @@
 
 出题分两种模式：**盲盘（blind）**只给量价和资金流，**实盘（live）**在此基础上加挂 cutoff 前的新闻/基本面/财报日历。两种模式对同一批题打分，成对得分差就是这个模型的「抗噪分」——消息面到底是帮它还是拖累它。判分只看 `submit_prediction` 交上来的方向、入场价、止损、目标价，事后拿 `replay.bars`（题目里被物理隔离、runner 摸不到的那部分）机械回放，谁都别想提前偷看答案。
 
-详细设计动机见 spec：`docs/superpowers/specs/2026-07-17-model-trading-benchmark-design.md`。
+详细设计动机见 `docs/superpowers/specs/2026-07-17-model-trading-benchmark-design.md`；数据所有权与分发边界见 `docs/superpowers/specs/2026-07-18-bench-dataset-boundary-design.md`。
 
 ## 公开框架与 pro runner 的边界
 
@@ -14,34 +14,31 @@
 
 所以 `run` 子命令在公开包里只会打印一句指路：真正跑模型要 `cd app/pro && pnpm bench:run`。`baseline` 留在公开包里，因为它是机械生成的答卷，不需要模型。
 
-## 六个子命令
+## 数据集同步与主要子命令
 
 CLI 入口是 `pnpm --filter @kansoku/bench cli <command>`——`cli` script 本身就是 `vite-node src/cli.ts`（见 `package.json`），所以子命令直接跟在 `cli` 后面，不用再写 `src/cli.ts`。下面是从零跑通一轮的最小序列：
 
 ```bash
-# 1. 出题：拉历史行情，切窗口，写进 datasets/<version>/<bank>/
-pnpm --filter @kansoku/bench cli generate --version v1 --windows-per-symbol 3
+# 0. 从私有数据仓库下载、校验并安装不可变题库
+pnpm --filter @kansoku/bench cli sync-dataset --dataset-version v1
 
-# 1.5 回填新闻：从 GDELT + SEC EDGAR 拉 cutoff 之前的真实历史新闻，原地改写 fixtures.news
-pnpm --filter @kansoku/bench cli backfill-news --dataset-version v1
-
-# 2. 跑模型（已搬到 pro 包）：盲盘+实盘各跑一次，每题重复 3 遍
+# 1. 跑模型（已搬到 pro 包）：盲盘+实盘各跑一次，每题重复 3 遍
 #    公开包里 `bench cli run` 只会指路，真正执行在 app/pro：
 cd app/pro && pnpm bench:run \
   --models anthropic/claude-sonnet-5,deepseek/deepseek-chat \
   --bank swing --mode blind,live --repeat 3 \
   --dataset-version v1 --run-id run-2026-07-20
 
-# 3. 基线：零成本生成买入持有/抛硬币/永远观望三条基线答卷，追加进同一个 run
+# 2. 基线：零成本生成买入持有/抛硬币/永远观望三条基线答卷，追加进同一个 run
 pnpm --filter @kansoku/bench cli baseline \
   --dataset-version v1 --bank swing --mode blind,live \
   --run-id run-2026-07-20
 
-# 4. 判分：把 predictions.jsonl 转成 scores.json
+# 3. 判分：把 predictions.jsonl 转成 scores.json
 pnpm --filter @kansoku/bench cli score \
   --run-id run-2026-07-20 --dataset-version v1
 
-# 5. 出报告：leaderboard + 分层榜 + 单题钻取
+# 4. 出报告：leaderboard + 分层榜 + 单题钻取
 pnpm --filter @kansoku/bench cli report --run-id run-2026-07-20
 ```
 
@@ -56,9 +53,32 @@ pnpm --filter @kansoku/bench cli gold --dataset-version v1 --check
 
 ## 数据集版本化与冻结
 
-题目落盘在 `datasets/<version>/<bank>/<questionId>.json`，一题一文件。同一个 `<version>` 一旦发布就当只读对待——不回填、不改数值，要修正只能出新版本目录。报告里必须写明用的题库版本（`scores.json` 的 `datasetVersion` 字段、report.md 的「运行信息」小节都会带上）。
+发布后的完整题库不进入 `kansoku` Git 历史。公开仓库只保存小型 manifest；完整 JSON 以不可变 `.tar.zst` 资产发布在私有 `kansoku-trade/kansoku-bench-data` Release 中。`sync-dataset` 按 manifest 下载资产，校验字节数与 SHA-256，检查各 bank 的题目数，然后原子安装到本地数据目录。
 
-**`backfill-news` 的一次性例外**：v1 在发布之初 `fixtures.news` 全是空数组（长桥拿不到历史时点新闻），`backfill-news` 子命令原地改写题目文件把这一项补上——这是允许的唯一例外，因为发生在 v1 从未被任何 `run`/`baseline` 引用过之前。命令会先扫一遍 `results/` 下所有 run 的 `config.json`，如果发现已经有 run 引用了目标版本会打印警告（回填仍会执行，但已记录的分数可能因此失真）。**一旦某个版本跑过 run，之后要修正新闻就必须切一个新版本目录，不能再对旧版本用 `backfill-news`。**
+默认目录如下：
+
+| 用途 | 默认路径 | 显式覆盖 | 环境变量 |
+| --- | --- | --- | --- |
+| 已发布题库 | `~/.cache/kansoku/bench/datasets` | `--dataset-dir` | `KANSOKU_BENCH_DATA_DIR` |
+| 行情与新闻源缓存 | `~/.cache/kansoku/bench/sources` | `--source-cache-dir` | `KANSOKU_BENCH_SOURCE_CACHE_DIR` |
+
+解析优先级为“命令行参数 > 环境变量 > 默认路径”。题目仍按 `<dataset-dir>/<id>/<bank>/<questionId>.json` 组织；报告必须记录数据集 id。manifest 中的 `revision`、Release tag、资产文件名、SHA-256、生成器 commit 和 bank 题数共同定义可复现版本。
+
+出题与回填属于发布前流程，应写入专用 staging 目录，而不是修改已经同步的 Release：
+
+```bash
+pnpm --filter @kansoku/bench cli generate \
+  --version v-next --windows-per-symbol 3 \
+  --dataset-dir ./staging/datasets
+
+pnpm --filter @kansoku/bench cli backfill-news \
+  --dataset-version v-next \
+  --dataset-dir ./staging/datasets
+```
+
+同一个 `(id, revision)` 一旦发布即只读；任何内容修正都必须增加 revision 或创建新的数据集 id，并发布新的 Release 资产。
+
+`backfill-news` 会扫描 `results/` 下的历史 run；若目标 staging 版本已被引用，会打印一致性警告。该警告不构成发布后原地修改的许可。
 
 **`replay` 字段的隔离原则**：题目 JSON 里的 `replay.bars`（还有 `replay.horizonBars`）只有判分器（`loadQuestionForScorer`）会读，runner 侧走的是 `loadQuestionForRunner`，返回的 `RunnerQuestion` 类型在类型层面就没有 `replay` 这个字段——不是「约定不要读」，是运行时那份对象里根本不存在这个 key。模型能看到的永远只是 cutoff 之前的 `fixtures`，事后走势对它是物理不可达的。
 

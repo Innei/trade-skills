@@ -85,6 +85,18 @@ describe("bench cli", () => {
     expect(result.stderr).toContain("--dataset-version is required");
   });
 
+  it("validates required options for the sync-dataset subcommand", async () => {
+    const result = await runMain(["sync-dataset"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("--dataset-version is required");
+  });
+
+  it("validates global dataset path options before command dispatch", async () => {
+    const result = await runMain(["--dataset-dir"]);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain("--dataset-dir requires a path");
+  });
+
   it("rejects unknown commands with exit 1", async () => {
     const result = await runMain(["bogus"]);
     expect(result.exitCode).toBe(1);
