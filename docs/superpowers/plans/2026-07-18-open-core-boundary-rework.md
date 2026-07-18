@@ -176,6 +176,15 @@ export const ipcServiceClasses = [
 > - 搬迁集（36 源文件）**无任何反向依赖**留在 pro 的付费模块（scheduler/deepDive/researchChat/researchRefresh/recap/triggers/license）——干净下层。
 > - 搬迁集只用 core 的 package.json **已有**的包（typebox / @earendil-works/pi-agent-core / @earendil-works/pi-ai / drizzle-orm / better-sqlite3）——**core 无需加依赖**。pro-only 的包（quickjs-emscripten / reflect-metadata / @tsuki-hono / electron-ipc-decorator）只被留在 pro 的文件用。
 > - `app/shared/` 是 workspace 级共享目录，core 已在用（`../../../../shared/`）——**不搬**。
+>
+> **纠缠边修正（2026-07-18 B1 首次 BLOCKED 后，正确扫描发现 4 条边——原扫描因 shell 分词 bug 假阴性）**：
+> - **#3 chat.ts→`packages/core/src/modules/annotations`**：假警报，是 core 自己的模块，搬后 core→core，仅路径改写。
+> - **#1 credentialStore→`LICENSE_PROVIDER_KEY`（pro/license/licenseStore）**：真反向边。该常量 = `"kansoku-license"`，是「保留凭证行」的键。**解法**：把 `LICENSE_PROVIDER_KEY` 定义搬进 core 的 `credentialStore.ts` 并 export；pro 的 `licenseStore.ts` 反向从 core 引（pro→core）。
+> - **#2 commentator→`Trigger`（type，来自 triggers.ts）**：triggers.ts **零 import**、纯类型+纯检测函数，被免费的 commentator 与付费的 scheduler 共用——**它是免费基座，原计划划到 stay-pro 是分类错**。**解法**：triggers.ts 并入搬迁集；scheduler 从 core 引。
+> - **#4 assistantChat→`buildResearchLibraryTools`（researchLibraryTools.ts）**：免费全局助手用研究库搜索/读取工具，底层是**免费 browse 服务**。researchLibraryTools 依赖 `createResearchService`（来自 `modules/research/research.service.ts`，该文件**已 core-clean**，只依赖 node 内置+core contract/env/errors，AI 逻辑在别的文件）。**解法**：`research.service.ts` 与 `researchLibraryTools.ts` 一并并入搬迁集——research browse 本就是基座前置依赖。**B3 因此缩小**为只做 browse **控制器**与 contract 拆分（browse 服务已在 B1 移入 core）。
+>
+> **扩充后的搬迁集 = 36 原文件 + `ai/triggers.ts` + `ai/researchLibraryTools.ts` + `modules/research/research.service.ts`（→`packages/core/src/modules/research/`）+ `LICENSE_PROVIDER_KEY` 常量归位。**
+> **额外 rewire 的 pro 消费者**：`ai/researchChat.ts` `ai/researchRefresh.ts` `ipc/researchIpc.ts` `server/modules/research/research.controller.ts`（research.service 消费者，改从 core 引）、`ai/scheduler.ts`（triggers 消费者）、`license/licenseStore.ts`（改从 core 引 LICENSE_PROVIDER_KEY）。
 
 **Files:**
 - Create: `app/packages/core/src/ai/`（36 源文件：30 顶层 + `messages/`3 + `lobehub/`3）
