@@ -1,3 +1,4 @@
+import { writeFileSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 
 const HOME_ROUTE = "/";
@@ -135,7 +136,7 @@ function isValidTabsState(value: unknown): value is TabsState {
 export interface TabsFileStore {
   load(): Promise<TabsState>;
   scheduleSave(state: TabsState): void;
-  flush(): Promise<void>;
+  flushSync(): void;
 }
 
 export function createTabsFileStore(
@@ -172,12 +173,12 @@ export function createTabsFileStore(
       }, debounceMs);
     },
 
-    async flush(): Promise<void> {
+    flushSync(): void {
       if (timer) clearTimeout(timer);
       timer = null;
       const toWrite = pending;
       pending = null;
-      if (toWrite) await writeNow(toWrite);
+      if (toWrite) writeFileSync(filePath, JSON.stringify(toWrite), { mode: 0o600 });
     },
   };
 }

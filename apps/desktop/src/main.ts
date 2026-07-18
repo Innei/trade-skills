@@ -125,18 +125,17 @@ app.whenReady().then(async () => {
       if (windowManager.windowCount() === 0) windowManager.restoreWindows();
     });
 
-    let quitFlushed = false;
-    app.on("will-quit", (event) => {
-      if (quitFlushed) return;
-      event.preventDefault();
-      Promise.all([tabsFileStore.flush(), windowManager.flush()])
-        .catch((error: unknown) => {
-          console.error("[desktop] flush on quit failed", error);
-        })
-        .finally(() => {
-          quitFlushed = true;
-          app.quit();
-        });
+    // Quit must never be interrupted: Sparkle's installer asks the app to
+    // terminate, and a will-quit preventDefault (even followed by a re-quit)
+    // makes Sparkle treat the install as cancelled — the app exits with no
+    // update applied and no relaunch. Flush synchronously instead.
+    app.on("before-quit", () => {
+      try {
+        tabsFileStore.flushSync();
+        windowManager.flushSync();
+      } catch (error) {
+        console.error("[desktop] flush on quit failed", error);
+      }
     });
   } catch (error) {
     showFatalErrorWindow(error);

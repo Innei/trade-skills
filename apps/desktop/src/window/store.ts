@@ -1,3 +1,4 @@
+import { writeFileSync } from "node:fs";
 import { readFile, writeFile } from "node:fs/promises";
 
 const DEFAULT_DEBOUNCE_MS = 500;
@@ -58,7 +59,7 @@ function isValidWindowsState(value: unknown): value is WindowsState {
 export interface WindowsFileStore {
   load(): Promise<WindowsState>;
   scheduleSave(state: WindowsState): void;
-  flush(): Promise<void>;
+  flushSync(): void;
 }
 
 export function createWindowsFileStore(
@@ -95,12 +96,12 @@ export function createWindowsFileStore(
       }, debounceMs);
     },
 
-    async flush(): Promise<void> {
+    flushSync(): void {
       if (timer) clearTimeout(timer);
       timer = null;
       const toWrite = pending;
       pending = null;
-      if (toWrite) await writeNow(toWrite);
+      if (toWrite) writeFileSync(filePath, JSON.stringify(toWrite), { mode: 0o600 });
     },
   };
 }

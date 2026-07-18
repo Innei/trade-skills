@@ -35,7 +35,7 @@ function fakeFileStore(initial: TabsState): TabsFileStore & { saved: TabsState[]
     scheduleSave: vi.fn((state: TabsState) => {
       saved.push(state);
     }),
-    flush: vi.fn(async () => {}),
+    flushSync: vi.fn(() => {}),
   };
 }
 

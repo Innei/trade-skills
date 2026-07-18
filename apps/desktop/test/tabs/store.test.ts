@@ -283,7 +283,7 @@ describe("createTabsFileStore", () => {
     const store = createTabsFileStore(path, 500);
     const state = openTab(homeState(), "/symbol/NVDA.US");
     store.scheduleSave(state);
-    await store.flush();
+    store.flushSync();
 
     const reloaded = await createTabsFileStore(path).load();
     expect(reloaded).toEqual(state);

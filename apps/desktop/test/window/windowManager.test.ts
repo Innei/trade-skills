@@ -173,7 +173,7 @@ describe("createWindowManager", () => {
     const manager = await createWindowManager({ userDataDir: dir, debounceMs: 500 });
 
     manager.openWindow();
-    await manager.flush();
+    manager.flushSync();
 
     expect(await readWindowsJson()).toEqual([{ id: "win-1", activeTabId: "" }]);
   });
@@ -202,13 +202,13 @@ describe("createWindowManager", () => {
     expect(openHandler).toBeDefined();
 
     await openHandler?.({} as never, "tab-42" as never);
-    await manager.flush();
+    manager.flushSync();
 
     expect(manager.windowCount()).toBe(1);
     expect(await readWindowsJson()).toEqual([{ id: "win-1", activeTabId: "tab-42" }]);
 
     await openHandler?.({} as never, 7 as never);
-    await manager.flush();
+    manager.flushSync();
 
     expect(await readWindowsJson()).toEqual([
       { id: "win-1", activeTabId: "tab-42" },

@@ -133,7 +133,7 @@ describe("createWindowsFileStore", () => {
     const store = createWindowsFileStore(path, 500);
     const state: WindowsState = [{ id: "win-1", activeTabId: "tab-a" }];
     store.scheduleSave(state);
-    await store.flush();
+    store.flushSync();
 
     const reloaded = await createWindowsFileStore(path).load();
     expect(reloaded).toEqual(state);
