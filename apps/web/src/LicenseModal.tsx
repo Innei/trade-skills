@@ -34,6 +34,13 @@ function Paywall({ notice, onActivated }: { notice?: "invalid" | "expired"; onAc
             : `前往订阅${subscribe.priceLabel ? ` · ${subscribe.priceLabel}` : ""}`}
         </a>
       ) : null}
+      {subscribe?.yearly ? (
+        <a className="license-paywall-yearly" href={subscribe.yearly.subscribeUrl} target="_blank" rel="noreferrer">
+          或选年付{subscribe.yearly.priceLabel ? ` ${subscribe.yearly.priceLabel}` : ""}
+          {subscribe.yearly.savingsLabel ? `（${subscribe.yearly.savingsLabel}）` : ""}
+          {subscribe.yearly.trialDays ? `，同样先免费试用 ${subscribe.yearly.trialDays} 天` : ""}
+        </a>
+      ) : null}
       <div className="license-paywall-hint">
         {subscribe?.trialDays ? "试用期内不会扣款；" : ""}订阅完成后，授权码会发送到你的邮箱，回来在下方粘贴激活即可。
       </div>

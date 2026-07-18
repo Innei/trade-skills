@@ -1738,6 +1738,10 @@ a.zone-item:hover { text-decoration: none; background: var(--bg-hover); }
 }
 .license-paywall-cta:hover { color: #000; opacity: 0.9; }
 .license-paywall-cta:active { transform: scale(0.96); }
+.license-paywall-yearly {
+  align-self: center; color: var(--accent); font-size: var(--fs-sm); text-decoration: none;
+}
+.license-paywall-yearly:hover { text-decoration: underline; }
 .license-paywall-hint { color: var(--text-muted); font-size: var(--fs-sm); text-wrap: pretty; }
 .license-paywall-toggle {
   align-self: flex-start; padding: 4px 0; background: none; border: none;

@@ -37,7 +37,17 @@ export interface SettingsApi {
   resetCredentials(): Promise<{ reset: true }>;
   getWatchedMarkets(): Promise<{ markets: Market[] }>;
   putWatchedMarkets(input: { markets: unknown }): Promise<{ markets: Market[] }>;
-  getSubscribeUrl(): Promise<{ subscribeUrl: string | null; priceLabel: string | null; trialDays: number | null }>;
+  getSubscribeUrl(): Promise<{
+    subscribeUrl: string | null;
+    priceLabel: string | null;
+    trialDays: number | null;
+    yearly: {
+      subscribeUrl: string;
+      priceLabel: string | null;
+      trialDays: number | null;
+      savingsLabel: string | null;
+    } | null;
+  }>;
 }
 
 export const settingsRoutes = defineRoutes<SettingsApi>("settings", {

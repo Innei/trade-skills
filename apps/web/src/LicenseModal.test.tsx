@@ -77,6 +77,27 @@ describe("LicenseModal", () => {
     expect(screen.queryByText(/前往订阅/)).toBeNull();
   });
 
+  it("renders the yearly plan link with savings when the subscription carries a yearly plan", async () => {
+    capabilitiesGet.mockResolvedValue({ pro: true, licensed: false, license: { state: "unlicensed" } });
+    subscribeUrlGet.mockResolvedValue({
+      subscribeUrl: "https://checkout.example/buy",
+      priceLabel: "$9.9 / 月",
+      trialDays: 7,
+      yearly: {
+        subscribeUrl: "https://checkout.example/buy-annual",
+        priceLabel: "$99 / 年",
+        trialDays: 7,
+        savingsLabel: "省 17%",
+      },
+    });
+    openLicenseModal("guard");
+
+    renderWithClient(<ModalHost />);
+
+    const yearly = await screen.findByText(/或选年付 \$99 \/ 年（省 17%），同样先免费试用 7 天/);
+    expect(yearly.closest("a")?.getAttribute("href")).toBe("https://checkout.example/buy-annual");
+  });
+
   it("advertises exactly the three paid features, not the now-free ones", async () => {
     capabilitiesGet.mockResolvedValue({ pro: true, licensed: false, license: { state: "unlicensed" } });
     subscribeUrlGet.mockResolvedValue({ subscribeUrl: null, priceLabel: null });

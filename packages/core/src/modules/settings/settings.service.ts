@@ -44,10 +44,19 @@ export const settingsService: SettingsApi = {
 
   async getSubscribeUrl() {
     const subscription = getPro()?.subscription;
+    const yearly = subscription?.yearly;
     return {
       subscribeUrl: subscription?.url ?? null,
       priceLabel: subscription?.priceLabel ?? null,
       trialDays: subscription?.trialDays ?? null,
+      yearly: yearly
+        ? {
+            subscribeUrl: yearly.url,
+            priceLabel: yearly.priceLabel ?? null,
+            trialDays: yearly.trialDays ?? null,
+            savingsLabel: yearly.savingsLabel ?? null,
+          }
+        : null,
     };
   },
 };

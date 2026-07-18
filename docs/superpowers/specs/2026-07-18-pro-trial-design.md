@@ -51,6 +51,15 @@
 
 未决小项：Dodo 是否在试用到期前发提醒邮件未观察到（要等到第 7 天）——不影响方案，只影响结账文案措辞。
 
+## 年付方案（2026-07-18 追加，已实施）
+
+- Dodo 一个商品只有一个价格和一个计费周期，所以年付是独立商品「Kansoku Pro (Annual)」：**$99/年（约 83 折，等于送 2 个月）**，CNY 本地化固定价 **¥690/年**（月付为 $9.9 / ¥69），同样 7 天试用，挂同一个许可证权限项（激活上限 3 台，key 行为与月付完全一致）。
+- 商品 ID：test `pdt_0NjRs5OcJzWCoo7Mt35jM` / live `pdt_0NjRt0rcnR6TufaaKkwZ3`，硬编码在 `apps/pro/src/license/subscription.ts`，与月付 ID 同文件。
+- 契约：`settings.getSubscribeUrl` 新增 `yearly` 字段（`{subscribeUrl, priceLabel, trialDays, savingsLabel} | null`），为空时 web 不渲染年付入口。
+- UI：付费墙主按钮仍是月付试用，下方一行次级链接「或选年付 $99 / 年（省 17%），同样先免费试用 7 天」。
+- 已知限制：月付换年付不是无缝升级——需取消旧订阅、订阅年付、用新授权码重新激活（旧 key 随旧订阅失效）。
+- test 环境已验证：结账页显示 $99/Year（CNY 690）+ 7 天试用 $0，License Key 包含在内。
+
 ## 验收
 
 - test 环境完整走通：结账（$0）→ 收 key → 激活 → capabilities 报 `licensed:true` → 后台取消订阅 → 触发重验证 → App 锁定弹付费墙。
