@@ -168,24 +168,30 @@ export const ipcServiceClasses = [
 
 > 执行顺序固定 B1→B7；B1–B2 后两仓处于中间态（pro 从 core 导入基座），每个任务保持各自可编译、测试可跑。
 
-### Task B1: 基座与免费功能层搬入 core
+### Task B1: 基座与免费功能层搬入 core（含 pro 全部消费者 rewire）
+
+> **范围修正（2026-07-18 侦察后）**：基座是原子搬迁——ai/ 一旦移走，pro 里**所有**消费者（bench 7 文件、modules 服务、index.ts、留在 pro 的 ai 文件、以及 pro/test 里 ~43 个测试）同一刻全断，因为它们都以 `./models.js` 引 sibling。故 B1 不能只移文件，必须在**同一步**把 pro 全部消费者的 import 一起 rewire，否则 pro 无法编译、拿不到「pro 测试通过」的门。原计划把 bench import 改动放 B5、把消费者 rewire 分散到 B2/B5 的设想物理上不成立。**B5 因此退化为纯 bench 冒烟验证。**
+>
+> **侦察已确认的事实（写进实施 brief）**：
+> - 搬迁集（36 源文件）**无任何反向依赖**留在 pro 的付费模块（scheduler/deepDive/researchChat/researchRefresh/recap/triggers/license）——干净下层。
+> - 搬迁集只用 core 的 package.json **已有**的包（typebox / @earendil-works/pi-agent-core / @earendil-works/pi-ai / drizzle-orm / better-sqlite3）——**core 无需加依赖**。pro-only 的包（quickjs-emscripten / reflect-metadata / @tsuki-hono / electron-ipc-decorator）只被留在 pro 的文件用。
+> - `app/shared/` 是 workspace 级共享目录，core 已在用（`../../../../shared/`）——**不搬**。
 
 **Files:**
-- Create: `app/packages/core/src/ai/`（承接 pro 的对应文件）
-- Modify: `app/pro/src/` 剩余文件的 import
-- Test: 随文件同名迁移的 `*.test.ts`
+- Create: `app/packages/core/src/ai/`（36 源文件：30 顶层 + `messages/`3 + `lobehub/`3）
+- Move: 测被搬模块的测试（如 `settingsStore.test.ts commentator.test.ts conversationEngine.test.ts chat-suggestions.test.ts` 等）从 `app/pro/test/` 到 `app/packages/core/test/`（或 core 既有测试位置）；测 pro 侧路由/门的测试（`assistant-routes.test.ts follow-routes.test.ts reassess-license-gate.test.ts` 等）留在 pro，只 rewire import。
+- Modify（rewire，import 改指 core）：pro 消费者 `index.ts`、`bench/**`、`modules/{assistant,chat,lobehub,research,settings}/*.service.ts` 与 `settings.deps.ts settings.testConnection.ts settingsValidation.ts`、留在 pro 的 ai 文件 `scheduler.ts triggers.ts recap.ts deepDive.ts deepDiveTools.ts researchChat.ts researchChatStore.ts researchRefresh.ts researchLibraryTools.ts`。
 
 **Interfaces:**
-- Produces: `@kansoku/core` 内部路径 `packages/core/src/ai/*` 提供基座与免费功能层；pro 仓从 `../../packages/core/src/ai/*.js` 导入。
+- Produces: core 内 `packages/core/src/ai/*` 提供基座与免费功能层。pro 消费者按各自深度以相对路径 `…/packages/core/src/ai/<mod>.js` 导入（从 `pro/src/ai/` 是 `../../../packages/core/src/ai/`；从 `pro/src/modules/<x>/` 是 `../../../../packages/core/src/ai/`）。
 
-- [ ] **Step 1:** 在 pro 仓 `git mv` 下列文件到 `app/packages/core/src/ai/`（保持文件名；跨仓移动 = pro 仓 `git rm` + 公开仓新增，内容不改）：
-  基座：`agentSession.ts agentTools.ts dataTools.ts datapack.ts models.ts modelsRuntime.ts settingsStore.ts credentialStore.ts secretBox.ts usage.ts usageStore.ts initAiSettings.ts prompts.ts promptPolicy.ts messages/ conversationEngine.ts conversationShared.ts conversationStore.ts runLock.ts verifyRead.ts`
-  功能层：`analyst.ts commentator.ts comments.ts notices.ts follows.ts eventFilter.ts chat.ts chatStore.ts chatSuggestions.ts assistantChat.ts assistantChatStore.ts lobehub/`
-- [ ] **Step 2:** 搬入的文件把 `../../../packages/core/src/…` 相对导入改为 core 内相对路径（`sg`/sed 批量：`sed -i '' 's|\.\./\.\./\.\./packages/core/src/|../|g'`，逐文件核对层级）。
-- [ ] **Step 3:** pro 仓剩余文件（scheduler、triggers、recap、deepDive*、research AI、bench）import 改指 `../../packages/core/src/ai/…`。
-- [ ] **Step 4:** `promptPolicy` 的 trading-discipline 注入路径复核（CLAUDE.md 记载它原属 pro——搬入 core 后 core 内 `analyst`/`chat` 直接引用）。
-- [ ] **Step 5:** Run: `cd app && pnpm --filter @kansoku/core typecheck && pnpm --filter @kansoku/core test`；`cd app/pro && pnpm test`。Expected: PASS。
-- [ ] **Step 6:** 双仓各自 commit：core `"feat(core): absorb AI base + free feature layer from pro"`；pro `"refactor: import AI base from core"`。
+- [ ] **Step 1（确定性移动，run brief 内脚本 verbatim）:** 用纯 `mv` 把 36 源文件从 `pro/src/ai/{,messages/,lobehub/}` 移到 `packages/core/src/ai/{,messages/,lobehub/}`；两仓各 `git add -A` 暂存（pro 记删除、公开仓记新增）。内容不改。
+- [ ] **Step 2（移动文件内 import，两条确定性 sed）:** 移入 core 的文件：`../../../packages/core/src/` → `../`（core 内相对）；`../../../shared/` → `../../../../shared/`（3up→4up）。intra-ai 的 `./x.js`、`./messages/x.js`、`./lobehub/x.js` 不变。
+- [ ] **Step 3（编译器驱动修 core）:** Run `pnpm --filter @kansoku/core typecheck`，按报错逐条修残余 import，直至 core typecheck 通过。
+- [ ] **Step 4（rewire pro 消费者 + 归位测试）:** 按 Files 的 Move/Modify 清单：测被搬模块的测试随主体移入 core；pro 消费者 import 改指 core 相对路径（编译器驱动：`pnpm test` 报 `Cannot find module` 就把该 import 指向新 core 位置）。
+- [ ] **Step 5:** `promptPolicy` 的 trading-discipline 注入路径复核（搬入 core 后 core 内 `analyst`/`chat`/`promptPolicy` 直接引用，路径正确）。
+- [ ] **Step 6（双门）:** Run `cd app && pnpm --filter @kansoku/core typecheck && pnpm --filter @kansoku/core test` **且** `cd app/pro && pnpm test`。Expected: 两侧全 PASS（pro 重新完整编译）。
+- [ ] **Step 7:** 双仓各自 commit：core `"feat(core): absorb AI base + free feature layer from pro"`；pro `"refactor: import AI base from core, rehome moved tests"`。
 
 ### Task B2: 免费服务/控制器/IPC 搬迁 + 摘 requirePro
 
@@ -243,15 +249,16 @@ export const ipcServiceClasses = [
 - [ ] **Step 3:** Run: `cd app && pnpm test && cd pro && pnpm test`。Expected: PASS。
 - [ ] **Step 4:** 双仓 commit：core `"feat: narrow pro-api to paid hooks, core owns free channels"`；pro `"refactor: shrink ProModule to paid surface"`。
 
-### Task B5: bench 与 pro 收尾
+### Task B5: pro 打包构建验证（bench import 已在 B1 处理）
+
+> **范围修正**：bench 的 import 改动已在 B1 的原子 rewire 里完成（bench 是 pro 消费者之一）。B5 因此退化为 pro 侧打包与依赖核对的收尾验证。
 
 **Files:**
-- Modify: `app/pro/src/bench/**`（import 改 core 路径）
-- Modify: `app/pro/tsdown.config.ts`、`package.json`（入口与依赖核对）
+- Modify（仅按需）: `app/pro/tsdown.config.ts`、`app/pro/package.json`（入口与依赖核对——B1 后 pro 可能有不再直接使用、可清理的 dep；不强制删除，只核对不缺）
 
-- [ ] **Step 1:** bench 全部 import 改指 core；`cd app/pro && pnpm test` 含 bench 单测通过。
-- [ ] **Step 2:** pro 打包构建验证：`cd app/pro && pnpm build`（tsdown），Expected: 成功。
-- [ ] **Step 3:** Commit（pro 仓）: `"refactor: bench imports from core"`
+- [ ] **Step 1:** 确认 bench 单测在 B1 后仍绿：`cd app/pro && pnpm test`。
+- [ ] **Step 2:** pro 打包构建验证：`cd app/pro && pnpm build`（tsdown），Expected: 成功（打出的 dist 供打包桌面宿主用）。
+- [ ] **Step 3:** 若有改动才 Commit（pro 仓）: `"chore: verify pro build after base migration"`；无改动则跳过。
 
 ### Task B6: web 终态 —— 免费 AI UI 无条件渲染
 
