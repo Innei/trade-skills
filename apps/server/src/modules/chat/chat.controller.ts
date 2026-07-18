@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post } from "@tsuki-hono/common";
 import { chatService } from "@kansoku/core/modules/chat/chat.service";
 import { ClientError } from "@kansoku/core/errors";
-import { jsonResponse } from "../../httpResponse.js";
+import { jsonResponse } from "@server/httpResponse.js";
 
 export {
   setChatDepsForTests,
