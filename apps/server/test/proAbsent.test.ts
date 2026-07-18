@@ -3,7 +3,7 @@ import { loadPro } from "../../../packages/core/src/pro/loader.js";
 import { unregisterProModuleForTests } from "../../../packages/core/src/pro/registry.js";
 import { tsukiRequest } from "./helpers.js";
 
-describe("requirePro guard", () => {
+describe("pro-absent HTTP surface", () => {
   afterEach(async () => {
     await loadPro();
   });
@@ -24,6 +24,10 @@ describe("requirePro guard", () => {
     unregisterProModuleForTests();
     const res = await tsukiRequest("/api/capabilities");
     expect(res.status).toBe(200);
-    expect((await res.json()).data).toEqual({ pro: false, licensed: false });
+    expect((await res.json()).data).toEqual({
+      pro: false,
+      licensed: false,
+      features: { "symbol-follow": "absent", "deep-dive": "absent", "research-ai": "absent" },
+    });
   });
 });

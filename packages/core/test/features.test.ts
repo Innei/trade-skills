@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { LicenseService } from "@kansoku/pro-api";
 import { ClientError } from "../src/errors.js";
 import { freeHooks, registerProModule, unregisterProModuleForTests } from "../src/pro/registry.js";
-import { featureState, isFeatureActive, requireFeature } from "../src/pro/features.js";
+import { featureState, featureStates, isFeatureActive, requireFeature } from "../src/pro/features.js";
 
 function licenseService(licensed: boolean): LicenseService {
   return {
@@ -48,6 +48,17 @@ describe("feature resolver", () => {
     await expect(featureState("symbol-follow")).resolves.toBe("active");
     await expect(isFeatureActive("symbol-follow")).resolves.toBe(true);
     await expect(requireFeature("symbol-follow")).resolves.toBeUndefined();
+  });
+
+  it("featureStates resolves the license once and matches featureState per key", async () => {
+    const license = licenseService(false);
+    const spy = vi.spyOn(license, "isLicensed");
+    registerProModule({ hooks: freeHooks, license });
+    const states = await featureStates();
+    expect(spy).toHaveBeenCalledTimes(1);
+    for (const [key, state] of Object.entries(states)) {
+      await expect(featureState(key as keyof typeof states)).resolves.toBe(state);
+    }
   });
 });
 

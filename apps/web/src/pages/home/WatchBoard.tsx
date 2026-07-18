@@ -56,7 +56,9 @@ function FollowToggle({
       className={className}
       title={
         locked
-          ? "AI 跟进需要有效授权，点击开关订阅解锁"
+          ? active
+            ? "授权已失效，AI 跟进已暂停；可关闭开关，重新开启需订阅"
+            : "AI 跟进需要有效授权，点击开关订阅解锁"
           : statusError ?? (active ? "AI 评论员正在后台持续跟进" : "AI 评论员未在后台跟进")
       }
       onClick={onControlClick}
