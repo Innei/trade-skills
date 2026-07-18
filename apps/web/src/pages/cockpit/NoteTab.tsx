@@ -2,9 +2,8 @@ import { useCallback } from "react";
 import type { ReactNode } from "react";
 import { Lock, Maximize2 } from "lucide-react";
 import { Button, Empty, ErrorBox, MarketTime, Spinner, TimeAgo } from "../../ui";
-import { useCapabilities } from "../../capabilitiesStore";
-import { useFeatureGuard } from "../../featureGuard";
 import { marketOfSymbol } from "../../lib/market";
+import { useFeature } from "../../useFeature";
 import { Markdown, openMarkdownModal } from "./markdown";
 import { bareSymbol, useDeepDive } from "./useDeepDive";
 import { useNote } from "./useNote";
@@ -14,8 +13,7 @@ export function NoteTab({ symbol }: { symbol: string }) {
   const { note, error, reload } = useNote(symbol);
   const onNoteReady = useCallback(() => reload(), [reload]);
   const deepDive = useDeepDive(symbol, onNoteReady);
-  const { locked, guard } = useFeatureGuard();
-  const { pro } = useCapabilities();
+  const { state, locked, guard } = useFeature("deep-dive");
 
   const confirmAndStart = () => {
     const confirmed = window.confirm(
@@ -42,7 +40,7 @@ export function NoteTab({ symbol }: { symbol: string }) {
   }
 
   const button =
-    pro === true ? (
+    state !== "absent" ? (
       <Button
         onClick={locked ? () => guard(() => {}) : confirmAndStart}
         disabled={deepDive.pending || deepDive.running || deepDive.disabled}

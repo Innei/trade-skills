@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react";
 import type { LicenseSnapshot } from "../../../packages/core/src/contract/license.js";
+import type { FeatureKey, FeatureState } from "../../../packages/pro-api/src/features.js";
 import { client } from "./client";
 import { clearLicenseRequired, useLicenseRequiredMode } from "./licenseRequiredMode";
 
@@ -7,6 +8,7 @@ export interface Capabilities {
   pro: boolean | null;
   licensed: boolean;
   license?: LicenseSnapshot;
+  features?: Record<FeatureKey, FeatureState>;
 }
 
 const DEFAULT: Capabilities = { pro: null, licensed: false };

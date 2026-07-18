@@ -2,7 +2,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-let capabilities: { pro: boolean | null; licensed: boolean } = { pro: true, licensed: true };
+let capabilities: { features?: Record<string, string> } = { features: { "deep-dive": "active" } };
 const note = vi.fn();
 const deepDiveStatus = vi.fn();
 const deepDive = vi.fn();
@@ -26,7 +26,7 @@ const { NoteTab } = await import("./NoteTab");
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
-  capabilities = { pro: true, licensed: true };
+  capabilities = { features: { "deep-dive": "active" } };
   resetLicenseModalStoreForTests();
   note.mockReset();
   deepDiveStatus.mockReset();
@@ -35,7 +35,7 @@ afterEach(() => {
 
 describe("NoteTab deep-dive license gate", () => {
   it("opens the license modal instead of starting deep-dive when pro but unlicensed", async () => {
-    capabilities = { pro: true, licensed: false };
+    capabilities = { features: { "deep-dive": "locked" } };
     const confirmSpy = vi.spyOn(window, "confirm");
     note.mockResolvedValue({ markdown: null });
     deepDiveStatus.mockResolvedValue({ running: false });
@@ -50,7 +50,7 @@ describe("NoteTab deep-dive license gate", () => {
   });
 
   it("starts deep-dive normally when licensed", async () => {
-    capabilities = { pro: true, licensed: true };
+    capabilities = { features: { "deep-dive": "active" } };
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     note.mockResolvedValue({ markdown: null });
     deepDiveStatus.mockResolvedValue({ running: false });
@@ -66,7 +66,7 @@ describe("NoteTab deep-dive license gate", () => {
   });
 
   it("hides the deep-dive button for a community build (pro:false) but keeps the note surface", async () => {
-    capabilities = { pro: false, licensed: false };
+    capabilities = { features: { "deep-dive": "absent" } };
     note.mockResolvedValue({ markdown: null });
     deepDiveStatus.mockResolvedValue({ running: false });
 
@@ -79,7 +79,7 @@ describe("NoteTab deep-dive license gate", () => {
   });
 
   it("hides the deep-dive button while capabilities are still loading (pro:null)", async () => {
-    capabilities = { pro: null, licensed: false };
+    capabilities = { features: undefined };
     note.mockResolvedValue({ markdown: null });
     deepDiveStatus.mockResolvedValue({ running: false });
 

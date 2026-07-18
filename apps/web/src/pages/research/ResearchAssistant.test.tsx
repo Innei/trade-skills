@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ResearchDocument, ResearchDocumentMeta } from "../../../../../packages/core/src/contract";
 
-let capabilities: { pro: boolean | null; licensed: boolean } = { pro: true, licensed: true };
+let capabilities: { features?: Record<string, string> } = { features: { "research-ai": "active" } };
 
 const listEdits = vi.fn().mockResolvedValue([]);
 const getRefresh = vi.fn().mockResolvedValue(null);
@@ -78,7 +78,7 @@ function renderWithClient(children: ReactNode) {
 
 afterEach(() => {
   cleanup();
-  capabilities = { pro: true, licensed: true };
+  capabilities = { features: { "research-ai": "active" } };
   listEdits.mockClear();
   getRefresh.mockClear();
   getChat.mockClear();
@@ -87,7 +87,7 @@ afterEach(() => {
 
 describe("ResearchAssistant license gate", () => {
   it("renders the locked placeholder + browse card, and fires zero AI-subroute fetches", async () => {
-    capabilities = { pro: true, licensed: false };
+    capabilities = { features: { "research-ai": "locked" } };
 
     renderWithClient(
       <ResearchAssistant
@@ -112,7 +112,7 @@ describe("ResearchAssistant license gate", () => {
   });
 
   it("renders the browse card only for a community build (pro:false), no locked notice, zero AI fetches", async () => {
-    capabilities = { pro: false, licensed: false };
+    capabilities = { features: { "research-ai": "absent" } };
 
     renderWithClient(
       <ResearchAssistant
@@ -137,7 +137,7 @@ describe("ResearchAssistant license gate", () => {
   });
 
   it("renders the real AI panel and fires the AI-subroute fetches when licensed", async () => {
-    capabilities = { pro: true, licensed: true };
+    capabilities = { features: { "research-ai": "active" } };
 
     renderWithClient(
       <ResearchAssistant

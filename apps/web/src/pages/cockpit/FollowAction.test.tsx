@@ -4,7 +4,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-let capabilities: { pro: boolean | null; licensed: boolean } = { pro: true, licensed: true };
+let capabilities: { features?: Record<string, string> } = { features: { "symbol-follow": "active" } };
 const followStatus = vi.fn();
 const startFollow = vi.fn();
 const stopFollow = vi.fn();
@@ -32,7 +32,7 @@ function renderWithClient(children: ReactNode) {
 
 afterEach(() => {
   cleanup();
-  capabilities = { pro: true, licensed: true };
+  capabilities = { features: { "symbol-follow": "active" } };
   resetLicenseModalStoreForTests();
   followStatus.mockReset();
   startFollow.mockReset();
@@ -41,7 +41,7 @@ afterEach(() => {
 
 describe("FollowAction license gate", () => {
   it("opens the license modal instead of toggling when pro but unlicensed", async () => {
-    capabilities = { pro: true, licensed: false };
+    capabilities = { features: { "symbol-follow": "locked" } };
     followStatus.mockResolvedValue({ following: false });
     renderWithClient(<FollowAction symbol="MRVL.US" />);
 
@@ -54,7 +54,7 @@ describe("FollowAction license gate", () => {
   });
 
   it("allows turning off an already-on follow when pro but unlicensed", async () => {
-    capabilities = { pro: true, licensed: false };
+    capabilities = { features: { "symbol-follow": "locked" } };
     followStatus.mockResolvedValue({ following: true });
     stopFollow.mockResolvedValue({ following: false });
     renderWithClient(<FollowAction symbol="MRVL.US" />);
@@ -69,7 +69,7 @@ describe("FollowAction license gate", () => {
   });
 
   it("toggles normally when licensed", async () => {
-    capabilities = { pro: true, licensed: true };
+    capabilities = { features: { "symbol-follow": "active" } };
     followStatus.mockResolvedValue({ following: false });
     startFollow.mockResolvedValue({ following: true });
     renderWithClient(<FollowAction symbol="MRVL.US" />);
@@ -83,7 +83,7 @@ describe("FollowAction license gate", () => {
   });
 
   it("renders nothing for a community build (pro:false) and fires no follow query", async () => {
-    capabilities = { pro: false, licensed: false };
+    capabilities = { features: { "symbol-follow": "absent" } };
     followStatus.mockResolvedValue({ following: false });
     renderWithClient(<FollowAction symbol="MRVL.US" />);
 
@@ -95,7 +95,7 @@ describe("FollowAction license gate", () => {
   });
 
   it("renders nothing while capabilities are still loading (pro:null)", async () => {
-    capabilities = { pro: null, licensed: false };
+    capabilities = { features: undefined };
     renderWithClient(<FollowAction symbol="MRVL.US" />);
 
     await new Promise((resolve) => setTimeout(resolve, 20));

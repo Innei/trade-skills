@@ -1,18 +1,25 @@
 import { Lock, RadioTower } from "lucide-react";
-import { useCapabilities } from "../../capabilitiesStore";
-import { useFeatureGuard } from "../../featureGuard";
 import { Switch } from "../../ui";
+import { useFeature } from "../../useFeature";
 import { useSymbolFollow } from "../../useSymbolFollow";
 
 export function FollowAction({ symbol, revision }: { symbol: string; revision?: string }) {
-  const { pro } = useCapabilities();
-  if (pro !== true) return null;
-  return <FollowControl symbol={symbol} revision={revision} />;
+  const { state } = useFeature("symbol-follow");
+  if (state === "absent") return null;
+  return <FollowControl symbol={symbol} revision={revision} locked={state === "locked"} />;
 }
 
-function FollowControl({ symbol, revision }: { symbol: string; revision?: string }) {
+function FollowControl({
+  symbol,
+  revision,
+  locked,
+}: {
+  symbol: string;
+  revision?: string;
+  locked: boolean;
+}) {
   const { following, busy, statusError, change } = useSymbolFollow({ symbol, revision });
-  const { locked, guard } = useFeatureGuard();
+  const { guard } = useFeature("symbol-follow");
 
   return (
     <span

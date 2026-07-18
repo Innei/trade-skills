@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { OverviewBoard, OverviewRow } from "../../../../../packages/shared/types";
 
-let capabilities: { pro: boolean | null; licensed: boolean } = { pro: true, licensed: true };
+let capabilities: { features?: Record<string, string> } = { features: { "symbol-follow": "active" } };
 const startFollow = vi.fn();
 const stopFollow = vi.fn();
 
@@ -54,7 +54,7 @@ const board: OverviewBoard = { date: "2026-07-18", session: "regular", rows: [ro
 
 afterEach(() => {
   cleanup();
-  capabilities = { pro: true, licensed: true };
+  capabilities = { features: { "symbol-follow": "active" } };
   resetLicenseModalStoreForTests();
   startFollow.mockReset();
   stopFollow.mockReset();
@@ -62,7 +62,7 @@ afterEach(() => {
 
 describe("WatchBoard follow toggle license gate", () => {
   it("opens the license modal instead of toggling when pro but unlicensed", async () => {
-    capabilities = { pro: true, licensed: false };
+    capabilities = { features: { "symbol-follow": "locked" } };
     renderWithClient(<WatchBoard board={board} error={null} compact={false} />);
 
     const toggle = await screen.findByLabelText("持续跟进 MRVL.US 的 AI 点评");
@@ -73,7 +73,7 @@ describe("WatchBoard follow toggle license gate", () => {
   });
 
   it("toggles normally when licensed", async () => {
-    capabilities = { pro: true, licensed: true };
+    capabilities = { features: { "symbol-follow": "active" } };
     startFollow.mockResolvedValue({ following: true });
     renderWithClient(<WatchBoard board={board} error={null} compact={false} />);
 
@@ -85,7 +85,7 @@ describe("WatchBoard follow toggle license gate", () => {
   });
 
   it("hides the follow toggle for a community build (pro:false) while the card still renders", async () => {
-    capabilities = { pro: false, licensed: false };
+    capabilities = { features: { "symbol-follow": "absent" } };
     startFollow.mockResolvedValue({ following: true });
     renderWithClient(<WatchBoard board={board} error={null} compact={false} />);
 
@@ -96,7 +96,7 @@ describe("WatchBoard follow toggle license gate", () => {
   });
 
   it("hides the follow toggle while capabilities are still loading (pro:null)", async () => {
-    capabilities = { pro: null, licensed: false };
+    capabilities = { features: undefined };
     renderWithClient(<WatchBoard board={board} error={null} compact={false} />);
 
     expect(await screen.findByText("MRVL.US")).toBeTruthy();

@@ -3,10 +3,9 @@ import { AnimatePresence, motion } from "motion/react";
 import { ChevronRight, FileDiff, History, RefreshCw, Square } from "lucide-react";
 import type { ResearchDocument, ResearchDocumentMeta, ResearchEditProposal } from "../../../../../packages/core/src/contract";
 import { useQuery } from "../../apiHooks";
-import { useCapabilities } from "../../capabilitiesStore";
 import { client } from "../../client";
-import { useFeatureGuard } from "../../featureGuard";
 import { MarketTime, openModal, Spinner } from "../../ui";
+import { useFeature } from "../../useFeature";
 import { ChatComposer } from "../cockpit/chat/ChatComposer";
 import { ConversationTranscript } from "../cockpit/chat/ConversationTranscript";
 import type { TranscriptInsert } from "../cockpit/chat/transcriptTimeline";
@@ -186,9 +185,7 @@ export function ResearchAssistant({
   onSelect: (document: ResearchDocumentMeta) => void;
   onDocumentChanged: (document?: ResearchDocument) => void;
 }) {
-  const { locked } = useFeatureGuard();
-  const { pro } = useCapabilities();
-  const aiEnabled = pro === true && !locked;
+  const { state, active: aiEnabled } = useFeature("research-ai");
   const conversation = useResearchChatSession(document.path, aiEnabled);
   const [text, setText] = useState("");
   const previousBusyRef = useRef(false);
@@ -311,7 +308,7 @@ export function ResearchAssistant({
     return list;
   }, [refresh.task, pending, history, handleChanged]);
 
-  if (pro !== true) {
+  if (state === "absent") {
     return (
       <div className="research-assistant research-assistant--locked">
         <RelatedMaterialsCard selected={selected} related={related} onSelect={onSelect} />
@@ -319,7 +316,7 @@ export function ResearchAssistant({
     );
   }
 
-  if (locked) {
+  if (state === "locked") {
     return (
       <div className="research-assistant research-assistant--locked">
         <RelatedMaterialsCard selected={selected} related={related} onSelect={onSelect} />
