@@ -1,10 +1,12 @@
 import type { LicenseSnapshot } from "@kansoku/pro-api";
+import type { FeatureKey, FeatureState } from "../../../pro-api/src/features.js";
 import { defineRoutes } from "./defineRoutes.js";
 
 export interface CapabilitiesOut {
   pro: boolean;
   licensed: boolean;
   license?: LicenseSnapshot;
+  features: Record<FeatureKey, FeatureState>;
 }
 
 export interface CapabilitiesApi {
