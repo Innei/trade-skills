@@ -233,7 +233,10 @@ export const ipcServiceClasses = [
 - [ ] **Step 5:** Run: `cd app && pnpm test`；`cd app/pro && pnpm test`。Expected: PASS。
 - [ ] **Step 6:** 双仓 commit：core `"feat: free AI modules served from open core (http + ipc)"`；pro `"refactor: drop migrated free modules"`。
 
-### Task B3: research 模块拆分 + contract 拆分
+### Task B3: research 服务方拆分（browse 归 server/desktop，AI 留 pro）
+
+> **裁量修正（2026-07-18）**：browse 服务已在 B1 提前进 core，spec 原文「contract 拆两段」的目的其实是**行为边界**（pro 缺席时 browse 可用、AI 子路由 404）。**保持单一 research contract group 不拆**（web/desktop 客户端零破坏），只拆**服务方**：server 新增 browse 控制器（`GET /`、`GET /document`，无门），pro 的 research 控制器删去这两个方法只留 AI 路由；desktop 新增 browse IPC，pro 的 ResearchIpc 删 `list`/`get`。
+> **必须实证的风险**：HTTP 两个 controller 共享 `research` 前缀、IPC 两个服务共享 `research` groupName 是否被 tsuki-hono / electron-ipc-decorator 允许（路由合并 vs 注册冲突）——用测试验证；若框架不允许，回退方案 = contract 拆 `researchBrowse` 新组（并改 web/desktop 客户端调用点），在报告里说明选了哪条。
 
 **Files:**
 - Create: `app/packages/core/src/modules/research/researchBrowse.service.ts`（自 pro `research.service.ts` 的 list/get 与文件系统读取，整段搬移）
