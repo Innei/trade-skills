@@ -47,11 +47,14 @@ export interface WsUnsub {
 
 export type WsClientMessage = WsSub | WsUnsub;
 
-function findChannel(kind: string): ProChannel | undefined {
-  return [...coreAiChannels, ...(getPro()?.channels ?? [])].find((c) => c.kind === kind);
+function findChannel(kind: string, extra: readonly ProChannel[]): ProChannel | undefined {
+  return [...coreAiChannels, ...extra].find((c) => c.kind === kind);
 }
 
-export function parseWsMessage(raw: unknown): WsClientMessage | null {
+export function parseWsMessage(
+  raw: unknown,
+  extra: readonly ProChannel[] = [],
+): WsClientMessage | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const msg = raw as Record<string, unknown>;
   if (typeof msg.key !== 'string' || !msg.key || msg.key.length > 200) return null;
@@ -93,7 +96,7 @@ export function parseWsMessage(raw: unknown): WsClientMessage | null {
     return { op: 'sub', key: msg.key, kind: 'annotations', symbol: msg.symbol };
   }
   if (typeof msg.kind === 'string') {
-    const channel = findChannel(msg.kind);
+    const channel = findChannel(msg.kind, extra);
     if (channel) {
       const parsed = channel.parse(msg);
       if (!parsed) return null;
@@ -133,7 +136,11 @@ async function attachAnnotations(
   return unsub;
 }
 
-async function attachChannel(msg: WsSub, push: (envelope: string) => void): Promise<() => void> {
+async function attachChannel(
+  msg: WsSub,
+  push: (envelope: string) => void,
+  extra: readonly ProChannel[],
+): Promise<() => void> {
   if (msg.kind === 'quotes') return subscribeQuotes(push, msg.extra ?? []);
   if (msg.kind === 'chart') {
     const count = clampViewCount(msg.count != null ? String(msg.count) : undefined) ?? undefined;
@@ -148,12 +155,13 @@ async function attachChannel(msg: WsSub, push: (envelope: string) => void): Prom
   if (msg.kind === 'preview') return subscribePreview(msg.symbol as string, push);
   if (msg.kind === 'annotations') return attachAnnotations(msg.symbol as string, push);
   if (msg.kind === 'board') return subscribeBoard(push);
-  const channel = findChannel(msg.kind);
+  const channel = findChannel(msg.kind, extra);
   if (channel) return channel.attach(msg as unknown as Record<string, unknown>, push);
   return subscribeBoard(push);
 }
 
-export function handleConnection(conn: Connection): void {
+export function handleConnection(conn: Connection, extraChannels?: readonly ProChannel[]): void {
+  const channels = extraChannels ?? getPro()?.channels ?? [];
   const subs = new Map<string, () => void>();
   let closed = false;
 
@@ -164,7 +172,7 @@ export function handleConnection(conn: Connection): void {
   const handle = async (raw: string) => {
     let msg: WsClientMessage | null;
     try {
-      msg = parseWsMessage(JSON.parse(raw));
+      msg = parseWsMessage(JSON.parse(raw), channels);
     } catch {
       return;
     }
@@ -177,7 +185,7 @@ export function handleConnection(conn: Connection): void {
     if (subs.has(msg.key) || subs.size >= MAX_CHANNELS_PER_SOCKET) return;
     subs.set(msg.key, () => {});
     try {
-      const unsub = await attachChannel(msg, (envelope) => send(msg.key, envelope));
+      const unsub = await attachChannel(msg, (envelope) => send(msg.key, envelope), channels);
       if (closed || !subs.has(msg.key)) {
         unsub();
         return;

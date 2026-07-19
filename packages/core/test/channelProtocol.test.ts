@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { AgentEvent } from '@earendil-works/pi-agent-core';
+import type { ProChannel } from '@kansoku/pro-api';
 import type { AiAgentFactory, AiAgentHandle } from '../src/ai/agentSession.js';
 import type { AiModel } from '../src/ai/models.js';
 import { runAssistantChatTurn } from '../src/ai/assistantChat.js';
@@ -398,5 +399,32 @@ describe('parseWsMessage annotations kind', () => {
 
   it('rejects an empty symbol', () => {
     expect(parseWsMessage({ op: 'sub', key: 'k1', kind: 'annotations', symbol: '' })).toBeNull();
+  });
+});
+
+describe('handleConnection with an explicit extra channel list', () => {
+  function makeChannel(kind: string): ProChannel {
+    return {
+      kind,
+      parse: (raw) => ({ symbol: raw.symbol }),
+      attach: (msg, push) => {
+        push(JSON.stringify({ type: 'init', symbol: (msg as { symbol: string }).symbol }));
+        return () => {};
+      },
+    };
+  }
+
+  it('finds and attaches an explicitly-passed channel even when no pro module is registered', async () => {
+    const someChannel = makeChannel('custom-thing');
+    const conn = makeConnection();
+    handleConnection(conn, [someChannel]);
+    conn.emitMessage(
+      JSON.stringify({ op: 'sub', key: 'k1', kind: 'custom-thing', symbol: 'ABC.US' }),
+    );
+    await waitFor(() => conn.sent.length > 0);
+    expect(JSON.parse(conn.sent[0])).toEqual({
+      key: 'k1',
+      payload: { type: 'init', symbol: 'ABC.US' },
+    });
   });
 });

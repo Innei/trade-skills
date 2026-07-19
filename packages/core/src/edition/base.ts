@@ -1,4 +1,6 @@
 import type { CoreEditionHost, DesktopEditionHost, ServerEditionHost } from './host.js';
+import type { IpcRegistry } from './ipcRegistry.js';
+import type { RealtimeChannelRegistry } from './realtimeRegistry.js';
 import type { ServerBuilder } from './serverBuilder.js';
 
 export abstract class BaseEdition<THost extends CoreEditionHost> {
@@ -71,4 +73,7 @@ export abstract class BaseServerEdition extends BaseEdition<ServerEditionHost> {
     builder.addPublicModules();
   }
 }
-export abstract class BaseDesktopEdition extends BaseEdition<DesktopEditionHost> {}
+export abstract class BaseDesktopEdition extends BaseEdition<DesktopEditionHost> {
+  configureIpc(_registry: IpcRegistry): void {}
+  configureRealtime(_registry: RealtimeChannelRegistry): void {}
+}

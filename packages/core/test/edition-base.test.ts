@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { BaseDesktopEdition, BaseEdition, BaseServerEdition } from '../src/edition/base.js';
+import { DesktopEdition } from '../src/edition/desktopEdition.js';
 import type {
   CoreEditionHost,
   DesktopEditionHost,
   ServerEditionHost,
 } from '../src/edition/host.js';
+import { DefaultIpcRegistry } from '../src/edition/ipcRegistry.js';
+import { DefaultRealtimeChannelRegistry } from '../src/edition/realtimeRegistry.js';
 
 function fakeHost(): CoreEditionHost {
   return {
@@ -21,6 +24,14 @@ function fakeHost(): CoreEditionHost {
       error: () => {},
       debug: () => {},
     },
+  };
+}
+
+function fakeDesktopHost(): DesktopEditionHost {
+  return {
+    ...fakeHost(),
+    ipc: new DefaultIpcRegistry(),
+    realtime: new DefaultRealtimeChannelRegistry(),
   };
 }
 
@@ -250,8 +261,50 @@ describe('BaseServerEdition / BaseDesktopEdition', () => {
 
     class DesktopTestEdition extends BaseDesktopEdition {}
 
-    const desktopHost: DesktopEditionHost = { ...fakeHost(), relaunch: () => {} };
+    const desktopHost: DesktopEditionHost = { ...fakeDesktopHost(), relaunch: () => {} };
     const desktopEdition = new DesktopTestEdition(desktopHost);
     await expect(desktopEdition.initialize()).resolves.toBeUndefined();
+  });
+});
+
+describe('DefaultIpcRegistry / DefaultRealtimeChannelRegistry', () => {
+  it('accumulates registered ctors and exposes them via build()', () => {
+    const registry = new DefaultIpcRegistry<{ name: string }>();
+    class A {}
+    class B {}
+    registry.register(A, B);
+    registry.register(A);
+    expect(registry.build()).toEqual([A, B, A]);
+  });
+
+  it('accumulates registered channels and exposes them via list()', () => {
+    const registry = new DefaultRealtimeChannelRegistry();
+    const channelA = { kind: 'a', parse: () => null, attach: () => () => {} };
+    const channelB = { kind: 'b', parse: () => null, attach: () => () => {} };
+    registry.register(channelA, channelB);
+    expect(registry.list()).toEqual([channelA, channelB]);
+  });
+});
+
+describe('BaseDesktopEdition configureIpc / configureRealtime', () => {
+  it('default implementations are no-ops', () => {
+    class NoopDesktopEdition extends BaseDesktopEdition {}
+    const edition = new NoopDesktopEdition(fakeDesktopHost());
+    const ipc = new DefaultIpcRegistry();
+    const realtime = new DefaultRealtimeChannelRegistry();
+    expect(() => edition.configureIpc(ipc)).not.toThrow();
+    expect(() => edition.configureRealtime(realtime)).not.toThrow();
+    expect(ipc.build()).toEqual([]);
+    expect(realtime.list()).toEqual([]);
+  });
+});
+
+describe('DesktopEdition lifecycle', () => {
+  it('runs the full legal sequence exactly once, in order, using fakeDesktopHost', async () => {
+    const edition = new DesktopEdition(fakeDesktopHost());
+    await edition.initialize();
+    await edition.start();
+    await edition.dispose();
+    await expect(edition.initialize()).rejects.toThrow(/DesktopEdition/);
   });
 });

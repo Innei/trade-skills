@@ -4,6 +4,8 @@ import type { Db } from '../db/index.js';
 import { getDb } from '../db/index.js';
 import { KANSOKU_HOME } from '../env.js';
 import { DEFAULT_WATCHED_MARKETS, type WatchedMarketsStore } from '../services/watchedMarketsStore.js';
+import type { IpcRegistry } from './ipcRegistry.js';
+import type { RealtimeChannelRegistry } from './realtimeRegistry.js';
 
 export interface EditionPaths {
   kansokuHome: string;
@@ -32,6 +34,8 @@ export interface CoreEditionHost {
 export interface ServerEditionHost extends CoreEditionHost {}
 
 export interface DesktopEditionHost extends CoreEditionHost {
+  ipc: IpcRegistry;
+  realtime: RealtimeChannelRegistry;
   relaunch?: () => void;
 }
 
@@ -84,6 +88,21 @@ function createConsoleLogger(): Logger {
 export function createDefaultServerEditionHost(
   overrides?: Partial<ServerEditionHost>,
 ): ServerEditionHost {
+  return {
+    db: getDb(),
+    license: { isLicensed: () => false },
+    aiSettings: createNoopSettingsStore(),
+    watchedMarkets: createNoopWatchedMarketsStore(),
+    paths: { kansokuHome: KANSOKU_HOME },
+    production: false,
+    logger: createConsoleLogger(),
+    ...overrides,
+  };
+}
+
+export function createDefaultDesktopEditionHost(
+  overrides: Partial<DesktopEditionHost> & Pick<DesktopEditionHost, 'ipc' | 'realtime'>,
+): DesktopEditionHost {
   return {
     db: getDb(),
     license: { isLicensed: () => false },
