@@ -16,6 +16,7 @@ function fakeHost(): WebEditionHost {
     react: {},
     reactJsxRuntime: {},
     registerRoute: vi.fn(),
+    registerSlot: vi.fn(),
   };
 }
 

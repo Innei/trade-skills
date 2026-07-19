@@ -1,9 +1,7 @@
-import * as React from 'react';
-import * as ReactJsxRuntime from 'react/jsx-runtime';
-import { isValidWebEditionEntry, WEB_EDITION_ABI_VERSION } from '@kansoku/core/pro/webEditionHost';
 import type { WebEditionHost } from '@kansoku/core/pro/webEditionHost';
+import { ensureProEdition, PRO_ENTRY_SPECIFIER } from './proEditionRegistry';
 
-export const PRO_ENTRY_SPECIFIER = 'pro-asset://web/index.mjs';
+export { PRO_ENTRY_SPECIFIER };
 
 // Bare specifiers a pro edition chunk is built with `external` (see
 // apps/pro/vite.config.web.ts): react / react/jsx-runtime / react-dom/client.
@@ -114,38 +112,7 @@ export async function bootstrapWebEditionHost(
   container: Element,
   deps: BootstrapDeps = {},
 ): Promise<(() => void) | null> {
-  const reactSingleton: ReactSingletonModules = deps.reactSingleton ?? {
-    react: React,
-    reactJsxRuntime: ReactJsxRuntime,
-    reactDomClient: await import('react-dom/client'),
-  };
-
-  injectSharedReactImportMapOnce(reactSingleton);
-
-  const load = deps.loadEntry ?? ((specifier: string) => import(/* @vite-ignore */ specifier));
-  let mod: unknown;
-  try {
-    mod = await load(PRO_ENTRY_SPECIFIER);
-  } catch (error) {
-    // Expected in the community build / when the pro-asset manifest is
-    // absent or locked — the protocol handler 404s and the dynamic import
-    // rejects. Not an error worth surfacing to the user.
-    console.info('[web-edition] pro-asset entry unavailable, not mounting', error);
-    return null;
-  }
-
-  if (!isValidWebEditionEntry(mod)) {
-    console.error('[web-edition] pro-asset entry failed ABI validation, refusing to mount');
-    return null;
-  }
-
-  const host: WebEditionHost = deps.createHost?.() ?? {
-    abiVersion: WEB_EDITION_ABI_VERSION,
-    react: reactSingleton.react,
-    reactJsxRuntime: reactSingleton.reactJsxRuntime,
-    registerRoute: deps.registerRoute ?? (() => {}),
-  };
-
-  const edition = mod.createEdition(host);
-  return edition.mount(container);
+  const handle = await ensureProEdition(deps);
+  if (!handle) return null;
+  return handle.mount(container);
 }

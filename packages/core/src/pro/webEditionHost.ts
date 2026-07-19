@@ -5,6 +5,12 @@ export interface WebEditionHost {
   react: unknown;
   reactJsxRuntime: unknown;
   registerRoute(path: string, loadPage: () => Promise<{ default: unknown }>): void;
+  registerSlot(slotId: string, loadComponent: () => Promise<{ default: unknown }>): void;
+  // Opaque transport handle (apps/web's typed API client). Narrow-interface
+  // injection per design §15.4: pro slots that need live data cast this to
+  // their own minimal locally-declared shape instead of importing apps/web
+  // source across the package boundary.
+  client?: unknown;
 }
 
 export interface WebEditionEntryModule {

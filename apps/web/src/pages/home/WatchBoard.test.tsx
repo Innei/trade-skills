@@ -1,36 +1,33 @@
 // @vitest-environment jsdom
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import type { ReactNode } from 'react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { OverviewBoard, OverviewRow } from '@kansoku/shared/types';
 
 let capabilities: { features?: Record<string, string> } = {
   features: { 'symbol-follow': 'active' },
 };
-const startFollow = vi.fn();
-const stopFollow = vi.fn();
 
 vi.mock('@web/capabilitiesStore', () => ({
   useCapabilities: () => capabilities,
 }));
-vi.mock('@web/client', () => ({
-  client: {
-    symbols: {
-      followStatus: vi.fn(),
-      startFollow: (...args: unknown[]) => startFollow(...args),
-      stopFollow: (...args: unknown[]) => stopFollow(...args),
-    },
-  },
+
+const proSlotStub = vi.fn();
+vi.mock('@web/host/useProSlot', () => ({
+  useProSlot: (...args: unknown[]) => proSlotStub(...args),
 }));
 
 const { getLicenseModalStateForTests, resetLicenseModalStoreForTests } =
   await import('@web/licenseModalStore');
 const { WatchBoard } = await import('./WatchBoard');
 
-function renderWithClient(children: ReactNode) {
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>);
+function StubControl(props: { symbol: string; initialFollowing?: boolean; compact?: boolean }) {
+  return (
+    <div
+      data-testid={`stub-control-${props.symbol}`}
+      data-following={String(props.initialFollowing)}
+      data-compact={String(props.compact)}
+    />
+  );
 }
 
 const row: OverviewRow = {
@@ -59,65 +56,56 @@ afterEach(() => {
   cleanup();
   capabilities = { features: { 'symbol-follow': 'active' } };
   resetLicenseModalStoreForTests();
-  startFollow.mockReset();
-  stopFollow.mockReset();
+  proSlotStub.mockReset();
 });
 
-describe('WatchBoard follow toggle license gate', () => {
-  it('opens the license modal instead of toggling when pro but unlicensed', async () => {
-    capabilities = { features: { 'symbol-follow': 'locked' } };
-    renderWithClient(<WatchBoard board={board} error={null} compact={false} />);
+describe('WatchBoard follow toggle', () => {
+  it('hides the follow toggle for a community build (feature absent) while the card still renders', () => {
+    capabilities = { features: { 'symbol-follow': 'absent' } };
+    proSlotStub.mockReturnValue(null);
+    render(<WatchBoard board={board} error={null} compact={false} />);
 
-    const toggle = await screen.findByLabelText('持续跟进 MRVL.US 的 AI 点评');
+    expect(screen.getByText('MRVL.US')).toBeTruthy();
+    expect(screen.queryByTestId('stub-control-MRVL.US')).toBeNull();
+  });
+
+  it('hides the follow toggle while capabilities are still loading', () => {
+    capabilities = { features: undefined };
+    proSlotStub.mockReturnValue(null);
+    render(<WatchBoard board={board} error={null} compact={false} />);
+
+    expect(screen.getByText('MRVL.US')).toBeTruthy();
+    expect(screen.queryByTestId('stub-control-MRVL.US')).toBeNull();
+  });
+
+  it('renders the public locked placeholder and guards clicks when locked, without loading the pro slot component', () => {
+    capabilities = { features: { 'symbol-follow': 'locked' } };
+    proSlotStub.mockReturnValue(null);
+    render(<WatchBoard board={board} error={null} compact={false} />);
+
+    expect(screen.queryByTestId('stub-control-MRVL.US')).toBeNull();
+    const toggle = screen.getAllByTitle('AI 跟进需要有效授权，点击订阅解锁')[0];
     fireEvent.click(toggle);
 
-    expect(startFollow).not.toHaveBeenCalled();
     expect(getLicenseModalStateForTests()).toEqual({ open: true, trigger: 'guard' });
   });
 
-  it('allows turning off an already-on follow when pro but unlicensed', async () => {
-    capabilities = { features: { 'symbol-follow': 'locked' } };
-    stopFollow.mockResolvedValue({ following: false });
-    const followingRow: OverviewRow = { ...row, ai_following: true };
-    const followingBoard: OverviewBoard = { ...board, rows: [followingRow] };
-    renderWithClient(<WatchBoard board={followingBoard} error={null} compact={false} />);
-
-    const toggle = await screen.findByLabelText('持续跟进 MRVL.US 的 AI 点评');
-    fireEvent.click(toggle);
-
-    await waitFor(() => expect(stopFollow).toHaveBeenCalledWith({ sym: 'MRVL.US' }));
-    expect(startFollow).not.toHaveBeenCalled();
-    expect(getLicenseModalStateForTests().open).toBe(false);
-  });
-
-  it('toggles normally when licensed', async () => {
+  it('mounts the resolved pro slot component with symbol/initialFollowing/compact props when active', () => {
     capabilities = { features: { 'symbol-follow': 'active' } };
-    startFollow.mockResolvedValue({ following: true });
-    renderWithClient(<WatchBoard board={board} error={null} compact={false} />);
+    proSlotStub.mockReturnValue(StubControl);
+    render(<WatchBoard board={board} error={null} compact={false} />);
 
-    const toggle = await screen.findByLabelText('持续跟进 MRVL.US 的 AI 点评');
-    fireEvent.click(toggle);
-
-    await waitFor(() => expect(startFollow).toHaveBeenCalledWith({ sym: 'MRVL.US' }));
-    expect(getLicenseModalStateForTests().open).toBe(false);
+    expect(proSlotStub).toHaveBeenCalledWith('symbol-follow.control');
+    const stub = screen.getByTestId('stub-control-MRVL.US');
+    expect(stub.dataset.following).toBe('false');
   });
 
-  it('hides the follow toggle for a community build (pro:false) while the card still renders', async () => {
-    capabilities = { features: { 'symbol-follow': 'absent' } };
-    startFollow.mockResolvedValue({ following: true });
-    renderWithClient(<WatchBoard board={board} error={null} compact={false} />);
+  it('renders nothing for the toggle while active but the pro slot component has not resolved yet', () => {
+    capabilities = { features: { 'symbol-follow': 'active' } };
+    proSlotStub.mockReturnValue(null);
+    render(<WatchBoard board={board} error={null} compact={false} />);
 
-    expect(await screen.findByText('MRVL.US')).toBeTruthy();
-    expect(screen.queryByLabelText('持续跟进 MRVL.US 的 AI 点评')).toBeNull();
-    expect(startFollow).not.toHaveBeenCalled();
-    expect(getLicenseModalStateForTests().open).toBe(false);
-  });
-
-  it('hides the follow toggle while capabilities are still loading (pro:null)', async () => {
-    capabilities = { features: undefined };
-    renderWithClient(<WatchBoard board={board} error={null} compact={false} />);
-
-    expect(await screen.findByText('MRVL.US')).toBeTruthy();
-    expect(screen.queryByLabelText('持续跟进 MRVL.US 的 AI 点评')).toBeNull();
+    expect(screen.getByText('MRVL.US')).toBeTruthy();
+    expect(screen.queryByTestId('stub-control-MRVL.US')).toBeNull();
   });
 });

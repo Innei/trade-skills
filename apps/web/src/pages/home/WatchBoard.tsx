@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { Check, Lock, RadioTower } from 'lucide-react';
+import { Check } from 'lucide-react';
 import type { OverviewBoard, OverviewRow } from '@kansoku/shared/types';
 import { errorMessage } from '@web/api';
 import { client } from '@web/client';
 import { fmt, signed } from '@web/format';
-import { Badge, Button, Card, Dot, Empty, ErrorBox, MarketTime, Num, Switch } from '@web/ui';
+import { useProSlot } from '@web/host/useProSlot';
+import { Badge, Button, Card, Dot, Empty, ErrorBox, MarketTime, Num } from '@web/ui';
 import { useFeature } from '@web/useFeature';
-import { useSymbolFollow } from '@web/useSymbolFollow';
 import { directionTone } from '@web/charts/intraday/directionLabels';
+import type { FollowControlProps } from '../cockpit/FollowAction';
+import { FollowLockedIndicator } from '../cockpit/followLockedIndicator';
 
 const DIRECTION_LABEL: Record<string, string> = { long: '做多', short: '做空', neutral: '观望' };
 
@@ -24,62 +26,13 @@ function FollowToggle({
   initialFollowing: boolean;
   compact?: boolean;
 }) {
-  const { state, guard } = useFeature('symbol-follow');
-  const { following, busy, statusError, change } = useSymbolFollow({ symbol, initialFollowing });
-  const active = following ?? initialFollowing;
+  const { state } = useFeature('symbol-follow');
+  const Control = useProSlot<FollowControlProps>('symbol-follow.control');
+
   if (state === 'absent') return null;
-  const locked = state === 'locked';
-  const className = [
-    'symbol-card-follow',
-    active && 'symbol-card-follow--active',
-    statusError && 'symbol-card-follow--error',
-    locked && 'symbol-card-follow--locked',
-    compact && 'symbol-card-follow--compact',
-  ]
-    .filter(Boolean)
-    .join(' ');
-
-  const onControlClick = (event: React.MouseEvent<HTMLSpanElement>) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if ((event.target as Element).closest('.ui-switch') || busy) return;
-    const next = !active;
-    if (locked && next) {
-      guard(() => {});
-      return;
-    }
-    void change(next);
-  };
-
-  return (
-    <span
-      className={className}
-      title={
-        locked
-          ? active
-            ? '授权已失效，AI 跟进已暂停；可关闭开关，重新开启需订阅'
-            : 'AI 跟进需要有效授权，点击开关订阅解锁'
-          : (statusError ?? (active ? 'AI 评论员正在后台持续跟进' : 'AI 评论员未在后台跟进'))
-      }
-      onClick={onControlClick}
-    >
-      <RadioTower aria-hidden="true" size={compact ? 12 : 11} />
-      <span className={compact ? 'sr-only' : undefined}>AI 跟进</span>
-      {locked && <Lock className="follow-control-lock" size={compact ? 12 : 11} />}
-      <Switch
-        ariaLabel={`持续跟进 ${symbol} 的 AI 点评`}
-        checked={active}
-        disabled={busy}
-        onCheckedChange={(checked) => {
-          if (locked && checked) {
-            guard(() => {});
-            return;
-          }
-          void change(checked);
-        }}
-      />
-    </span>
-  );
+  if (state === 'locked') return <FollowLockedIndicator following={initialFollowing} compact={compact} />;
+  if (!Control) return null;
+  return <Control symbol={symbol} initialFollowing={initialFollowing} compact={compact} />;
 }
 
 function ReassessButton({ symbol }: { symbol: string }) {
