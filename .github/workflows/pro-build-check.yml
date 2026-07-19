@@ -60,3 +60,6 @@ jobs:
 
       - name: pro tests
         run: pnpm --filter @kansoku/pro test
+
+      - name: abi gate
+        run: pnpm --filter @kansoku/pro abi:gate

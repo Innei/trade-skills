@@ -5,6 +5,7 @@ import { EDITION_ABI_VERSION } from "@kansoku/pro-api/edition";
 import type { EditionEntry, EditionRuntimeKind } from "@kansoku/pro-api/edition";
 import type { ProManifest } from "./encLoader.js";
 import { EncDecryptError, decryptProBlob, registerManifestFiles, virtualModuleUrl } from "./encLoader.js";
+import { assertProtocolAllowed, claimProtocol } from "./protocolClaim.js";
 
 export type EditionActivationState = "absent" | "locked" | "active" | "incompatible" | "failed";
 
@@ -148,6 +149,7 @@ function activationError<TEdition>(
 export async function loadEdition<THost, TEdition>(
   options: LoadEditionOptions<THost>,
 ): Promise<EditionActivation<TEdition>> {
+  assertProtocolAllowed("edition");
   const bundlePresent = existsSync(options.encPath);
   if (!bundlePresent) {
     console.info("edition slot: pro.enc not present, running unlocked");
@@ -260,5 +262,6 @@ export async function loadEdition<THost, TEdition>(
     );
   }
 
+  claimProtocol("edition");
   return { state: "active", bundlePresent: true, keyId: manifest.keyId, buildId: bundle.buildId, edition };
 }

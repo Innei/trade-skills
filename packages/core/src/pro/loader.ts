@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import type { ProModule } from '@kansoku/pro-api';
 import { getActiveBundleKey } from '../license/licenseState.js';
 import { loadEncryptedModule } from './encLoader.js';
+import { assertProtocolAllowed, claimProtocol } from './protocolClaim.js';
 import { registerProModule, setEncBundlePresent } from './registry.js';
 
 // Relative filesystem path to the gitignored slot rather than a bare package
@@ -52,6 +53,7 @@ function proEncLayout(appDir?: string): { encPath: string; virtualDir: string } 
 }
 
 export async function loadPro(appDir?: string, entryFile?: string): Promise<boolean> {
+  assertProtocolAllowed('legacy');
   const enc = proEncLayout(appDir);
   const encPresent = enc != null && existsSync(enc.encPath);
   setEncBundlePresent(encPresent);
@@ -66,6 +68,7 @@ export async function loadPro(appDir?: string, entryFile?: string): Promise<bool
         });
         const proModule = (namespace.default ?? namespace) as ProModule;
         registerProModule(proModule);
+        claimProtocol('legacy');
         return true;
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
@@ -81,6 +84,7 @@ export async function loadPro(appDir?: string, entryFile?: string): Promise<bool
     const mod = (await import(entryUrl)) as { default?: ProModule } & Partial<ProModule>;
     const proModule = mod.default ?? (mod as ProModule);
     registerProModule(proModule);
+    claimProtocol('legacy');
     return true;
   } catch (error) {
     if (isProEntryNotFound(error)) {

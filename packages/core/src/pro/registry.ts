@@ -1,4 +1,5 @@
 import type { ProHooks, ProModule } from '@kansoku/pro-api';
+import { resetProtocolClaimForTests } from './protocolClaim.js';
 
 export const freeHooks: ProHooks = {
   requestImmediateFollow() {},
@@ -40,6 +41,7 @@ export function isProPresent(): boolean {
 
 export function unregisterProModuleForTests(): void {
   activeModule = null;
+  resetProtocolClaimForTests();
 }
 
 export function getProHooks(): ProHooks {
