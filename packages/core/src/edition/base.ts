@@ -2,17 +2,24 @@ import type { CoreEditionHost, DesktopEditionHost, ServerEditionHost } from './h
 
 export abstract class BaseEdition<THost extends CoreEditionHost> {
   private initialized = false;
+  private initializing = false;
   private started = false;
+  private startPromise: Promise<void> | null = null;
   private disposed = false;
 
   constructor(protected readonly host: THost) {}
 
   async initialize(): Promise<void> {
-    if (this.initialized) {
+    if (this.initialized || this.initializing) {
       throw new Error(`${this.constructor.name}: already initialized`);
     }
-    await this.onInitialize();
-    this.initialized = true;
+    this.initializing = true;
+    try {
+      await this.onInitialize();
+      this.initialized = true;
+    } finally {
+      this.initializing = false;
+    }
   }
 
   async start(): Promise<void> {
@@ -23,8 +30,16 @@ export abstract class BaseEdition<THost extends CoreEditionHost> {
       throw new Error(`${this.constructor.name}: must initialize before start`);
     }
     if (this.started) return;
-    await this.onStart();
-    this.started = true;
+    if (this.startPromise) return this.startPromise;
+    this.startPromise = (async () => {
+      try {
+        await this.onStart();
+        this.started = true;
+      } finally {
+        this.startPromise = null;
+      }
+    })();
+    return this.startPromise;
   }
 
   async dispose(): Promise<void> {

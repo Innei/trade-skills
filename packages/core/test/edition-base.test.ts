@@ -20,6 +20,7 @@ function fakeHost(): CoreEditionHost {
 class TestEdition extends BaseEdition<CoreEditionHost> {
   readonly calls: string[] = [];
   initFn: () => void | Promise<void> = () => {};
+  startFn: () => void | Promise<void> = () => {};
 
   protected async onInitialize(): Promise<void> {
     await this.initFn();
@@ -27,6 +28,7 @@ class TestEdition extends BaseEdition<CoreEditionHost> {
   }
 
   protected async onStart(): Promise<void> {
+    await this.startFn();
     this.calls.push('start');
   }
 
@@ -97,6 +99,66 @@ describe('BaseEdition lifecycle', () => {
     edition.initFn = () => {};
     await expect(edition.initialize()).resolves.toBeUndefined();
     expect(edition.calls).toEqual(['init']);
+  });
+
+  it('throws when initialize is called again after a successful dispose (single-use)', async () => {
+    const edition = new TestEdition(fakeHost());
+    await edition.initialize();
+    await edition.dispose();
+    await expect(edition.initialize()).rejects.toThrow(/TestEdition/);
+  });
+
+  it('rejects a concurrent second initialize while the first is in flight, running onInitialize once', async () => {
+    const edition = new TestEdition(fakeHost());
+    let resolveInit: () => void = () => {};
+    edition.initFn = () =>
+      new Promise<void>((resolve) => {
+        resolveInit = resolve;
+      });
+
+    const first = edition.initialize();
+    const second = edition.initialize();
+
+    await expect(second).rejects.toThrow(/TestEdition/);
+    resolveInit();
+    await expect(first).resolves.toBeUndefined();
+    expect(edition.calls.filter((call) => call === 'init')).toHaveLength(1);
+  });
+
+  it('clears in-flight state after a failed initialize even when a concurrent call raced it, allowing retry', async () => {
+    const edition = new TestEdition(fakeHost());
+    edition.initFn = () => {
+      throw new Error('boom');
+    };
+
+    const first = edition.initialize();
+    const second = edition.initialize();
+
+    await expect(second).rejects.toThrow(/TestEdition/);
+    await expect(first).rejects.toThrow('boom');
+
+    edition.initFn = () => {};
+    await expect(edition.initialize()).resolves.toBeUndefined();
+    expect(edition.calls).toEqual(['init']);
+  });
+
+  it('runs onStart once for concurrent start calls; both callers resolve with the same outcome', async () => {
+    const edition = new TestEdition(fakeHost());
+    await edition.initialize();
+
+    let resolveStart: () => void = () => {};
+    edition.startFn = () =>
+      new Promise<void>((resolve) => {
+        resolveStart = resolve;
+      });
+
+    const first = edition.start();
+    const second = edition.start();
+    resolveStart();
+
+    await expect(first).resolves.toBeUndefined();
+    await expect(second).resolves.toBeUndefined();
+    expect(edition.calls.filter((call) => call === 'start')).toHaveLength(1);
   });
 });
 

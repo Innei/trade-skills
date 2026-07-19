@@ -46,7 +46,7 @@ describe('adoptDb', () => {
 
     adoptDb(a);
 
-    expect(() => adoptDb(b)).toThrow(/already active/);
+    expect(() => adoptDb(b)).toThrow(/already active — call adoptDb\(\) before any getDb\(\) call/);
   });
 
   it('throws when adopting a different db after getDb already created one lazily', async () => {
@@ -55,6 +55,8 @@ describe('adoptDb', () => {
     getDb();
     const other = { marker: 'other' } as unknown as Db;
 
-    expect(() => adoptDb(other)).toThrow(/already active/);
+    expect(() => adoptDb(other)).toThrow(
+      /already active — call adoptDb\(\) before any getDb\(\) call/,
+    );
   });
 });

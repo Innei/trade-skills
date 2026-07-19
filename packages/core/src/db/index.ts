@@ -47,5 +47,7 @@ export function adoptDb(db: Db): void {
     return;
   }
   if (singleton === db) return;
-  throw new Error('adoptDb: a different db instance is already active');
+  throw new Error(
+    'adoptDb: a different db instance is already active — call adoptDb() before any getDb() call in this graph',
+  );
 }
