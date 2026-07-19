@@ -67,7 +67,15 @@ function candidatePaths(stem: string, extension: string): string[] {
 
 function assertWithinOverlayRoot(candidate: string, overlayRoot: string): void {
   const realCandidate = realpathSync(candidate);
-  const realRoot = realpathSync(overlayRoot);
+  let realRoot: string;
+  try {
+    realRoot = realpathSync(overlayRoot);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error(`pro overlayRoot "${overlayRoot}" does not exist`, { cause: error });
+    }
+    throw error;
+  }
   const rel = relative(realRoot, realCandidate);
   if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
     throw new Error(
@@ -76,9 +84,22 @@ function assertWithinOverlayRoot(candidate: string, overlayRoot: string): void {
   }
 }
 
-function firstValidCandidate(candidates: readonly string[], overlayRoot?: string): string | null {
+function assertNotSelfImport(candidate: string, importerPath: string | undefined): void {
+  if (importerPath !== undefined && candidate === importerPath) {
+    throw new Error(
+      `pro overlay "${importerPath}" imports its own logical default; a .pro overlay must not import itself`,
+    );
+  }
+}
+
+function firstValidCandidate(
+  candidates: readonly string[],
+  overlayRoot: string | undefined,
+  importerPath: string | undefined,
+): string | null {
   for (const candidate of candidates) {
     if (!existsSync(candidate) || !lstatSync(candidate).isSymbolicLink()) continue;
+    assertNotSelfImport(candidate, importerPath);
     if (overlayRoot) assertWithinOverlayRoot(candidate, overlayRoot);
     return candidate;
   }
@@ -88,12 +109,13 @@ function firstValidCandidate(candidates: readonly string[], overlayRoot?: string
 export function overlayCandidateForFile(
   filePath: string,
   options: ProOverlayOptions = {},
+  importerPath?: string,
 ): string | null {
   const extension = extname(filePath);
   const suffixes = extensionCandidates[extension];
   if (!suffixes) return null;
   const stem = extension ? filePath.slice(0, -extension.length) : filePath;
-  return firstValidCandidate(candidatePaths(stem, extension), options.overlayRoot);
+  return firstValidCandidate(candidatePaths(stem, extension), options.overlayRoot, importerPath);
 }
 
 export function resolveProOverlayId(
@@ -109,7 +131,7 @@ export function resolveProOverlayId(
   if (!isAbsolute(importerPath) || sourceParts.path.includes('.pro.')) return null;
 
   const absoluteSource = resolve(dirname(importerPath), sourceParts.path);
-  const candidate = overlayCandidateForFile(absoluteSource, options);
+  const candidate = overlayCandidateForFile(absoluteSource, options, importerPath);
   return candidate ? `${candidate}${sourceParts.query}` : null;
 }
 
@@ -131,7 +153,8 @@ export function proOverlayPlugin(options: ProOverlayOptions = {}): ProOverlayPlu
       const resolvedParts = splitQuery(resolved.id);
       if (!isAbsolute(resolvedParts.path) || isUnderNodeModules(resolvedParts.path)) return null;
 
-      const candidate = overlayCandidateForFile(resolvedParts.path, options);
+      const importerPath = splitQuery(importer).path;
+      const candidate = overlayCandidateForFile(resolvedParts.path, options, importerPath);
       return candidate ? `${candidate}${resolvedParts.query}` : null;
     },
   };

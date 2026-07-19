@@ -89,6 +89,22 @@ describe('resolveProOverlayId', () => {
     expect(resolveProOverlayId('./widgets', importer)).toBe(projection);
   });
 
+  it('throws naming the importer when a .pro overlay imports its own logical default', () => {
+    const fixture = overlayFixture();
+
+    let thrown: unknown;
+    try {
+      resolveProOverlayId('./edition.js', fixture.projection);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(Error);
+    const message = (thrown as Error).message;
+    expect(message).toContain(fixture.projection);
+    expect(message).toContain('own logical default');
+  });
+
   describe('overlayRoot validation', () => {
     it('accepts a projection whose realpath sits inside overlayRoot', () => {
       const root = makeRoot('kansoku-overlay-root-');
@@ -133,6 +149,33 @@ describe('resolveProOverlayId', () => {
       const message = (thrown as Error).message;
       expect(message).toContain(projection);
       expect(message).toContain(expectedRealTarget);
+    });
+
+    it('throws a friendly error naming a nonexistent overlayRoot instead of a raw ENOENT', () => {
+      const root = makeRoot('kansoku-overlay-root-missing-');
+      const publicDir = join(root, 'public');
+      const targetDir = join(root, 'target');
+      mkdirSync(publicDir, { recursive: true });
+      mkdirSync(targetDir, { recursive: true });
+      const importer = join(publicDir, 'entry.ts');
+      writeFileSync(importer, '');
+      const target = join(targetDir, 'edition.pro.ts');
+      writeFileSync(target, 'export const edition = "pro";');
+      const projection = join(publicDir, 'edition.pro.ts');
+      symlinkSync(target, projection);
+      const missingOverlayRoot = join(root, 'does-not-exist');
+
+      let thrown: unknown;
+      try {
+        resolveProOverlayId('./edition.js', importer, { overlayRoot: missingOverlayRoot });
+      } catch (error) {
+        thrown = error;
+      }
+
+      expect(thrown).toBeInstanceOf(Error);
+      const message = (thrown as Error).message;
+      expect(message).toContain(missingOverlayRoot);
+      expect(message).not.toContain('ENOENT');
     });
   });
 });
