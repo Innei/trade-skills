@@ -95,8 +95,7 @@ function installAppMenu(checkForUpdates: () => void, openWindow: () => void): vo
 app.whenReady().then(async () => {
   try {
     applyDevDockIcon();
-    await bootKernel();
-    const { ipcServiceClasses } = await import('./ipc/index.js');
+    const { ipcServiceClasses, dispose: disposeEdition } = await bootKernel();
     createServices(ipcServiceClasses);
 
     const webDistRoot = resolveWebDistRoot();
@@ -144,6 +143,7 @@ app.whenReady().then(async () => {
       } catch (error) {
         console.error('[desktop] flush on quit failed', error);
       }
+      void disposeEdition().catch((error) => console.error('[desktop] edition dispose on quit failed', error));
     });
   } catch (error) {
     showFatalErrorWindow(error);

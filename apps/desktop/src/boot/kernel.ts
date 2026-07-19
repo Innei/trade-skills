@@ -5,9 +5,18 @@
 import 'reflect-metadata';
 import { join } from 'node:path';
 import { app, ipcMain, safeStorage, shell } from 'electron';
+import type { IpcServiceConstructor } from 'electron-ipc-decorator';
+import type { BaseDesktopEdition } from '@kansoku/core/edition/base';
+import { DefaultIpcRegistry } from '@kansoku/core/edition/ipcRegistry';
+import type { DesktopEditionHost } from '@kansoku/core/edition/host';
+import { DefaultRealtimeChannelRegistry } from '@kansoku/core/edition/realtimeRegistry';
+import { loadEdition } from '@kansoku/core/pro/editionLoader';
 import { createCredentialsBridgeHandlers, registerCredentialsIpc } from '../credentials/bridge.js';
 import { createDesktopSecretBox } from '../credentials/secretBox.js';
+import { nonAiIpcServiceClasses } from '../ipc/index.js';
+import { serverEncLayout } from '../../../server/src/proEncLayout.js';
 import { IS_DEV } from './env.js';
+import { LegacyCompatDesktopEdition } from './legacyDesktopEdition.js';
 import { startProActivationWatch } from './proActivationWatch.js';
 import { promptProRelaunch } from './proRelaunch.js';
 
@@ -26,7 +35,7 @@ export async function bootKernel() {
     { initServerRuntime },
     { attachRealtimeBridge },
     { CHART_DATA_DIR },
-    { getPro, hasEncBundle, isProPresent },
+    { hasEncBundle, isProPresent },
     { getActiveBundleKey },
   ] = await Promise.all([
     import('../../../server/src/runtimeInit.js'),
@@ -46,7 +55,7 @@ export async function bootKernel() {
         legacyKeyPath: join(CHART_DATA_DIR, 'ai-secret.key'),
       });
 
-  const { host: _serverHost } = await initServerRuntime({
+  const { host: serverHost, edition: serverEdition } = await initServerRuntime({
     secretBox,
     openAuthUrl: (url) => {
       shell.openExternal(url).catch(() => {});
@@ -60,21 +69,49 @@ export async function bootKernel() {
     // checkout it runs straight from TS.
     proEntry: app.isPackaged ? undefined : 'src/index.ts',
   });
+  await serverEdition.initialize();
+
   // bootstrap.js is imported lazily, after initServerRuntime() has awaited
   // loadPro() above, so AppModule's registry-derived AI module composition
   // sees the pro module (when present).
   const { createKernel } = await import('../../../server/src/bootstrap.js');
-  const kernel = await createKernel();
-  if (getPro()?.startScheduler) {
-    getPro()!.startScheduler!();
-    console.log('[desktop] ai scheduler started');
-  }
+  const kernel = await createKernel(serverEdition);
+
+  const ipcRegistry = new DefaultIpcRegistry();
+  const realtimeRegistry = new DefaultRealtimeChannelRegistry();
+  const desktopHost: DesktopEditionHost = {
+    ...serverHost,
+    aiRuntimeAlreadyInitialized: true,
+    ipc: ipcRegistry,
+    realtime: realtimeRegistry,
+  };
+
+  const { encPath, virtualDir } = serverEncLayout(app.getAppPath());
+  const keyHex = getActiveBundleKey() ?? process.env.KANSOKU_BUNDLE_KEY ?? null;
+  const desktopActivation = await loadEdition<DesktopEditionHost, BaseDesktopEdition>({
+    encPath,
+    virtualDir,
+    runtime: 'desktop',
+    keyHex,
+    host: desktopHost,
+  });
+  const desktopEdition: BaseDesktopEdition =
+    desktopActivation.state === 'active' && desktopActivation.edition
+      ? desktopActivation.edition
+      : new LegacyCompatDesktopEdition(desktopHost);
+  desktopEdition.configureIpc(ipcRegistry);
+  desktopEdition.configureRealtime(realtimeRegistry);
+  await desktopEdition.initialize();
+
   const apiApp = kernel.app.getInstance();
-  attachRealtimeBridge();
+  attachRealtimeBridge(realtimeRegistry.list());
   registerCredentialsIpc(ipcMain, createCredentialsBridgeHandlers());
 
   const health = await apiApp.fetch(new Request('http://localhost/api/health'));
   console.log(`[desktop] kernel self-test /api/health -> ${health.status}`, await health.text());
+
+  await desktopEdition.start();
+  await serverEdition.start();
 
   startProActivationWatch({
     hasEncBundle,
@@ -83,5 +120,14 @@ export async function bootKernel() {
     relaunch: () => void promptProRelaunch(),
   });
 
-  return kernel;
+  return {
+    kernel,
+    ipcServiceClasses: [
+      ...nonAiIpcServiceClasses,
+      ...(ipcRegistry.build() as unknown as IpcServiceConstructor[]),
+    ] as const,
+    dispose: async () => {
+      await Promise.allSettled([desktopEdition.dispose(), serverEdition.dispose()]);
+    },
+  };
 }

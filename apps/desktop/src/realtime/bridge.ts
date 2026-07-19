@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron';
+import type { ProChannel } from '@kansoku/pro-api';
 import { handleConnection } from '@kansoku/core/realtime/channelProtocol';
 import type { Connection } from '@kansoku/core/realtime/connection';
 
@@ -29,11 +30,11 @@ export function wrapMessagePort(port: PortLike): Connection {
   };
 }
 
-export function attachRealtimeBridge(): void {
+export function attachRealtimeBridge(channels: readonly ProChannel[] = []): void {
   ipcMain.on(HANDSHAKE_CHANNEL, (event) => {
     const port = event.ports[0] as unknown as PortLike | undefined;
     if (!port) return;
-    handleConnection(wrapMessagePort(port));
+    handleConnection(wrapMessagePort(port), channels);
     port.start();
   });
 }
