@@ -2,12 +2,16 @@ import { EventEmitter } from 'node:events';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { Controller, Get, Module } from '@tsuki-hono/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setModelsRuntimeForTests } from '@kansoku/core/ai/modelsRuntime';
-import type { BaseServerEdition } from '@kansoku/core/edition/base';
+import { BaseServerEdition } from '@kansoku/core/edition/base';
+import { createDefaultServerEditionHost } from '@kansoku/core/edition/host';
+import type { ServerBuilder } from '@kansoku/core/edition/serverBuilder';
 import type { EditionActivation } from '@kansoku/core/pro/editionLoader';
 import { unregisterProModuleForTests } from '@kansoku/core/pro/registry';
 import { resetProtocolClaimForTests } from '@kansoku/core/pro/protocolClaim';
+import { createKernel } from '../src/bootstrap.js';
 
 vi.mock('@kansoku/core/pro/editionLoader', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@kansoku/core/pro/editionLoader')>();
@@ -24,6 +28,24 @@ const { registerShutdownHandlers } = await import('../src/shutdown.js');
 const { LegacyCompatServerEdition } = await import('../src/modules/legacyServerEdition.js');
 const { loadEdition } = await import('@kansoku/core/pro/editionLoader');
 const { loadPro } = await import('@kansoku/core/pro/loader');
+
+@Controller('edition-active-probe')
+class ActiveProbeController {
+  @Get('/ping')
+  ping() {
+    return { pong: true };
+  }
+}
+
+@Module({ controllers: [ActiveProbeController] })
+class ActiveProbeModule {}
+
+class ActiveProbeEdition extends BaseServerEdition {
+  override configureServer(builder: ServerBuilder): void {
+    super.configureServer(builder);
+    builder.addModule(ActiveProbeModule);
+  }
+}
 
 let tmpAppDir: string;
 
@@ -97,6 +119,25 @@ describe('initServerRuntime: loadEdition-first with legacy fallback', () => {
     expect(logLine).toContain('code=n/a');
 
     infoSpy.mockRestore();
+  });
+
+  it('state=active: the returned edition composes into a kernel whose route is reachable over HTTP', async () => {
+    vi.mocked(loadEdition).mockResolvedValueOnce({
+      state: 'active',
+      bundlePresent: true,
+      keyId: 'test-key',
+      buildId: 'test-build',
+      edition: new ActiveProbeEdition(createDefaultServerEditionHost()),
+    } as EditionActivation<BaseServerEdition>);
+
+    const { edition } = await initServerRuntime({ proAppDir: tmpAppDir });
+    expect(loadPro).not.toHaveBeenCalled();
+
+    const { app } = await createKernel(edition);
+    const res = await app.getInstance().request('/api/edition-active-probe/ping');
+
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ pong: true });
   });
 });
 

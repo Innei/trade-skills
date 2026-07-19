@@ -11,7 +11,8 @@
     "pretest": "node scripts/ensureNativeAbi.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "typecheck:pro": "tsc --noEmit -p tsconfig.pro.json"
+    "typecheck:pro": "tsc --noEmit -p tsconfig.pro.json",
+    "scan:no-electron": "vite-node scripts/scanNoElectron.mjs"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "^0.80.7",
