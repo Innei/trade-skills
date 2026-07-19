@@ -1,9 +1,9 @@
 import type { ProLicenseGate, SecretBox } from '@kansoku/pro-api';
-import type { SettingsStore } from '../ai/settingsStore.js';
+import type { AiRole, RoleSetting, SettingsStore } from '../ai/settingsStore.js';
 import type { Db } from '../db/index.js';
 import { getDb } from '../db/index.js';
 import { KANSOKU_HOME } from '../env.js';
-import type { WatchedMarketsStore } from '../services/watchedMarketsStore.js';
+import { DEFAULT_WATCHED_MARKETS, type WatchedMarketsStore } from '../services/watchedMarketsStore.js';
 
 export interface EditionPaths {
   kansokuHome: string;
@@ -20,13 +20,13 @@ export interface Logger {
 export interface CoreEditionHost {
   db: Db;
   license: ProLicenseGate;
-  aiSettings: SettingsStore | null;
-  watchedMarkets: WatchedMarketsStore | null;
+  aiSettings: SettingsStore;
+  watchedMarkets: WatchedMarketsStore;
   paths: EditionPaths;
   secretBox?: SecretBox;
   aiRuntimeAlreadyInitialized?: boolean;
   production: boolean;
-  logger?: Logger;
+  logger: Logger;
 }
 
 export interface ServerEditionHost extends CoreEditionHost {}
@@ -35,16 +35,62 @@ export interface DesktopEditionHost extends CoreEditionHost {
   relaunch?: () => void;
 }
 
+function defaultRoleSetting(role: AiRole): RoleSetting {
+  return {
+    mode: role === 'primary' ? 'disabled' : 'inherit',
+    provider: null,
+    modelId: null,
+    thinkingLevel: null,
+  };
+}
+
+function createNoopSettingsStore(): SettingsStore {
+  return {
+    getRole: (role) => defaultRoleSetting(role),
+    listRoles: () => ({
+      primary: defaultRoleSetting('primary'),
+      comment: defaultRoleSetting('comment'),
+      analyst: defaultRoleSetting('analyst'),
+      deepDive: defaultRoleSetting('deepDive'),
+      chat: defaultRoleSetting('chat'),
+    }),
+    setRole: () => {},
+    revision: () => 0,
+  };
+}
+
+function createNoopWatchedMarketsStore(): WatchedMarketsStore {
+  let markets = DEFAULT_WATCHED_MARKETS;
+  return {
+    get: () => markets,
+    set: (next) => {
+      markets = next;
+    },
+    revision: () => 0,
+  };
+}
+
+function createConsoleLogger(): Logger {
+  return {
+    log: (...args) => console.info(...args),
+    info: (...args) => console.info(...args),
+    warn: (...args) => console.warn(...args),
+    error: (...args) => console.error(...args),
+    debug: (...args) => console.info(...args),
+  };
+}
+
 export function createDefaultServerEditionHost(
   overrides?: Partial<ServerEditionHost>,
 ): ServerEditionHost {
   return {
     db: getDb(),
     license: { isLicensed: () => false },
-    aiSettings: null,
-    watchedMarkets: null,
+    aiSettings: createNoopSettingsStore(),
+    watchedMarkets: createNoopWatchedMarketsStore(),
     paths: { kansokuHome: KANSOKU_HOME },
     production: false,
+    logger: createConsoleLogger(),
     ...overrides,
   };
 }

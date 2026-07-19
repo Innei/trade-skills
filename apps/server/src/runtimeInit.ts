@@ -1,7 +1,9 @@
 import type { SecretBox } from '@kansoku/pro-api';
+import { createLogger } from '@tsuki-hono/common';
 import { getAiRuntime, initAiSettings } from '@kansoku/core/ai/initAiSettings';
 import { getActiveSettingsStore } from '@kansoku/core/ai/settingsStore';
 import { getDb } from '@kansoku/core/db/index';
+import type { ServerEditionHost } from '@kansoku/core/edition/host';
 import { KANSOKU_HOME } from '@kansoku/core/env';
 import { setProductionHost } from '@kansoku/core/license/dodoEnv';
 import { isLicensed } from '@kansoku/core/license/licenseGate';
@@ -40,7 +42,9 @@ export interface ServerRuntimeOptions {
   productionHost?: boolean;
 }
 
-export async function initServerRuntime(opts?: ServerRuntimeOptions): Promise<void> {
+export async function initServerRuntime(
+  opts?: ServerRuntimeOptions,
+): Promise<{ host: ServerEditionHost }> {
   loadDotenv();
 
   // 1h prompt-cache TTL: commentator sessions re-run at 5-min heartbeats, the
@@ -49,7 +53,8 @@ export async function initServerRuntime(opts?: ServerRuntimeOptions): Promise<vo
 
   initCredentialProvider(opts?.credentialProvider);
   initAuthUrlOpener(opts?.openAuthUrl);
-  setActiveWatchedMarketsStore(createWatchedMarketsStore(getDb()));
+  const watchedMarkets = createWatchedMarketsStore(getDb());
+  setActiveWatchedMarketsStore(watchedMarkets);
   initAiSettings(getDb(), { secretBox: opts?.secretBox });
 
   const productionHost = opts?.productionHost ?? process.env.NODE_ENV === 'production';
@@ -68,4 +73,17 @@ export async function initServerRuntime(opts?: ServerRuntimeOptions): Promise<vo
     licenseGate: { isLicensed },
     kansokuHome: KANSOKU_HOME,
   });
+
+  const host: ServerEditionHost = {
+    db: getDb(),
+    license: { isLicensed },
+    aiSettings: getActiveSettingsStore(),
+    watchedMarkets: getActiveWatchedMarketsStore(),
+    paths: { kansokuHome: KANSOKU_HOME },
+    secretBox: opts?.secretBox,
+    production: productionHost,
+    logger: createLogger('server'),
+  };
+
+  return { host };
 }

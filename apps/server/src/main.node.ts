@@ -3,7 +3,7 @@ import { getPro } from '@kansoku/core/pro/registry';
 import { startHost } from './host.js';
 import { initServerRuntime } from './runtimeInit.js';
 
-await initServerRuntime();
+const { host: _serverHost } = await initServerRuntime();
 
 const isDevKernel = HOST_MODE === 'dev';
 const bindPort = isDevKernel ? KERNEL_PORT : PORT;

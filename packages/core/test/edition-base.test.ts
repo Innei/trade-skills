@@ -10,10 +10,17 @@ function fakeHost(): CoreEditionHost {
   return {
     db: {} as unknown as CoreEditionHost['db'],
     license: { isLicensed: () => true },
-    aiSettings: null,
-    watchedMarkets: null,
+    aiSettings: {} as unknown as CoreEditionHost['aiSettings'],
+    watchedMarkets: {} as unknown as CoreEditionHost['watchedMarkets'],
     paths: { kansokuHome: '/tmp/kansoku-home' },
     production: false,
+    logger: {
+      log: () => {},
+      info: () => {},
+      warn: () => {},
+      error: () => {},
+      debug: () => {},
+    },
   };
 }
 
