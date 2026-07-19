@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { ProChannel } from '@kansoku/pro-api';
 import type { PortLike } from '@desktop/realtime/bridge.js';
 
 const handleConnection = vi.fn();
@@ -90,14 +91,19 @@ describe('attachRealtimeBridge', () => {
     handleConnection.mockReset();
   });
 
-  it('registers a desktop-rt-connect handler that hands the port to handleConnection', () => {
-    attachRealtimeBridge();
+  it('registers a desktop-rt-connect handler that hands the port and channels to handleConnection', () => {
+    const channels: ProChannel[] = [{ kind: 'fake-channel', parse: () => null, attach: () => () => {} }];
+    attachRealtimeBridge(channels);
     expect(ipcMain.on).toHaveBeenCalledWith('desktop-rt-connect', expect.any(Function));
 
     const port = new FakePort();
     ipcMainListeners.get('desktop-rt-connect')?.({ ports: [port] });
 
     expect(handleConnection).toHaveBeenCalledTimes(1);
+    expect(handleConnection).toHaveBeenCalledWith(
+      expect.objectContaining({ send: expect.any(Function), onMessage: expect.any(Function), onClose: expect.any(Function) }),
+      channels,
+    );
     expect(port.started).toBe(true);
   });
 
