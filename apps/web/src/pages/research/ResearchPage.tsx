@@ -1,13 +1,24 @@
-import { useDeferredValue, useEffect, useState } from 'react';
-import { BookOpen, ChartCandlestick, FileText, Library, RefreshCw, Search } from 'lucide-react';
+import { useDeferredValue, useEffect, useState, type ReactNode } from 'react';
+import {
+  BookOpen,
+  ChartCandlestick,
+  ChevronRight,
+  FileText,
+  Library,
+  RefreshCw,
+  Search,
+} from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 import type { ResearchDocument, ResearchDocumentMeta } from '@kansoku/core/contract/index';
 import { useQuery } from '@web/apiHooks';
 import { client } from '@web/client';
+import { useProSlot } from '@web/host/useProSlot';
 import { navigate, useQueryParam } from '@web/router';
 import { Badge, Empty, ErrorBox, Input, MarketTime, ResizablePanel, Spinner } from '@web/ui';
+import { useFeature } from '@web/useFeature';
 import { useTitle } from '@web/useTitle';
 import { Markdown } from '../cockpit/markdown';
-import { ResearchAssistant } from './ResearchAssistant';
+import { LockedAiNotice } from '../LockedAiNotice';
 import {
   kindForView,
   parseResearchView,
@@ -138,6 +149,129 @@ function ResearchReader({
   );
 }
 
+function relatedDocumentSecondary(meta: ResearchDocumentMeta): string {
+  if (meta.kind === 'stock') return meta.symbols.join(' · ') || researchTypeLabel(meta.type);
+  return [meta.date, researchTypeLabel(meta.type)].filter(Boolean).join(' · ');
+}
+
+function RelatedMaterialsCard({
+  selected,
+  related,
+  onSelect,
+}: {
+  selected: ResearchDocumentMeta;
+  related: ResearchDocumentMeta[];
+  onSelect: (document: ResearchDocumentMeta) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="research-related-details">
+      <button
+        type="button"
+        className="research-related-summary"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <ChevronRight size={13} />
+        <span>
+          关联资料 · {selected.symbols.length} 个标的 · {related.length} 条相关记录
+        </span>
+      </button>
+      <AnimatePresence initial={false}>
+        {open ? (
+          <motion.div
+            className="research-related-body"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.2, 0.9, 0.3, 1] }}
+          >
+            <section className="research-context-section">
+              <h3>关联标的</h3>
+              {selected.symbols.length > 0 ? (
+                <div className="research-symbol-links">
+                  {selected.symbols.map((symbol) => (
+                    <a
+                      key={symbol}
+                      className="chip"
+                      href={`/symbol/${encodeURIComponent(`${symbol}.US`)}`}
+                    >
+                      {symbol}
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p>这是一份全局记录，不归属于单一股票。</p>
+              )}
+            </section>
+            <section className="research-context-section">
+              <h3>相关记录</h3>
+              {related.length > 0 ? (
+                <div className="research-related-list">
+                  {related.map((relatedDocument) => (
+                    <button
+                      type="button"
+                      key={relatedDocument.path}
+                      onClick={() => onSelect(relatedDocument)}
+                    >
+                      <span>{relatedDocument.title}</span>
+                      <small>{relatedDocumentSecondary(relatedDocument)}</small>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p>暂时没有通过标的建立的关联记录。</p>
+              )}
+            </section>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+interface ResearchAssistantSlotProps {
+  document: ResearchDocument;
+  onDocumentChanged: (document?: ResearchDocument) => void;
+  relatedCard: ReactNode;
+}
+
+export function ResearchAssistantSlot({
+  document,
+  selected,
+  related,
+  onSelect,
+  onDocumentChanged,
+}: {
+  document: ResearchDocument;
+  selected: ResearchDocumentMeta;
+  related: ResearchDocumentMeta[];
+  onSelect: (document: ResearchDocumentMeta) => void;
+  onDocumentChanged: (document?: ResearchDocument) => void;
+}) {
+  const { state } = useFeature('research-ai');
+  const Assistant = useProSlot<ResearchAssistantSlotProps>('research-ai.assistant');
+  const relatedCard = (
+    <RelatedMaterialsCard selected={selected} related={related} onSelect={onSelect} />
+  );
+
+  if (state === 'absent') {
+    return <div className="research-assistant research-assistant--locked">{relatedCard}</div>;
+  }
+  if (state === 'locked') {
+    return (
+      <div className="research-assistant research-assistant--locked">
+        {relatedCard}
+        <LockedAiNotice message="研究库 AI（刷新文档 / 编辑审阅 / 研究对话）需要有效授权" />
+      </div>
+    );
+  }
+  if (!Assistant) return null;
+  return (
+    <Assistant document={document} onDocumentChanged={onDocumentChanged} relatedCard={relatedCard} />
+  );
+}
+
 function ResearchContext({
   selected,
   document,
@@ -157,7 +291,7 @@ function ResearchContext({
   return (
     <aside className="research-context" aria-label="关联研究资料">
       {document ? (
-        <ResearchAssistant
+        <ResearchAssistantSlot
           key={document.path}
           document={document}
           selected={selected}
