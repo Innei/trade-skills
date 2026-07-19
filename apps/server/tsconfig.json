@@ -15,5 +15,6 @@
       "@server/*": ["./src/*"]
     }
   },
-  "include": ["src", "test/**/*.ts", "scripts/**/*.ts"]
+  "include": ["src", "test/**/*.ts", "scripts/**/*.ts"],
+  "exclude": ["**/*.pro.*"]
 }

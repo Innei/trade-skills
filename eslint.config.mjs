@@ -35,4 +35,32 @@ export default defineConfig(
       'overlay/no-pro-only-resolution': ['error', overlayOptions],
     },
   },
+  {
+    files: ['apps/desktop/scripts/afterPack.cjs'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off',
+    },
+  },
+  {
+    files: ['apps/desktop/src/boot/proRelaunch.ts'],
+    rules: {
+      'no-console': [
+        'error',
+        {
+          allow: [
+            'warn',
+            'error',
+            'info',
+            'table',
+            'group',
+            'groupCollapsed',
+            'groupEnd',
+            'assert',
+            'clear',
+            'log',
+          ],
+        },
+      ],
+    },
+  },
 );

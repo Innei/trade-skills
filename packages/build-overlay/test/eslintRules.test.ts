@@ -75,12 +75,18 @@ ruleTester.run('no-explicit-pro-import', overlayPlugin.rules['no-explicit-pro-im
       errors: [{ messageId: 'explicitPro' }],
       filename: '/repo/pkg/entry.ts',
     },
+    {
+      code: "import { Edition } from './edition.pro';",
+      errors: [{ data: { source: './edition.pro' }, messageId: 'explicitPro' }],
+      filename: '/repo/pkg/entry.ts',
+    },
   ],
   valid: [
     { code: "import { Edition } from './edition.js';", filename: '/repo/pkg/entry.ts' },
     { code: "export { widgets } from './widgets.js';", filename: '/repo/pkg/entry.ts' },
     { code: "const tools = require('./proTools.js');", filename: '/repo/pkg/entry.ts' },
     { code: "import { x } from './x.protocol.js';", filename: '/repo/pkg/entry.ts' },
+    { code: "import { x } from 'some.pro';", filename: '/repo/pkg/entry.ts' },
   ],
 });
 

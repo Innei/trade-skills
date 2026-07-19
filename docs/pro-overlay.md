@@ -35,7 +35,7 @@
 | `pnpm typecheck:pro` | 聚合 `packages/core`、`apps/server`、`apps/desktop`、`apps/web` 各自的 `tsc --noEmit -p tsconfig.pro.json` |
 | `pnpm lint` | 跑 ESLint，含 overlay 依赖方向规则 |
 | `pnpm --filter @kansoku/pro poc:overlay` | 端到端 POC：sync → OSS/Pro 两套 tsc 检查 → 两套 Vite/tsdown 构建 → 打包加密 → 解密回读 → 校验运行时选中结果 |
-| `pnpm --filter @kansoku/pro build` | 私有仓构建脚本，会先跑一次 `sync --check` 当 preflight，不过就不会进入 tsdown |
+| `pnpm --filter @kansoku/pro build` | 私有仓构建脚本，会先跑一次 `sync --check` 当 preflight，不通过就不会进入 tsdown |
 
 工作区层面还有两个钩子（脚本不在本仓库内，只说行为）：创建 `apps/pro` 这个 worktree 之后会自动跑一次 sync；日常校验流程会跑一次 `--check` 确认没有陈旧或缺失的投影。
 
@@ -43,12 +43,12 @@
 
 依赖方向规则由 `packages/build-overlay/eslint/` 里的插件提供，公开仓与私有仓各自的 `eslint.config.mjs` 按需启用：
 
-- **`no-explicit-pro-import`**：禁止在 import/export/require 里写死 `.pro.` 字样的路径——一律走同名默认路径，由构建期机制决定选哪个文件。
+- **`no-explicit-pro-import`**：禁止在 import/export/require 里写死 `.pro.` 字样或以 `.pro` 结尾的相对路径——一律走同名默认路径，由构建期机制决定选哪个文件（公开仓与私有仓都生效，私有仓覆盖 overlays 与 src 两处）。
 - **`no-apps-pro-import`**：默认文件禁止 import `apps/pro` 下的任何东西（只在公开仓生效）。
-- **`no-pro-only-resolution`**：默认文件的相对 import 不能"只解析到一个 `.pro` 覆盖、没有默认实现可退"。
+- **`no-pro-only-resolution`**：默认文件的相对 import 不能"只解析到一个 `.pro` 覆盖、没有默认实现可退"（只在公开仓生效）。
 - **`no-self-default-import`**：`.pro` 覆盖文件不能反过来 import 自己对应的默认实现（只在私有仓 overlays 里生效）。
 - **`overlay-manifest-consistency`**：`.pro` 覆盖文件必须在"有默认兄弟文件"和"登记进 `overlay.private-only.json`"之间二选一，两头都占或都不占都报错（只在私有仓 overlays 里生效）。
-- **`no-escaping-import`**：禁止绝对路径的 import 来源，也禁止相对 import 跳出仓库根目录。
+- **`no-escaping-import`**：禁止绝对路径的 import 来源，也禁止相对 import 跳出仓库根目录（公开仓全仓生效；私有仓只在 `overlays/**/*.pro.*` 里生效）。
 
 另外，这套机制里全面不使用 `preserveSymlinks`：在 pnpm 的 node_modules 结构下用它会引发路径解析问题，而且没必要——`proOverlayPlugin` 本身返回的就是投影路径，TypeScript 的类型检查也不需要对软链接做 realpath。
 

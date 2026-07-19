@@ -163,7 +163,9 @@ describe('runOverlaySync', () => {
       const fixture = makeFixture();
       const source = writeOverlayFile(fixture, 'foo.pro.ts', 'export const foo = "pro";');
       writeOssBase(fixture, 'foo.pro.ts');
-      const wrongTarget = join(fixture.root, 'wrong.pro.ts');
+      // "wrong.ts" (no ".pro." infix) so it sits inside overlayRoot without being
+      // discovered by walk() as a projection mapping of its own.
+      const wrongTarget = join(fixture.overlayRoot, 'wrong.ts');
       writeFileSync(wrongTarget, 'export const foo = "wrong";');
       const destination = destinationFor(fixture, 'foo.pro.ts');
       mkdirSync(dirname(destination), { recursive: true });
@@ -189,6 +191,24 @@ describe('runOverlaySync', () => {
         'overlay projection points to the wrong source: foo.pro.ts',
       ]);
       expect(lstatSync(destination).isSymbolicLink()).toBe(true);
+    });
+
+    it('refuses to repair a wrong-source link whose current target sits outside the overlay root (unmanaged)', () => {
+      const fixture = makeFixture();
+      writeOverlayFile(fixture, 'foo.pro.ts', 'export const foo = "pro";');
+      writeOssBase(fixture, 'foo.pro.ts');
+      const foreignTarget = join(fixture.root, 'foreign.pro.ts');
+      writeFileSync(foreignTarget, 'export const foo = "foreign";');
+      const destination = destinationFor(fixture, 'foo.pro.ts');
+      mkdirSync(dirname(destination), { recursive: true });
+      symlinkSync(foreignTarget, destination);
+
+      const result = run(fixture);
+
+      expect(result.errors).toEqual([
+        'refusing to repair unmanaged projection: foo.pro.ts',
+      ]);
+      expect(resolve(dirname(destination), readlinkSync(destination))).toBe(foreignTarget);
     });
   });
 

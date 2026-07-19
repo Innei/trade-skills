@@ -21,14 +21,14 @@ describe('startProActivationWatch', () => {
   });
 
   it('relaunches once when the bundle key transitions from absent to present', () => {
-    let key: string | undefined;
-    const d = deps({ getBundleKey: () => key });
+    const state: { key: string | undefined } = { key: undefined };
+    const d = deps({ getBundleKey: () => state.key });
     startProActivationWatch(d);
 
     vi.advanceTimersByTime(3000);
     expect(d.relaunch).not.toHaveBeenCalled();
 
-    key = 'aa'.repeat(32);
+    state.key = 'aa'.repeat(32);
     vi.advanceTimersByTime(1000);
     expect(d.relaunch).toHaveBeenCalledTimes(1);
 
@@ -56,12 +56,12 @@ describe('startProActivationWatch', () => {
   });
 
   it('stops polling once cancelled', () => {
-    let key: string | undefined;
-    const d = deps({ getBundleKey: () => key });
+    const state: { key: string | undefined } = { key: undefined };
+    const d = deps({ getBundleKey: () => state.key });
     const stop = startProActivationWatch(d);
 
     stop();
-    key = 'cc'.repeat(32);
+    state.key = 'cc'.repeat(32);
     vi.advanceTimersByTime(5000);
     expect(d.relaunch).not.toHaveBeenCalled();
   });

@@ -136,6 +136,10 @@ export function runOverlaySync(options) {
     else unlinkSync(destination);
   }
 
+  if (!checkOnly && errors.length > 0) {
+    return { errors, mappings, summary: [] };
+  }
+
   for (const { destination, source } of mappings) {
     const destinationRelative = relative(publicRoot, destination);
     if (pathExists(destination)) {
@@ -147,6 +151,10 @@ export function runOverlaySync(options) {
       if (linkTarget(destination) === source) continue;
       if (checkOnly) {
         errors.push(`overlay projection points to the wrong source: ${destinationRelative}`);
+        continue;
+      }
+      if (!within(overlayRoot, linkTarget(destination))) {
+        errors.push(`refusing to repair unmanaged projection: ${destinationRelative}`);
         continue;
       }
       unlinkSync(destination);

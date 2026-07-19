@@ -140,7 +140,9 @@ const noExplicitProImport = {
   create(context) {
     return createSourceVisitor((sourceNode) => {
       const value = sourceNode.value;
-      if (typeof value === 'string' && value.includes('.pro.')) {
+      if (typeof value !== 'string') return;
+      const isRelative = value.startsWith('.');
+      if (value.includes('.pro.') || (isRelative && value.endsWith('.pro'))) {
         context.report({ data: { source: value }, messageId: 'explicitPro', node: sourceNode });
       }
     });

@@ -61,14 +61,14 @@ jobs:
 
       - name: assert no tracked overlay artifacts
         run: |
-          pro_files="$(git ls-files -- '*.pro.ts' '*.pro.tsx' '*.pro.mts' '*.pro.cts')"
+          pro_files="$(git ls-files -- '*.pro.ts' '*.pro.tsx' '*.pro.mts' '*.pro.cts' '*.pro.js' '*.pro.jsx' '*.pro.mjs' '*.pro.cjs')"
           if [ -n "$pro_files" ]; then
             echo "::error::tracked *.pro.* overlay projection files found in the public repo:"
             echo "$pro_files"
             exit 1
           fi
 
-          oss_files="$(git ls-files -- '*.oss.ts' '*.oss.tsx' '*.oss.mts' '*.oss.cts')"
+          oss_files="$(git ls-files -- '*.oss.ts' '*.oss.tsx' '*.oss.mts' '*.oss.cts' '*.oss.js' '*.oss.jsx' '*.oss.mjs' '*.oss.cjs')"
           if [ -n "$oss_files" ]; then
             echo "::error::tracked *.oss.* files found in the public repo (retired suffix shape must not return):"
             echo "$oss_files"
@@ -93,6 +93,9 @@ jobs:
 
       - name: typecheck (pro-api, core, server, web, desktop)
         run: pnpm -r typecheck
+
+      - name: lint
+        run: pnpm lint
 
       - name: build (web, desktop main — the compile step that would have caught a bundling regression)
         run: |
