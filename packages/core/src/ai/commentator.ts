@@ -7,6 +7,7 @@ import { appendComment as defaultAppendComment } from './comments.js';
 import { buildCommentUpdate, type CommentPack } from './datapack.js';
 import type { AiModel } from './models.js';
 import { COMMENTATOR_PROMPT, COMMENTATOR_RETRY_PROMPT } from './prompts.js';
+import { MessagesEngine } from './messages/messageEngine.js';
 import { composeWithDiscipline, OBSERVER_CONTRACT } from './promptPolicy.js';
 import { createRunLock } from './runLock.js';
 import type { Trigger } from './triggers.js';
@@ -66,7 +67,7 @@ function triggerText(trigger: Trigger): string {
 
 const submitSchema = Type.Object({
   level: Type.Union([Type.Literal('info'), Type.Literal('warn'), Type.Literal('alert')]),
-  text: Type.String({ description: '中文白话，最多两句' }),
+  text: Type.String({ description: 'Plain-language commentary, at most two sentences.' }),
   escalate: Type.Boolean(),
 });
 
@@ -82,7 +83,7 @@ function buildSubmitTool(
   return {
     name: 'submit_comment',
     label: 'Submit Comment',
-    description: '记录一条盘中点评。收到快照后必须调用且只调用一次。',
+    description: 'Record one intraday comment. After receiving a snapshot, call exactly once.',
     parameters: submitSchema,
     execute: async (_id, params: SubmitParams) => {
       if (isTerminated()) {
@@ -164,12 +165,14 @@ export async function runCommentator({
       const update = buildCommentUpdate(pack, session.lastBarTime);
       promptText = JSON.stringify({ update, trigger }).slice(0, MAX_PROMPT_CHARS);
     } else {
+      const messageEngine = new MessagesEngine([]);
       const agentSession = createAgentSession({
         layer: 'commentator',
         symbol,
         model: deps.model,
         systemPrompt: SYSTEM_PROMPT,
         tools: [tool],
+        transformContext: async (messages) => (await messageEngine.process(messages)).messages,
         agentFactory: deps.agentFactory,
       });
       session = {

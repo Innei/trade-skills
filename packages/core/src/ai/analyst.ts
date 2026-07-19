@@ -64,7 +64,7 @@ export function buildJournalTool(
   return {
     name: 'write_journal',
     label: 'Write Journal',
-    description: `按技能 Step 7 写 journal/YYYY-MM-DD-${base}-intraday.md（美东交易日）；同日已存在则追加分节，不覆盖。只提供 markdown 内容。`,
+    description: `Write journal/YYYY-MM-DD-${base}-intraday.md according to Skill Step 7 and the US Eastern trading date. Append a section when the same-day file exists; never overwrite it. Provide Markdown content only.`,
     parameters: journalSchema,
     execute: async (_id, params) => {
       const content = params.content;
@@ -109,7 +109,7 @@ const scenarioSchema = Type.Object({
   probability: Type.Number({
     minimum: 0,
     maximum: 100,
-    description: '0–100 百分数，三者之和约为 100',
+    description: 'A percentage from 0 to 100; the three scenario probabilities should sum to approximately 100.',
   }),
   trigger: Type.Optional(Type.String()),
   path: Type.Optional(Type.String()),
@@ -119,8 +119,8 @@ const rangePlanSchema = Type.Object({
   condition: Type.Optional(Type.String()),
   long_tactic: Type.Optional(Type.String()),
   short_tactic: Type.Optional(Type.String()),
-  low: Type.Optional(Type.Number({ description: '箱体下沿（neutral 时必填）' })),
-  high: Type.Optional(Type.Number({ description: '箱体上沿（neutral 时必填）' })),
+  low: Type.Optional(Type.Number({ description: 'Lower bound of the range; required for neutral.' })),
+  high: Type.Optional(Type.Number({ description: 'Upper bound of the range; required for neutral.' })),
 });
 
 const predictionSchema = Type.Object({
@@ -129,14 +129,14 @@ const predictionSchema = Type.Object({
   entry_plan: Type.Optional(entryPlanSchema),
   scenarios: Type.Array(scenarioSchema, { minItems: 2, maxItems: 4 }),
   range_plan: Type.Optional(rangePlanSchema),
-  comment: Type.String({ description: '一句话中文白话结论，写入点评' }),
+  comment: Type.String({ description: 'A one-sentence plain-language conclusion to store as a comment.' }),
 });
 
 type PredictionParams = Static<typeof predictionSchema>;
 
 const commentSchema = Type.Object({
   level: Type.Union([Type.Literal('info'), Type.Literal('warn'), Type.Literal('alert')]),
-  text: Type.String({ description: '中文白话观察' }),
+  text: Type.String({ description: 'A plain-language observation.' }),
 });
 
 export type CreateChart = (body: Record<string, unknown>) => Promise<{ id: string; url: string }>;
@@ -255,14 +255,14 @@ export function buildAnalystSkillContexts(
       DISCIPLINE_SKILL,
       {
         content: disciplineText,
-        fallbackDescription: '所有交易判断共享的纪律与数据边界。',
+        fallbackDescription: 'Shared discipline and data boundaries for every trading judgment.',
       },
     ],
     [
       SKILL_NAME,
       {
         content: skillText,
-        fallbackDescription: '单标的日内到数个交易日的多周期方向、情景与交易计划分析。',
+        fallbackDescription: 'Multi-period direction, scenarios, and trade-plan analysis for one symbol across intraday to several trading days.',
       },
     ],
   ]);
@@ -302,19 +302,19 @@ export function buildSubmitPredictionTool(
   return {
     name: 'submit_prediction',
     label: 'Submit Prediction',
-    description: '提交完整结论并落图。收齐研究后调用且只调用一次。',
+    description: 'Submit the complete conclusion and create the chart. Call exactly once after research is complete.',
     parameters: predictionSchema,
     execute: async (_id, params: PredictionParams) => {
       if (hooks.isDone()) return textResult('skipped', true);
       if (!Check(predictionSchema, params)) {
         return textResult(
-          'prediction 结构不合法，请补齐 direction / scenarios（long / short 还需 entry_plan）后重试。',
+          'prediction has an invalid structure. Add direction and scenarios; long and short also require entry_plan. Then retry.',
         );
       }
       const issues = validatePrediction(params as unknown as IntradayPrediction);
       if (issues.length) {
         return textResult(
-          `prediction 未通过校验：${issues.join('；')}。请修正后重新调用 submit_prediction。`,
+          `prediction failed validation: ${issues.join('; ')}. Correct it and call submit_prediction again.`,
         );
       }
       const { comment, ...prediction } = params;
@@ -379,7 +379,7 @@ function buildTools(
   const appendCommentTool: AgentTool<typeof commentSchema> = {
     name: 'append_comment',
     label: 'Append Comment',
-    description: '写一条中文白话观察，作为分析员点评记录。',
+    description: 'Write one plain-language observation as an analyst comment.',
     parameters: commentSchema,
     execute: async (_id, params) => {
       if (isDone()) return textResult('skipped');
@@ -524,7 +524,7 @@ export async function executeAnalystRun(symbol: string, deps: AnalystDeps): Prom
     });
 
     reportProgress('researching', '正在规划分析步骤并读取市场信息');
-    await session.runTurn(`请重估 ${symbol} 的短线多周期结论。`, timeoutMs);
+    await session.runTurn(`Reassess the short-term multi-period conclusion for ${symbol}.`, timeoutMs);
 
     // One explicit retry, mirroring chat/commentator: a rejected submit only returns a tool
     // result, so without an outer nudge the model is free to give up and ship nothing.

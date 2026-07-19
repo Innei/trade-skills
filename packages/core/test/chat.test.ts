@@ -879,8 +879,8 @@ describe('buildChatSystemPrompt', () => {
     expect(prompt).toContain(JSON.stringify({ direction: 'long', comment: '结构完好' }));
     expect(prompt).toMatch(/\d{2}:\d{2} 开盘走强/);
     expect(prompt).not.toContain('闲聊');
-    expect(prompt).toContain('已归档的预测是冻结记录');
-    expect(prompt).toContain('只针对当前图表标的');
+    expect(prompt).toContain('Archived predictions are frozen records');
+    expect(prompt).toContain('limited to the current chart symbol');
   });
 
   it('excludes level: error comment rows (e.g. commentator timeout noise) even from a relevant source', () => {
@@ -910,6 +910,6 @@ describe('buildChatSystemPrompt', () => {
 
   it('says the analysis carries no prediction when input.prediction is absent', () => {
     const prompt = buildChatSystemPrompt(fakeDoc({ input: {} }), []);
-    expect(prompt).toContain('该分析未附带预测结论');
+    expect(prompt).toContain('No prediction is attached to this analysis.');
   });
 });

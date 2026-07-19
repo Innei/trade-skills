@@ -1,5 +1,6 @@
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import { describe, expect, it } from 'vitest';
+import { CURRENT_INTERFACE_LANGUAGE } from '../src/ai/messages/injectors/afterSystemPromptLanguageInjector.js';
 import { MessagesEngine } from '../src/ai/messages/messageEngine.js';
 import { RunMetadataProvider } from '../src/ai/messages/sharedProviders.js';
 
@@ -24,11 +25,24 @@ describe('RunMetadataProvider', () => {
     const raw: AgentMessage[] = [{ role: 'user', content: '分析', timestamp: 1 }];
 
     const result = await engine.process(raw);
-    const rendered = textOf(result.messages[0]);
+    const rendered = textOf(result.messages[1]);
 
     expect(rendered).toContain('<agent>deep-dive</agent>');
     expect(rendered).toContain('<origin>manual</origin>');
     expect(rendered).not.toContain('<market_date>');
     expect(rendered).not.toContain('<data_as_of>');
+  });
+
+  it('injects the interface language directly after the configured system prompt', async () => {
+    const engine = new MessagesEngine([]);
+    const result = await engine.process([{ role: 'user', content: 'user query', timestamp: 1 }]);
+
+    expect(textOf(result.messages[0])).toContain('<interface_language>');
+    expect(textOf(result.messages[0])).toContain(CURRENT_INTERFACE_LANGUAGE);
+    expect(textOf(result.messages[0])).toContain('not only chat replies');
+    expect(textOf(result.messages[0])).toContain('document bodies');
+    expect(textOf(result.messages[0])).toContain('natural-language fields passed to tools');
+    expect(textOf(result.messages[1])).toBe('user query');
+    expect(result.metadata.AfterSystemPromptLanguageInjectorInjected).toBe(true);
   });
 });

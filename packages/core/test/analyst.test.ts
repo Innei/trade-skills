@@ -255,7 +255,7 @@ describe('analyst tools', () => {
       text = (res.content[0] as { text: string }).text;
     });
     await executeAnalystRun('MU.US', deps);
-    expect(text).toContain('未通过校验');
+    expect(text).toContain('failed validation');
     expect(createCalls).toHaveLength(0);
   });
 
@@ -319,13 +319,13 @@ describe('analyst message pipeline', () => {
     expect(systemPrompts[0]).not.toContain('假纪律全文');
 
     const messages = engineeredMessages[0];
-    expect(messages).toHaveLength(3);
-    const injected = messageText(messages[0]);
+    expect(messages).toHaveLength(4);
+    const injected = messageText(messages[1]);
     expect(injected).toContain('<available_skills>');
     expect(injected).toContain('假技能全文');
     expect(injected).toContain('假纪律全文');
     expect(injected).toContain('<data_snapshot');
-    expect(messageText(messages[1])).toContain('请重估 MU.US');
+    expect(messageText(messages[2])).toContain('Reassess the short-term multi-period conclusion for MU.US.');
   });
 
   it('aborts with an error comment when the skill file is missing', async () => {
@@ -340,9 +340,9 @@ describe('analyst message pipeline', () => {
   it('places the runtime adapter after the activated skill content', async () => {
     const { deps, engineeredMessages } = harness(async () => {});
     await executeAnalystRun('MU.US', deps);
-    const context = messageText(engineeredMessages[0][0]);
-    expect(context.indexOf('假纪律全文')).toBeLessThan(context.indexOf('Kansoku 环境映射'));
-    expect(context.indexOf('假技能全文')).toBeLessThan(context.indexOf('Kansoku 环境映射'));
+    const context = messageText(engineeredMessages[0][1]);
+    expect(context.indexOf('假纪律全文')).toBeLessThan(context.indexOf('Kansoku environment mapping'));
+    expect(context.indexOf('假技能全文')).toBeLessThan(context.indexOf('Kansoku environment mapping'));
   });
 
   it('aborts with an error comment when the shared discipline is missing', async () => {

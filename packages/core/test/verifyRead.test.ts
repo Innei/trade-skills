@@ -85,7 +85,7 @@ describe('verifyDirectionalRead', () => {
     expect(v.checks.above_pre_market_high).toBe(false);
     expect(v.checks.cash_high_cleared_pre_market_high).toBe(false);
     expect(v.breakout_verdict).toBe('contradicted');
-    expect(v.notes.join()).toContain('从未触及盘前高');
+    expect(v.notes.join()).toContain('never reached the premarket high');
   });
 
   it('supports a breakout only when price clears both the pre-market high and the prior day high', () => {
@@ -129,7 +129,7 @@ describe('verifyDirectionalRead', () => {
       NOW,
     );
     expect(v.breakout_verdict).toBe('partial');
-    expect(v.notes.join()).toContain('假突破');
+    expect(v.notes.join()).toContain('false-breakout pattern');
   });
 
   it('reports insufficient when the pre-market range is unavailable', () => {
@@ -156,7 +156,7 @@ describe('rejectAnswer — the code-level half of TD-VERIFY-01', () => {
   it('rejects a verification_id it never minted', () => {
     expect(
       rejectAnswer({ claim_status: 'supported', verification_id: 'made-up' }, minted),
-    ).toContain('不接受');
+    ).toContain('not accepted');
   });
 
   it('rejects agreeing with the user when the mechanical check contradicts them', () => {

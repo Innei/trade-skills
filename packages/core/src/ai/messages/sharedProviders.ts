@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import type { SkillMeta } from '../../services/skills.js';
-import { BaseFirstUserContentProvider } from './messageEngine.js';
+import { BaseFirstUserContentProvider } from './injectors/baseFirstUserContentProvider.js';
 
 export interface SkillContext {
   activated: boolean;
@@ -49,7 +49,7 @@ export class SkillCatalogProvider extends BaseFirstUserContentProvider {
     if (this.skills.length === 0) return null;
     const lines = [
       '<available_skills>',
-      '以下列出项目中的全部技能；description 说明技能的用途与适用时机。',
+      'The following lists every project skill. Each description explains its purpose and when to use it.',
     ];
     for (const skill of this.skills) {
       const attrs = [
@@ -60,7 +60,7 @@ export class SkillCatalogProvider extends BaseFirstUserContentProvider {
         .filter(Boolean)
         .join(' ');
       const invoke = skill.activated
-        ? '技能说明已在下方加载'
+        ? 'The skill instructions are loaded below.'
         : `read_skill(name=\"${escapeXml(skill.name)}\")`;
       lines.push(
         `  <skill ${attrs}>`,
@@ -90,7 +90,7 @@ export class ActivatedSkillsProvider extends BaseFirstUserContentProvider {
 
     const lines = [
       '<activated_skills>',
-      '以下技能已为本次运行激活；直接遵循其说明，无需再次调用 read_skill。',
+      'The following skills are activated for this run. Follow their instructions directly; do not call read_skill again for them.',
     ];
     for (const skill of activated) {
       lines.push(`  <skill name=\"${escapeXml(skill.name)}\">`, skill.content!, '  </skill>');
