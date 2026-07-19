@@ -1,16 +1,15 @@
 import { HOST_MODE, KERNEL_PORT, PORT } from '@kansoku/core/env';
-import { getPro } from '@kansoku/core/pro/registry';
 import { startHost } from './host.js';
 import { initServerRuntime } from './runtimeInit.js';
+import { registerShutdownHandlers } from './shutdown.js';
 
-const { host: _serverHost } = await initServerRuntime();
+const { edition } = await initServerRuntime();
+await edition.initialize();
 
 const isDevKernel = HOST_MODE === 'dev';
 const bindPort = isDevKernel ? KERNEL_PORT : PORT;
 
-await startHost(bindPort, isDevKernel);
+await startHost(bindPort, isDevKernel, edition);
+await edition.start();
 
-if (getPro()?.startScheduler) {
-  getPro()!.startScheduler!();
-  console.log('ai scheduler started');
-}
+registerShutdownHandlers(edition);

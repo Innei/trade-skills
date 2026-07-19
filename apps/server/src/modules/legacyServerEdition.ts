@@ -4,7 +4,7 @@ import type { ServerBuilder } from '@kansoku/core/edition/serverBuilder';
 import { getPro } from '@kansoku/core/pro/registry';
 import { createDefaultServerEditionHost } from '@kansoku/core/edition/host';
 
-class LegacyCompatServerEdition extends ServerEdition {
+export class LegacyCompatServerEdition extends ServerEdition {
   override configureServer(builder: ServerBuilder): void {
     super.configureServer(builder);
     const legacyModules = (getPro()?.tsukiModules ?? []) as Constructor[];

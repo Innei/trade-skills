@@ -1,0 +1,132 @@
+import { EventEmitter } from 'node:events';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setModelsRuntimeForTests } from '@kansoku/core/ai/modelsRuntime';
+import type { BaseServerEdition } from '@kansoku/core/edition/base';
+import type { EditionActivation } from '@kansoku/core/pro/editionLoader';
+import { unregisterProModuleForTests } from '@kansoku/core/pro/registry';
+import { resetProtocolClaimForTests } from '@kansoku/core/pro/protocolClaim';
+
+vi.mock('@kansoku/core/pro/editionLoader', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@kansoku/core/pro/editionLoader')>();
+  return { ...actual, loadEdition: vi.fn(actual.loadEdition) };
+});
+
+vi.mock('@kansoku/core/pro/loader', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@kansoku/core/pro/loader')>();
+  return { ...actual, loadPro: vi.fn(actual.loadPro) };
+});
+
+const { initServerRuntime } = await import('../src/runtimeInit.js');
+const { registerShutdownHandlers } = await import('../src/shutdown.js');
+const { LegacyCompatServerEdition } = await import('../src/modules/legacyServerEdition.js');
+const { loadEdition } = await import('@kansoku/core/pro/editionLoader');
+const { loadPro } = await import('@kansoku/core/pro/loader');
+
+let tmpAppDir: string;
+
+beforeEach(() => {
+  tmpAppDir = mkdtempSync(join(tmpdir(), 'kansoku-server-edition-lifecycle-'));
+  vi.mocked(loadEdition).mockClear();
+  vi.mocked(loadPro).mockClear();
+});
+
+afterEach(() => {
+  rmSync(tmpAppDir, { recursive: true, force: true });
+  unregisterProModuleForTests();
+  resetProtocolClaimForTests();
+  setModelsRuntimeForTests(null);
+});
+
+describe('initServerRuntime: loadEdition-first with legacy fallback', () => {
+  it('absent pro.enc falls through to LegacyCompatServerEdition, and its full lifecycle resolves cleanly', async () => {
+    const { edition } = await initServerRuntime({ proAppDir: tmpAppDir });
+
+    expect(edition).toBeInstanceOf(LegacyCompatServerEdition);
+    await expect(edition.initialize()).resolves.toBeUndefined();
+    await expect(edition.start()).resolves.toBeUndefined();
+    await expect(edition.dispose()).resolves.toBeUndefined();
+  });
+
+  const nonActiveStates = ['absent', 'locked', 'incompatible', 'failed'] as const;
+
+  for (const state of nonActiveStates) {
+    it(`state=${state} falls back to loadPro + LegacyCompatServerEdition`, async () => {
+      vi.mocked(loadEdition).mockResolvedValueOnce({
+        state,
+        bundlePresent: state !== 'absent',
+        ...(state !== 'absent' && state !== 'locked'
+          ? { error: { code: 'PRO_EDITION_ABI_MISMATCH', message: 'boom' } }
+          : {}),
+      } as EditionActivation<BaseServerEdition>);
+      const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+
+      const { edition } = await initServerRuntime({ proAppDir: tmpAppDir });
+
+      expect(edition).toBeInstanceOf(LegacyCompatServerEdition);
+      expect(loadPro).toHaveBeenCalledTimes(1);
+      const logLine = infoSpy.mock.calls.map((args) => String(args[0])).find((line) => line.startsWith('[edition]'));
+      expect(logLine).toContain('runtime=server');
+      expect(logLine).toContain(`state=${state}`);
+
+      infoSpy.mockRestore();
+    });
+  }
+
+  it('state=active returns the edition constructed by loadEdition, and never calls loadPro', async () => {
+    const fakeEdition = { kind: 'fake-pro-edition' } as unknown as BaseServerEdition;
+    vi.mocked(loadEdition).mockResolvedValueOnce({
+      state: 'active',
+      bundlePresent: true,
+      keyId: 'test-key',
+      buildId: 'test-build',
+      edition: fakeEdition,
+    } as EditionActivation<BaseServerEdition>);
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+
+    const { edition } = await initServerRuntime({ proAppDir: tmpAppDir });
+
+    expect(edition).toBe(fakeEdition);
+    expect(loadPro).not.toHaveBeenCalled();
+    const logLine = infoSpy.mock.calls.map((args) => String(args[0])).find((line) => line.startsWith('[edition]'));
+    expect(logLine).toContain('buildId=test-build');
+    expect(logLine).toContain('keyId=test-key');
+    expect(logLine).toContain('state=active');
+    expect(logLine).toContain('code=n/a');
+
+    infoSpy.mockRestore();
+  });
+});
+
+describe('registerShutdownHandlers', () => {
+  function fakeProcess(): NodeJS.Process {
+    const emitter = new EventEmitter();
+    return Object.assign(emitter, { exit: vi.fn() }) as unknown as NodeJS.Process;
+  }
+
+  it('disposes exactly once on SIGTERM, then exits', async () => {
+    const proc = fakeProcess();
+    const dispose = vi.fn().mockResolvedValue(undefined);
+    const edition = { dispose } as unknown as BaseServerEdition;
+
+    registerShutdownHandlers(edition, proc);
+    proc.emit('SIGTERM');
+
+    await vi.waitFor(() => expect(dispose).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(proc.exit).toHaveBeenCalledWith(0));
+  });
+
+  it('disposes exactly once on SIGINT, then exits', async () => {
+    const proc = fakeProcess();
+    const dispose = vi.fn().mockResolvedValue(undefined);
+    const edition = { dispose } as unknown as BaseServerEdition;
+
+    registerShutdownHandlers(edition, proc);
+    proc.emit('SIGINT');
+
+    await vi.waitFor(() => expect(dispose).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(proc.exit).toHaveBeenCalledWith(0));
+  });
+});

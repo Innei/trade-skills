@@ -1,14 +1,17 @@
 import type { SecretBox } from '@kansoku/pro-api';
+import { EDITION_ABI_VERSION } from '@kansoku/pro-api/edition';
 import { createLogger } from '@tsuki-hono/common';
 import { getAiRuntime, initAiSettings } from '@kansoku/core/ai/initAiSettings';
 import { getActiveSettingsStore } from '@kansoku/core/ai/settingsStore';
 import { getDb } from '@kansoku/core/db/index';
+import type { BaseServerEdition } from '@kansoku/core/edition/base';
 import type { ServerEditionHost } from '@kansoku/core/edition/host';
 import { KANSOKU_HOME } from '@kansoku/core/env';
 import { setProductionHost } from '@kansoku/core/license/dodoEnv';
 import { isLicensed } from '@kansoku/core/license/licenseGate';
 import { startLicenseRevalidation } from '@kansoku/core/license/licenseSchedule';
-import { initLicenseManager } from '@kansoku/core/license/licenseState';
+import { getActiveBundleKey, initLicenseManager } from '@kansoku/core/license/licenseState';
+import { loadEdition } from '@kansoku/core/pro/editionLoader';
 import { loadPro } from '@kansoku/core/pro/loader';
 import { getPro } from '@kansoku/core/pro/registry';
 import {
@@ -16,7 +19,9 @@ import {
   getActiveWatchedMarketsStore,
   setActiveWatchedMarketsStore,
 } from '@kansoku/core/services/watchedMarketsStore';
+import { LegacyCompatServerEdition } from './modules/legacyServerEdition.js';
 import { loadDotenv } from './dotenv.js';
+import { serverEncLayout } from './proEncLayout.js';
 import {
   initAuthUrlOpener,
   type AuthUrlOpener,
@@ -44,7 +49,7 @@ export interface ServerRuntimeOptions {
 
 export async function initServerRuntime(
   opts?: ServerRuntimeOptions,
-): Promise<{ host: ServerEditionHost }> {
+): Promise<{ host: ServerEditionHost; edition: BaseServerEdition }> {
   loadDotenv();
 
   // 1h prompt-cache TTL: commentator sessions re-run at 5-min heartbeats, the
@@ -65,15 +70,6 @@ export async function initServerRuntime(
   initLicenseManager(getDb(), getAiRuntime().secretBox);
   startLicenseRevalidation();
 
-  await loadPro(opts?.proAppDir, opts?.proEntry);
-  await getPro()?.initRuntime?.(getDb(), opts?.secretBox, {
-    watchedMarkets: getActiveWatchedMarketsStore(),
-    aiSettingsStore: getActiveSettingsStore(),
-    production: productionHost,
-    licenseGate: { isLicensed },
-    kansokuHome: KANSOKU_HOME,
-  });
-
   const host: ServerEditionHost = {
     db: getDb(),
     license: { isLicensed },
@@ -85,5 +81,33 @@ export async function initServerRuntime(
     logger: createLogger('server'),
   };
 
-  return { host };
+  const { encPath, virtualDir } = serverEncLayout(opts?.proAppDir);
+  const keyHex = getActiveBundleKey() ?? process.env.KANSOKU_BUNDLE_KEY ?? null;
+  const activation = await loadEdition<ServerEditionHost, BaseServerEdition>({
+    encPath,
+    virtualDir,
+    runtime: 'server',
+    keyHex,
+    host,
+  });
+  console.info(
+    `[edition] runtime=server buildId=${activation.buildId ?? 'n/a'} keyId=${activation.keyId ?? 'n/a'} abi=${EDITION_ABI_VERSION} state=${activation.state} code=${activation.error?.code ?? 'n/a'}`,
+  );
+
+  let edition: BaseServerEdition;
+  if (activation.state === 'active' && activation.edition) {
+    edition = activation.edition;
+  } else {
+    await loadPro(opts?.proAppDir, opts?.proEntry);
+    await getPro()?.initRuntime?.(getDb(), opts?.secretBox, {
+      watchedMarkets: getActiveWatchedMarketsStore(),
+      aiSettingsStore: getActiveSettingsStore(),
+      production: productionHost,
+      licenseGate: { isLicensed },
+      kansokuHome: KANSOKU_HOME,
+    });
+    edition = new LegacyCompatServerEdition(host);
+  }
+
+  return { host, edition };
 }
