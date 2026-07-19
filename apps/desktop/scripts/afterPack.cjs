@@ -62,6 +62,15 @@ function verifyBetterSqlite3Payload(context) {
 module.exports = async function afterPack(context) {
   verifyBetterSqlite3Payload(context);
   verifyNoPlaintextPro(context);
+  // CSC_LINK present + `identity: null` dropped from electron-builder.yml
+  // (the CI signing step does both together) means electron-builder will
+  // Developer-ID-sign and notarize right after this hook — an ad-hoc --deep
+  // sign here would only be thrown away by that re-sign. Both conditions are
+  // required: a stray local CSC_LINK with identity still null must keep the
+  // ad-hoc path, or the app ships with no signature at all.
+  if (process.env.CSC_LINK && context.packager.platformSpecificBuildOptions.identity !== null) {
+    return;
+  }
   const { adHocSignAfterPack } = await import('electron-sparkle-updater/builder');
   return adHocSignAfterPack(context);
 };

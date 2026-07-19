@@ -21,7 +21,9 @@ env:
 jobs:
   release:
     runs-on: macos-14
-    timeout-minutes: 45
+    # notarytool submission usually clears in minutes but can queue longer —
+    # headroom on top of the ~30min build.
+    timeout-minutes: 60
     permissions:
       contents: write
     steps:
@@ -59,6 +61,39 @@ jobs:
         run: |
           if [ -z "$SPARKLE_ED_PUBLIC_KEY" ] || [ -z "$SPARKLE_ED_PRIVATE_KEY" ]; then
             echo "::error::SPARKLE_ED_PUBLIC_KEY / SPARKLE_ED_PRIVATE_KEY repo secrets are missing or empty"
+            exit 1
+          fi
+
+      # Signing/notarization is opt-in by secrets. All five present → the
+      # "enable Developer ID signing" step below drops `identity: null` from
+      # electron-builder.yml, and electron-builder signs with hardened runtime
+      # (its default once an identity resolves) then notarizes + staples via
+      # notarytool. None present → the release stays ad-hoc signed exactly as
+      # before. A partial set is a config error: a Developer-ID-signed but
+      # unnotarized app is still blocked by Gatekeeper, so fail fast instead.
+      - name: detect signing secrets (all 5 → sign + notarize, none → ad-hoc)
+        id: signing
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          missing=""
+          for v in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            if [ -z "${!v}" ]; then
+              missing="$missing $v"
+            fi
+          done
+          if [ -z "$missing" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "Developer ID signing + notarization enabled"
+          elif [ "$(echo "$missing" | wc -w)" -eq 5 ]; then
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "no signing secrets configured — ad-hoc signed release"
+          else
+            echo "::error::partial signing secrets — missing:$missing. Configure all five (CSC_LINK, CSC_KEY_PASSWORD, APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD, APPLE_TEAM_ID) or none."
             exit 1
           fi
 
@@ -157,7 +192,20 @@ jobs:
       - name: build web
         run: pnpm --filter @kansoku/web build
 
-      - name: package desktop (dmg + zip, no paid signing identity)
+      # `identity: null` hard-disables electron-builder signing (macPackager
+      # returns before identity lookup, so CSC_LINK would be silently ignored).
+      # Deleting the line restores the default lookup path: electron-builder
+      # imports the CSC_LINK p12 into a temp keychain, signs with hardened
+      # runtime, and notarizes with the APPLE_* env vars on the package step.
+      # afterPack.cjs sees CSC_LINK and skips its ad-hoc re-sign.
+      - name: enable Developer ID signing (drop identity:null from electron-builder.yml)
+        if: steps.signing.outputs.enabled == 'true'
+        working-directory: apps/desktop
+        run: |
+          grep -q '^  identity: null$' electron-builder.yml
+          sed -i '' '/^  identity: null$/d' electron-builder.yml
+
+      - name: package desktop (dmg + zip; Developer ID + notarization when secrets present, ad-hoc otherwise)
         working-directory: apps/desktop
         # KANSOKU_BUNDLE_KEY / KANSOKU_BUNDLE_KEY_ID only matter when the pro
         # slot got fetched above — stagePro.mjs no-ops on a free build. When
@@ -168,28 +216,46 @@ jobs:
         env:
           KANSOKU_BUNDLE_KEY: ${{ secrets.KANSOKU_BUNDLE_KEY }}
           KANSOKU_BUNDLE_KEY_ID: ${{ secrets.KANSOKU_BUNDLE_KEY_ID }}
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: pnpm package
 
-      - name: verify ad-hoc signature (dmg + zip both embed the afterPack-signed app)
+      - name: verify signature (dmg + zip both embed the already-signed app)
         working-directory: apps/desktop
+        env:
+          SIGNING_ENABLED: ${{ steps.signing.outputs.enabled }}
         run: |
-          # electron-builder.yml's afterPack hook (scripts/afterPack.cjs)
-          # ad-hoc signs the .app once, before either target is packaged, so
-          # both the dmg and the zip embed an already-valid CodeDirectory —
-          # this step only has to confirm that, not re-sign or re-zip.
-          # generate_appcast refuses any archive whose .app doesn't pass
-          # `codesign --verify --deep --strict`.
+          # Ad-hoc path: electron-builder.yml's afterPack hook
+          # (scripts/afterPack.cjs) ad-hoc signs the .app once, before either
+          # target is packaged. Developer ID path: electron-builder signs,
+          # notarizes, and staples the .app at the same point in the build,
+          # before dmg/zip packaging. Either way both artifacts embed an
+          # already-valid CodeDirectory — this step only confirms that, not
+          # re-sign or re-zip. generate_appcast refuses any archive whose
+          # .app doesn't pass `codesign --verify --deep --strict`.
+          verify_app() {
+            codesign --verify --deep --strict "$1"
+            if [ "$SIGNING_ENABLED" = "true" ]; then
+              codesign --display --verbose=2 "$1" 2>&1 | grep -q 'Authority=Developer ID Application'
+              xcrun stapler validate "$1"
+              spctl --assess --type execute --verbose=2 "$1"
+            fi
+          }
+
           ZIP_PATH="$PWD/$(echo release/*.zip)"
           DMG_PATH="$PWD/$(echo release/*.dmg)"
 
           ZIP_EXTRACT_DIR="$(mktemp -d)"
           ditto -x -k "$ZIP_PATH" "$ZIP_EXTRACT_DIR"
-          codesign --verify --deep --strict "$ZIP_EXTRACT_DIR"/*.app
+          verify_app "$ZIP_EXTRACT_DIR"/*.app
           rm -rf "$ZIP_EXTRACT_DIR"
 
           DMG_MOUNT_DIR="$(mktemp -d)"
           hdiutil attach "$DMG_PATH" -mountpoint "$DMG_MOUNT_DIR" -nobrowse -quiet
-          codesign --verify --deep --strict "$DMG_MOUNT_DIR"/*.app
+          verify_app "$DMG_MOUNT_DIR"/*.app
           hdiutil detach "$DMG_MOUNT_DIR" -quiet
 
       - name: prepare release archive dir
