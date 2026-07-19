@@ -10,37 +10,10 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-
-const require = createRequire(import.meta.url);
-
-interface OverlayMapping {
-  destination: string;
-  hasBase: boolean;
-  source: string;
-  sourceRelative: string;
-}
-
-interface OverlaySyncOptions {
-  publicRoot: string;
-  overlayRoot: string;
-  manifestPath: string;
-  statePath: string;
-  checkOnly?: boolean;
-}
-
-interface OverlaySyncResult {
-  errors: string[];
-  mappings: OverlayMapping[];
-  summary: string[];
-}
-
-const runOverlaySync = require('../scripts/overlaySync.mjs').runOverlaySync as (
-  options: OverlaySyncOptions,
-) => OverlaySyncResult;
+import { runOverlaySync } from '../scripts/overlaySync.mjs';
 
 const { dirname, join, relative, resolve } = path;
 
@@ -310,6 +283,25 @@ describe('runOverlaySync', () => {
       expect(result.errors).toEqual(['unsafe overlay destination: apps/pro/evil.pro.ts']);
       expect(existsSync(destinationFor(fixture, 'apps/pro/evil.pro.ts'))).toBe(false);
       expect(existsSync(destinationFor(fixture, 'safe.pro.ts'))).toBe(false);
+    });
+
+    it('rejects a state entry whose destination escapes publicRoot without touching anything outside the fixture root', () => {
+      const fixture = makeFixture();
+      const outsidePath = join(fixture.root, 'outside.pro.ts');
+      writeFileSync(outsidePath, 'export const outside = "untouched";');
+      writeFileSync(
+        fixture.statePath,
+        `${JSON.stringify(
+          { links: [{ destination: '../outside.pro.ts', source: 'outside.pro.ts' }] },
+          null,
+          2,
+        )}\n`,
+      );
+
+      const result = run(fixture);
+
+      expect(result.errors).toEqual(['unsafe destination in overlay state: ../outside.pro.ts']);
+      expect(readFileSync(outsidePath, 'utf8')).toBe('export const outside = "untouched";');
     });
   });
 

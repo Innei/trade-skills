@@ -340,4 +340,20 @@ describe('proOverlayPlugin host-first resolution', () => {
       'resolves outside overlayRoot',
     );
   });
+
+  it('rejects a self-import cycle when the host resolver produces the overlay importer as its own logical default', async () => {
+    const root = makeRoot('kansoku-overlay-host-cycle-');
+    const resolvedFile = join(root, 'settings.ts');
+    writeFileSync(resolvedFile, '');
+    const target = join(root, 'settings-real.pro.ts');
+    writeFileSync(target, '');
+    const importer = join(root, 'settings.pro.ts');
+    symlinkSync(target, importer);
+
+    const plugin = proOverlayPlugin();
+    const context = { resolve: async () => ({ id: resolvedFile }) };
+    await expect(plugin.resolveId.call(context, '@scope/settings', importer)).rejects.toThrow(
+      'own logical default',
+    );
+  });
 });
