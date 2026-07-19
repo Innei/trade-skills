@@ -8,6 +8,7 @@ import {
   type TabsSnapshot as SharedSnapshot,
 } from './desktopTabsBridge';
 import { getWindowsBridge } from './desktopWindowsBridge';
+import { registerGlobalCall } from './globalCalls';
 import * as tabsStore from './tabsStore';
 import { loadTabsSnapshot, saveTabsSnapshot, type TabsSnapshot, type TabState } from './tabsStore';
 
@@ -385,6 +386,38 @@ export function useTabsController(): TabsController {
     const idx = tabs.findIndex((tab) => tab.id === currentId);
     activateTab(tabs[(idx - 1 + tabs.length) % tabs.length].id);
   }, [bridge, activateTab]);
+
+  const setActiveFromMain = useCallback(
+    (id: string) => {
+      if (snapshotRef.current.tabs.some((tab) => tab.id === id)) {
+        activateTab(id);
+        return;
+      }
+      if (!bridge) return;
+      // main opens the tab and requests activation in one flow; the open
+      // broadcast may not have committed into React state yet, so accept the
+      // id optimistically instead of guarding on presence — the snapshot that
+      // carries the tab keeps this activeTabId via reselectActiveTabId.
+      void captureScroll();
+      setSnapshot((prev) => (prev.activeTabId === id ? prev : { ...prev, activeTabId: id }));
+    },
+    [bridge, activateTab, captureScroll],
+  );
+
+  useEffect(() => {
+    const unregisterGet = registerGlobalCall(
+      'tabs.getActiveTabId',
+      () => snapshotRef.current.activeTabId,
+    );
+    const unregisterSet = registerGlobalCall('tabs.setActive', (args) => {
+      const id = (args as { id?: unknown } | undefined)?.id;
+      if (typeof id === 'string' && id) setActiveFromMain(id);
+    });
+    return () => {
+      unregisterGet();
+      unregisterSet();
+    };
+  }, [setActiveFromMain]);
 
   useEffect(() => {
     const commandBridge = getDesktopTabsBridge();

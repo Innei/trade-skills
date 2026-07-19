@@ -106,6 +106,25 @@ export function adoptTabs(state: TabsState, tabs: TabState[]): TabsState {
   return { revision: state.revision + 1, tabs: valid };
 }
 
+export function cycleTabId(state: TabsState, activeTabId: string, delta: 1 | -1): string | null {
+  if (state.tabs.length < 2) return null;
+  const idx = state.tabs.findIndex((tab) => tab.id === activeTabId);
+  if (idx === -1) return null;
+  return state.tabs[(idx + delta + state.tabs.length) % state.tabs.length].id;
+}
+
+export type CloseTabAction =
+  | { kind: 'close-window' }
+  | { kind: 'close-tab'; id: string }
+  | { kind: 'delegate' };
+
+export function resolveCloseTabAction(state: TabsState, activeTabId: string): CloseTabAction {
+  const active = state.tabs.find((tab) => tab.id === activeTabId);
+  if (!active) return { kind: 'delegate' };
+  if (state.tabs.length === 1 && active.route === HOME_ROUTE) return { kind: 'close-window' };
+  return { kind: 'close-tab', id: active.id };
+}
+
 export function applyMutation(state: TabsState, mutation: MutateOp): TabsState {
   switch (mutation.op) {
     case 'open': {

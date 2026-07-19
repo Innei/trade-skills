@@ -3,6 +3,12 @@ import { CONTEXT_MENU_CHANNELS } from './contextMenu/channels.js';
 import { CREDENTIALS_CHANNELS } from './credentials/channels.js';
 import { IPC_GROUPS } from './ipc/groups.js';
 import {
+  RENDERER_CALL_REQUEST_CHANNEL,
+  RENDERER_CALL_RESPONSE_CHANNEL,
+  type RendererCallRequest,
+  type RendererCallResponse,
+} from './rendererCall/channels.js';
+import {
   TABS_COMMAND_CHANNEL,
   TABS_GET_CHANNEL,
   TABS_MUTATE_CHANNEL,
@@ -84,6 +90,31 @@ if (isPrivilegedOrigin) {
       const listener = (_event: Electron.IpcRendererEvent, snapshot: TabsState) => cb(snapshot);
       ipcRenderer.on(TABS_SNAPSHOT_CHANNEL, listener);
       return () => ipcRenderer.removeListener(TABS_SNAPSHOT_CHANNEL, listener);
+    },
+  };
+
+  desktopApi.rendererCalls = {
+    handle: (cb: (method: string, args: unknown) => Promise<unknown>) => {
+      const listener = (_event: Electron.IpcRendererEvent, request: RendererCallRequest) => {
+        void Promise.resolve()
+          .then(() => cb(request.method, request.args))
+          .then(
+            (result) => {
+              const response: RendererCallResponse = { id: request.id, ok: true, result };
+              ipcRenderer.send(RENDERER_CALL_RESPONSE_CHANNEL, response);
+            },
+            (error: unknown) => {
+              const response: RendererCallResponse = {
+                id: request.id,
+                ok: false,
+                error: error instanceof Error ? error.message : String(error),
+              };
+              ipcRenderer.send(RENDERER_CALL_RESPONSE_CHANNEL, response);
+            },
+          );
+      };
+      ipcRenderer.on(RENDERER_CALL_REQUEST_CHANNEL, listener);
+      return () => ipcRenderer.removeListener(RENDERER_CALL_REQUEST_CHANNEL, listener);
     },
   };
 

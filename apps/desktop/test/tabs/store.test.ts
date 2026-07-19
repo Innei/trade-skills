@@ -8,9 +8,11 @@ import {
   closeTab,
   closeTabsToRight,
   createTabsFileStore,
+  cycleTabId,
   emptyTabsState,
   openTab,
   adoptTabs,
+  resolveCloseTabAction,
   updateTabRoute,
   updateTabScroll,
   updateTabTitle,
@@ -92,6 +94,55 @@ describe('closeTab', () => {
     expect(next.tabs).toHaveLength(1);
     expect(next.tabs[0].route).toBe('/');
     expect(next.tabs[0].id).not.toBe(targetId);
+  });
+});
+
+describe('cycleTabId', () => {
+  it('cycles forward and wraps around', () => {
+    const state = openTab(openTab(homeState(), '/logs'), '/symbol/NVDA.US');
+    const [a, b, c] = state.tabs.map((tab) => tab.id);
+    expect(cycleTabId(state, a, 1)).toBe(b);
+    expect(cycleTabId(state, c, 1)).toBe(a);
+  });
+
+  it('cycles backward and wraps around', () => {
+    const state = openTab(openTab(homeState(), '/logs'), '/symbol/NVDA.US');
+    const [a, , c] = state.tabs.map((tab) => tab.id);
+    expect(cycleTabId(state, a, -1)).toBe(c);
+  });
+
+  it('returns null with fewer than two tabs or an unknown active id', () => {
+    const single = homeState();
+    expect(cycleTabId(single, single.tabs[0].id, 1)).toBeNull();
+    const state = openTab(homeState(), '/logs');
+    expect(cycleTabId(state, 'missing', 1)).toBeNull();
+  });
+});
+
+describe('resolveCloseTabAction', () => {
+  it('closes the window when the only tab is home', () => {
+    const state = homeState();
+    const action = resolveCloseTabAction(state, state.tabs[0].id);
+    expect(action).toEqual({ kind: 'close-window' });
+  });
+
+  it('closes the tab when the only tab is not home', () => {
+    const state = openTab(emptyTabsState(), '/symbol/NVDA.US');
+    const action = resolveCloseTabAction(state, state.tabs[0].id);
+    expect(action).toEqual({ kind: 'close-tab', id: state.tabs[0].id });
+  });
+
+  it('closes the active tab when other tabs remain, even on home', () => {
+    const state = openTab(homeState(), '/symbol/NVDA.US');
+    const homeId = state.tabs[0].id;
+    expect(resolveCloseTabAction(state, homeId)).toEqual({ kind: 'close-tab', id: homeId });
+  });
+
+  it('delegates when the active tab id is unknown or empty', () => {
+    const state = homeState();
+    expect(resolveCloseTabAction(state, 'missing-id')).toEqual({ kind: 'delegate' });
+    expect(resolveCloseTabAction(state, '')).toEqual({ kind: 'delegate' });
+    expect(resolveCloseTabAction(emptyTabsState(), 'any')).toEqual({ kind: 'delegate' });
   });
 });
 

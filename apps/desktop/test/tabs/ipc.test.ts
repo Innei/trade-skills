@@ -23,6 +23,7 @@ const BrowserWindow = {
 vi.mock('electron', () => ({ ipcMain, BrowserWindow }));
 
 const { registerTabsIpc } = await import('@desktop/tabs/ipc.js');
+const { createTabsService } = await import('@desktop/tabs/service.js');
 const { TABS_GET_CHANNEL, TABS_MUTATE_CHANNEL, TABS_SNAPSHOT_CHANNEL } =
   await import('@desktop/tabs/channels.js');
 
@@ -48,14 +49,14 @@ describe('registerTabsIpc', () => {
 
   it('returns the loaded snapshot on get', async () => {
     const seeded = openTab(emptyTabsState(), '/symbol/NVDA.US');
-    registerTabsIpc(fakeFileStore(seeded));
+    registerTabsIpc(createTabsService(fakeFileStore(seeded)));
 
     const result = await handlers.get(TABS_GET_CHANNEL)?.({});
     expect(result).toEqual(seeded);
   });
 
   it('returns an empty snapshot when nothing was persisted', async () => {
-    registerTabsIpc(fakeFileStore(emptyTabsState()));
+    registerTabsIpc(createTabsService(fakeFileStore(emptyTabsState())));
 
     const result = await handlers.get(TABS_GET_CHANNEL)?.({});
     expect(result).toEqual({ revision: 0, tabs: [] });
@@ -63,7 +64,7 @@ describe('registerTabsIpc', () => {
 
   it('adopts legacy tabs onto an empty store via mutate', async () => {
     const fileStore = fakeFileStore(emptyTabsState());
-    registerTabsIpc(fileStore);
+    registerTabsIpc(createTabsService(fileStore));
 
     const legacyTabs = [{ id: 'a', route: '/symbol/NVDA.US', title: 'NVDA', scrollY: 10 }];
     const result = (await handlers.get(TABS_MUTATE_CHANNEL)?.(
@@ -85,7 +86,7 @@ describe('registerTabsIpc', () => {
   it('applies a mutation, persists it, and broadcasts to every window', async () => {
     const initial = openTab(emptyTabsState(), '/');
     const fileStore = fakeFileStore(initial);
-    registerTabsIpc(fileStore);
+    registerTabsIpc(createTabsService(fileStore));
 
     const result = (await handlers.get(TABS_MUTATE_CHANNEL)?.(
       {},
@@ -105,7 +106,7 @@ describe('registerTabsIpc', () => {
   it('keeps the state intact for an unrecognized op and does not broadcast', async () => {
     const initial = openTab(emptyTabsState(), '/');
     const fileStore = fakeFileStore(initial);
-    registerTabsIpc(fileStore);
+    registerTabsIpc(createTabsService(fileStore));
 
     const result = await handlers.get(TABS_MUTATE_CHANNEL)?.({}, { op: 'explode', id: 'x' });
 
@@ -122,7 +123,7 @@ describe('registerTabsIpc', () => {
   it('does not persist or broadcast a no-op mutation', async () => {
     const initial = openTab(emptyTabsState(), '/');
     const fileStore = fakeFileStore(initial);
-    registerTabsIpc(fileStore);
+    registerTabsIpc(createTabsService(fileStore));
 
     const result = await handlers.get(TABS_MUTATE_CHANNEL)?.({}, { op: 'close', id: 'missing' });
 

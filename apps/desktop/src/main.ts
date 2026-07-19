@@ -34,8 +34,15 @@ import {
 import { installDefaultContextMenu } from './contextMenu/defaultMenu.js';
 import { registerContextMenuIpc } from './contextMenu/ipc.js';
 import { registerLogsIpc } from './logging/ipc.js';
+import { createRendererCallClient, type RendererCallClient } from './rendererCall/client.js';
 import { sendTabsCommand } from './tabs/commands.js';
-import { createTabsFileStore, type TabsFileStore } from './tabs/store.js';
+import {
+  createTabsFileStore,
+  cycleTabId,
+  resolveCloseTabAction,
+  type TabsFileStore,
+} from './tabs/store.js';
+import { createTabsService, type TabsService } from './tabs/service.js';
 import { registerTabsIpc } from './tabs/ipc.js';
 import { initUpdater } from './updater/updater.js';
 import { registerUpdaterIpc } from './updater/ipc.js';
@@ -54,7 +61,47 @@ console.log(`[desktop] logging to ${fileLogger.path}`);
 // grows into.
 registerAppScheme();
 
-function installAppMenu(checkForUpdates: () => void, openWindow: () => void): void {
+interface InstallAppMenuOptions {
+  checkForUpdates: () => void;
+  openWindow: () => void;
+  tabs: TabsService;
+  rendererCalls: RendererCallClient;
+}
+
+function installAppMenu({
+  checkForUpdates,
+  openWindow,
+  tabs,
+  rendererCalls,
+}: InstallAppMenuOptions): void {
+  function focusedTabWindow(): BrowserWindow | null {
+    const focused = BrowserWindow.getFocusedWindow();
+    if (!focused || isPopoutWindow(focused) || isAboutWindow(focused)) return null;
+    return focused;
+  }
+
+  async function activeTabIdOf(win: BrowserWindow): Promise<string | null> {
+    const result = await rendererCalls.call(win, 'tabs.getActiveTabId');
+    return typeof result === 'string' && result.length > 0 ? result : null;
+  }
+
+  function cycleTab(delta: 1 | -1): void {
+    const focused = focusedTabWindow();
+    if (!focused) {
+      sendTabsCommand(delta === 1 ? 'next-tab' : 'prev-tab');
+      return;
+    }
+    void (async () => {
+      const activeId = await activeTabIdOf(focused);
+      if (!activeId) return;
+      const target = cycleTabId(tabs.current(), activeId, delta);
+      if (!target) return;
+      await rendererCalls.call(focused, 'tabs.setActive', { id: target });
+    })().catch((error: unknown) => {
+      console.error('[desktop] cycle tab failed', error);
+    });
+  }
+
   createAppMenuManager({
     appName: app.name,
     deps: {
@@ -77,17 +124,40 @@ function installAppMenu(checkForUpdates: () => void, openWindow: () => void): vo
       openChat: () => sendTabsCommand('open-chat'),
       checkForUpdates,
       newWindow: openWindow,
-      newTab: () => sendTabsCommand('new-tab'),
+      newTab: () => {
+        const focused = focusedTabWindow();
+        if (!focused) {
+          sendTabsCommand('new-tab');
+          return;
+        }
+        void (async () => {
+          const id = crypto.randomUUID();
+          await tabs.mutate({ op: 'open', route: '/', id });
+          await rendererCalls.call(focused, 'tabs.setActive', { id });
+        })().catch((error: unknown) => {
+          console.error('[desktop] new tab failed', error);
+        });
+      },
       closeTab: () => {
         const focused = BrowserWindow.getFocusedWindow();
-        if (focused && (isPopoutWindow(focused) || isAboutWindow(focused))) {
+        if (!focused) return;
+        if (isPopoutWindow(focused) || isAboutWindow(focused)) {
           focused.close();
           return;
         }
-        sendTabsCommand('close-tab');
+        void (async () => {
+          const activeId = await activeTabIdOf(focused);
+          if (!activeId) return;
+          const action = resolveCloseTabAction(tabs.current(), activeId);
+          if (action.kind === 'close-window') focused.close();
+          else if (action.kind === 'close-tab') await tabs.mutate({ op: 'close', id: action.id });
+          else sendTabsCommand('close-tab');
+        })().catch((error: unknown) => {
+          console.error('[desktop] close tab failed', error);
+        });
       },
-      nextTab: () => sendTabsCommand('next-tab'),
-      prevTab: () => sendTabsCommand('prev-tab'),
+      nextTab: () => cycleTab(1),
+      prevTab: () => cycleTab(-1),
     },
   }).install();
 }
@@ -111,7 +181,8 @@ app.whenReady().then(async () => {
     const tabsFileStore: TabsFileStore = createTabsFileStore(
       join(app.getPath('userData'), 'tabs.json'),
     );
-    registerTabsIpc(tabsFileStore);
+    const tabsService = createTabsService(tabsFileStore);
+    registerTabsIpc(tabsService);
     registerLogsIpc(fileLogger);
     registerContextMenuIpc();
     await installDefaultContextMenu();
@@ -123,10 +194,12 @@ app.whenReady().then(async () => {
       userDataDir: app.getPath('userData'),
       onWindowFocus: () => updater.silentCheckOnActivate(),
     });
-    installAppMenu(
-      () => updater.checkNow(),
-      () => windowManager.openWindow(),
-    );
+    installAppMenu({
+      checkForUpdates: () => updater.checkNow(),
+      openWindow: () => windowManager.openWindow(),
+      tabs: tabsService,
+      rendererCalls: createRendererCallClient(),
+    });
     windowManager.restoreWindows();
 
     app.on('activate', () => {
