@@ -41,12 +41,8 @@ stocks/
 
 # Local projections of private Pro overlays. The link targets live in the
 # gitignored apps/pro linked worktree and are never public-repository content.
-/apps/**/*.pro.ts
-/apps/**/*.pro.tsx
-/apps/**/*.pro.mts
-/apps/**/*.pro.cts
-/packages/**/*.pro.ts
-/packages/**/*.pro.tsx
-/packages/**/*.pro.mts
-/packages/**/*.pro.cts
+*.pro.ts
+*.pro.tsx
+*.pro.mts
+*.pro.cts
 /.kansoku-overlay-links.json

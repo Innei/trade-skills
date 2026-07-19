@@ -22,8 +22,8 @@ const overlayRoot = join(publicRoot, 'apps', 'pro', 'overlays');
 const statePath = join(publicRoot, '.kansoku-overlay-links.json');
 const overlayPattern = /\.pro\.(?:[cm]?ts|tsx)$/;
 
-function within(root, path) {
-  const rel = relative(root, path);
+function within(root, target) {
+  const rel = relative(root, target);
   return rel === '' || (!rel.startsWith(`..${sep}`) && rel !== '..' && !isAbsolute(rel));
 }
 
@@ -39,9 +39,9 @@ function pathExists(path) {
 
 function walk(dir, files = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const path = join(dir, entry.name);
-    if (entry.isDirectory()) walk(path, files);
-    else if (entry.isFile() && overlayPattern.test(entry.name)) files.push(path);
+    const entryPath = join(dir, entry.name);
+    if (entry.isDirectory()) walk(entryPath, files);
+    else if (entry.isFile() && overlayPattern.test(entry.name)) files.push(entryPath);
   }
   return files;
 }
@@ -85,15 +85,18 @@ function readPrivateOnlyManifest() {
   return manifest.files;
 }
 
-const mappings = walk(overlayRoot).map((source) => {
-  const sourceRelative = relative(overlayRoot, source);
-  const destination = resolve(publicRoot, sourceRelative);
-  if (!within(publicRoot, destination) || within(join(publicRoot, 'apps', 'pro'), destination)) {
-    throw new Error(`unsafe overlay destination: ${sourceRelative}`);
-  }
-  const base = destination.replace(/\.pro(\.(?:[cm]?ts|tsx))$/, '$1');
-  return { destination, hasBase: existsSync(base), source, sourceRelative };
-});
+const mappings = walk(overlayRoot)
+  .map((source) => {
+    const sourceRelative = relative(overlayRoot, source);
+    const destination = resolve(publicRoot, sourceRelative);
+    if (!within(publicRoot, destination) || within(join(publicRoot, 'apps', 'pro'), destination)) {
+      errors.push(`unsafe overlay destination: ${sourceRelative}`);
+      return null;
+    }
+    const base = destination.replace(/\.pro(\.(?:[cm]?ts|tsx))$/, '$1');
+    return { destination, hasBase: existsSync(base), source, sourceRelative };
+  })
+  .filter((mapping) => mapping !== null);
 
 const overlayRelativePaths = new Set(
   mappings.map(({ sourceRelative }) => sourceRelative.split(sep).join('/')),

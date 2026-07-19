@@ -11,5 +11,5 @@
       "@poc/*": ["./*"]
     }
   },
-  "files": ["entry.ts", "typecheck.oss.ts"]
+  "files": ["entry.ts", "typecheck-oss.ts"]
 }
