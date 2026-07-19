@@ -12,12 +12,18 @@ const service = vi.hoisted(() => ({
 }));
 vi.mock("../../../../packages/core/src/modules/license/license.service.js", () => ({ licenseService: service }));
 
+const relaunchPrompt = vi.hoisted(() => vi.fn());
+vi.mock("../../src/boot/proRelaunch.js", () => ({
+  maybePromptProRelaunchAfterKeyLanded: relaunchPrompt,
+}));
+
 const { LicenseIpc } = await import("../../src/ipc/licenseIpc.js");
 
 beforeEach(() => {
   service.status.mockReset();
   service.activate.mockReset();
   service.deactivate.mockReset();
+  relaunchPrompt.mockReset();
 });
 
 describe("desktop license ipc", () => {
@@ -38,6 +44,20 @@ describe("desktop license ipc", () => {
     const result = await instance.activate({ key: "lic_1" });
     expect(service.activate).toHaveBeenCalledWith("lic_1");
     expect(result).toEqual({ ok: true, data: { activated: true } });
+  });
+
+  it("prompts for a pro relaunch after a successful activation", async () => {
+    service.activate.mockResolvedValue({ activated: true });
+    const instance = new LicenseIpc();
+    await instance.activate({ key: "lic_1" });
+    expect(relaunchPrompt).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not prompt for a relaunch when activation fails", async () => {
+    service.activate.mockResolvedValue({ activated: false, error: "invalid" });
+    const instance = new LicenseIpc();
+    await instance.activate({ key: "lic_bad" });
+    expect(relaunchPrompt).not.toHaveBeenCalled();
   });
 
   it("serves deactivate through the core license service", async () => {

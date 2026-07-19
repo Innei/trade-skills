@@ -9,6 +9,7 @@ import { createCredentialsBridgeHandlers, registerCredentialsIpc } from '../cred
 import { createDesktopSecretBox } from '../credentials/secretBox.js';
 import { IS_DEV } from './env.js';
 import { startProActivationWatch } from './proActivationWatch.js';
+import { promptProRelaunch } from './proRelaunch.js';
 
 export async function bootKernel() {
   if (__DESKTOP_DEV__) {
@@ -79,11 +80,7 @@ export async function bootKernel() {
     hasEncBundle,
     isProPresent,
     getBundleKey: getActiveBundleKey,
-    relaunch: () => {
-      console.log('[desktop] bundle key arrived — relaunching to load pro');
-      app.relaunch();
-      app.quit();
-    },
+    relaunch: () => void promptProRelaunch(),
   });
 
   return kernel;
