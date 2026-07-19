@@ -6,7 +6,10 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "moduleSuffixes": [""]
+    "moduleSuffixes": [""],
+    "paths": {
+      "@poc/*": ["./*"]
+    }
   },
   "files": ["entry.ts", "typecheck.oss.ts"]
 }

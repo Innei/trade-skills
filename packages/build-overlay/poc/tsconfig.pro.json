@@ -6,7 +6,10 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "moduleSuffixes": [".pro", ""]
+    "moduleSuffixes": [".pro", ""],
+    "paths": {
+      "@poc/*": ["./*"]
+    }
   },
   "files": ["entry.ts", "typecheck-pro.ts"]
 }

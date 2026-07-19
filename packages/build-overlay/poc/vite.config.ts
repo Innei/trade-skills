@@ -3,9 +3,15 @@ import { proOverlayPlugin } from '../src/index.js';
 
 const edition = process.env.KANSOKU_EDITION === 'pro' ? 'pro' : 'oss';
 const overlayRoot = fileURLToPath(new URL('../../../apps/pro/overlays', import.meta.url));
+const pocRoot = fileURLToPath(new URL('.', import.meta.url));
 
 export default {
   plugins: edition === 'pro' ? [proOverlayPlugin({ overlayRoot })] : [],
+  resolve: {
+    alias: {
+      '@poc': pocRoot,
+    },
+  },
   build: {
     emptyOutDir: true,
     lib: {
