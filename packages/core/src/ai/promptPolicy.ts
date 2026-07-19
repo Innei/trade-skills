@@ -29,22 +29,22 @@ export const DISCIPLINE_SKILL = 'trading-discipline';
 
 export class DisciplineMissingError extends Error {
   constructor() {
-    super(`${DISCIPLINE_SKILL} SKILL.md 读不到，本次运行中止——纪律缺席时不允许裸跑。`);
+    super(`${DISCIPLINE_SKILL} SKILL.md is unavailable; aborting because this agent must not run without its discipline.`);
     this.name = 'DisciplineMissingError';
   }
 }
 
 export const OBSERVER_CONTRACT = [
-  '观察者纪律：',
-  '- 只描述输入里能观察到的变化，不臆测原因。看不到成因就只说现象。',
-  '- 引用任何数字都要标明它来自哪个时间点的快照。',
-  '- 数据不足以支撑判断时，升级交给分析员，不要自己硬猜。',
-  '- 中文白话，少用行话；确实要用的术语，紧跟一个方括号白话注解。',
-  '- 市场范围跟随配置的关注市场，不臆造数据，拿不到就说明。',
+  'Observer discipline:',
+  '- Describe only changes observable in the input. Do not infer causes; when a cause is unavailable, state only the observation.',
+  '- Attribute every number to the timestamp of the snapshot from which it came.',
+  '- When data cannot support a judgment, escalate to the analyst instead of guessing.',
+  '- Use plain language and minimize jargon. When a technical term is necessary, immediately explain it in brackets.',
+  '- Follow the configured watched markets. Do not invent data; state when it is unavailable.',
 ].join('\n');
 
 export function watchedMarketsLine(markets: Market[]): string {
-  return `关注市场：${markets.join(' / ')}。全市场级扫描只覆盖这些市场；单标的分析跟随标的所在市场（TD-LANG-03）。`;
+  return `Watched markets: ${markets.join(' / ')}. Market-wide scans cover only these markets; single-symbol analysis follows the symbol's market (TD-LANG-03).`;
 }
 
 export function appendWatchedMarketsLine(disciplineText: string): string {

@@ -190,7 +190,7 @@ export function buildChatSystemPrompt(
   disciplineText = '',
 ): string {
   const prediction = (doc.input.prediction as IntradayPrediction | undefined) ?? null;
-  const predictionText = prediction ? JSON.stringify(prediction) : '该分析未附带预测结论';
+  const predictionText = prediction ? JSON.stringify(prediction) : 'No prediction is attached to this analysis.';
 
   const commentLines = analysisDayComments
     .filter((c) => RELEVANT_COMMENT_SOURCES.has(c.source) && c.level !== 'error')
@@ -198,12 +198,12 @@ export function buildChatSystemPrompt(
     .map((c) => `${etClock(c.ts)} ${c.text}`);
 
   const own = [
-    '你是交易看盘应用 Kansoku 的短线技术分析员对话模式，用户正在 Kansoku 里的一份已归档日内分析上向你追问。',
+    'You are Kansoku\'s short-term technical-analysis chat mode. The user is asking follow-up questions about an archived intraday analysis in Kansoku.',
     '',
-    `标的：${doc.symbol}`,
-    `分析创建时间：${doc.created_at}`,
-    `已归档预测：${predictionText}`,
-    commentLines.length ? `当日分析员点评：\n${commentLines.join('\n')}` : '当日暂无分析员点评。',
+    `Symbol: ${doc.symbol}`,
+    `Analysis created at: ${doc.created_at}`,
+    `Archived prediction: ${predictionText}`,
+    commentLines.length ? `Analyst comments for this day:\n${commentLines.join('\n')}` : 'There are no analyst comments for this day.',
     '',
     CHAT_DIALOG_RULES,
     '',
@@ -248,8 +248,7 @@ function buildVerifyTools(
     name: 'verify_directional_read',
     label: 'Verify Directional Read',
     description:
-      '核验用户对走势的判断。重新拉取实时数据，由服务端算出现价、今日正常盘高/低、盘前高、前一日高/收，' +
-      '并给出机械判定（现价是否真的过了盘前高）。用户说突破/见底/砸盘时必须先调用它。',
+      'Verify the user\'s directional claim. Fetch fresh live data and calculate current price, regular-session high/low, premarket high, and prior-day high/close on the server, then return a mechanical result for whether price truly exceeded the premarket high. Call this first when the user claims a breakout, bottom, or dumping.',
     parameters: noArgsSchema,
     execute: async () => {
       const pack = await deps.buildPack(symbol);
@@ -265,13 +264,12 @@ function buildVerifyTools(
     name: 'submit_chat_answer',
     label: 'Submit Answer',
     description:
-      '提交本轮回答。用户对走势下了判断时必须走这个工具，并带上本轮 verify_directional_read 返回的 verification_id。' +
-      'claim_status 四选一：supported / partial / contradicted / insufficient。证据不足就填 insufficient，不要站队。',
+      'Submit the answer for this turn. When the user made a directional claim, this tool is required and must include the verification_id returned by this turn\'s verify_directional_read. claim_status must be one of supported, partial, contradicted, or insufficient; use insufficient rather than taking a side when evidence is inadequate.',
     parameters: submitChatAnswerSchema,
     execute: async (_id, params) => {
       const rejection = rejectAnswer(params, ctx.minted);
       if (rejection) return textResult(rejection);
-      if (!params.answer.trim()) return textResult('rejected: answer 不能为空。');
+      if (!params.answer.trim()) return textResult('rejected: answer must not be empty.');
       ctx.answer = params.answer;
       return textResult('accepted');
     },
@@ -393,7 +391,7 @@ function prepareTurn(
           ? {
               instruction: CHAT_GATED_TURN_INSTRUCTION,
               retryInstruction: CHAT_GATED_RETRY_INSTRUCTION,
-              failClosedMessage: '回答未通过走势核验，已拦截。请重试或改用「重新分析」。',
+              failClosedMessage: 'The answer did not pass directional verification and was blocked. Retry or use Reassess.',
               answer: () => verifyCtx.answer,
             }
           : undefined,

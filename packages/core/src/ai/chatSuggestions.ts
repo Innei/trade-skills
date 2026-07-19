@@ -8,13 +8,14 @@ import { listComments as defaultListComments } from './comments.js';
 import type { AiModel } from './models.js';
 import { aiConfig } from './models.js';
 import { CHAT_SUGGESTIONS_PROMPT } from './prompts.js';
+import { MessagesEngine } from './messages/messageEngine.js';
 
 const TIMEOUT_MS = 30_000;
 const MAX_SUGGESTIONS = 3;
 const MAX_LENGTH = 40;
 
 const submitSchema = Type.Object({
-  questions: Type.Array(Type.String(), { description: '3 条追问问题，每条不超过 20 字' }),
+  questions: Type.Array(Type.String(), { description: 'Three follow-up questions, each no more than 20 Chinese characters.' }),
 });
 
 type SubmitParams = Static<typeof submitSchema>;
@@ -64,7 +65,7 @@ async function generate(chartId: string, deps: ChatSuggestionDeps): Promise<stri
   const tool: AgentTool<typeof submitSchema> = {
     name: 'submit_questions',
     label: 'Submit Questions',
-    description: '提交 3 条追问问题。必须调用恰好一次。',
+    description: 'Submit three follow-up questions. Call exactly once.',
     parameters: submitSchema,
     execute: async (_id, params: SubmitParams) => {
       questions = params.questions;
@@ -78,6 +79,7 @@ async function generate(chartId: string, deps: ChatSuggestionDeps): Promise<stri
     model,
     systemPrompt: CHAT_SUGGESTIONS_PROMPT,
     tools: [tool],
+    transformContext: async (messages) => (await new MessagesEngine([]).process(messages)).messages,
     agentFactory: deps.agentFactory,
   });
 

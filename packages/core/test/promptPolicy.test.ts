@@ -53,7 +53,7 @@ describe('disciplineFor', () => {
 
   it('gives the observer a compact contract, not the data-trap rules', () => {
     const text = disciplineFor('observer', PROJECT_ROOT);
-    expect(text).toContain('只描述输入里能观察到的变化');
+    expect(text).toContain('Describe only changes observable in the input');
     // The observer never reads a financial statement; these rules would be pure cost.
     expect(text).not.toContain('TD-GAAP-01');
     expect(text).not.toContain('TD-QOQ-01');
@@ -122,13 +122,13 @@ describe('watched-markets line injection', () => {
     setActiveWatchedMarketsStore(fakeWatchedMarketsStore(['HK']));
     const merged = appendWatchedMarketsLine('BASE_DISCIPLINE');
     expect(merged).toBe(
-      'BASE_DISCIPLINE\n\n关注市场：HK。全市场级扫描只覆盖这些市场；单标的分析跟随标的所在市场（TD-LANG-03）。',
+      'BASE_DISCIPLINE\n\nWatched markets: HK. Market-wide scans cover only these markets; single-symbol analysis follows the symbol\'s market (TD-LANG-03).',
     );
   });
 
   it('joins multiple markets with a slash', () => {
     expect(watchedMarketsLine(['US', 'HK', 'CN'])).toBe(
-      '关注市场：US / HK / CN。全市场级扫描只覆盖这些市场；单标的分析跟随标的所在市场（TD-LANG-03）。',
+      'Watched markets: US / HK / CN. Market-wide scans cover only these markets; single-symbol analysis follows the symbol\'s market (TD-LANG-03).',
     );
   });
 
@@ -140,7 +140,7 @@ describe('watched-markets line injection', () => {
     setActiveWatchedMarketsStore(fakeWatchedMarketsStore(['HK']));
     const text = loadSharedDiscipline(PROJECT_ROOT);
     expect(text).toContain(
-      '关注市场：HK。全市场级扫描只覆盖这些市场；单标的分析跟随标的所在市场（TD-LANG-03）。',
+      'Watched markets: HK. Market-wide scans cover only these markets; single-symbol analysis follows the symbol\'s market (TD-LANG-03).',
     );
   });
 });

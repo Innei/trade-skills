@@ -71,16 +71,17 @@ describe('AnalystMessagesEngine', () => {
     const second = await engine.process(raw);
 
     expect(raw).toEqual([{ role: 'user', content: '请重估 MU.US。', timestamp: 1 }]);
-    expect(first.messages).toHaveLength(3);
-    expect(second.messages).toHaveLength(3);
+    expect(first.messages).toHaveLength(4);
+    expect(second.messages).toHaveLength(4);
     expect(
-      textOf(first.messages[0]).match(/SYSTEM CONTEXT \(NOT PART OF USER QUERY\)/g),
+      textOf(first.messages[1]).match(/SYSTEM CONTEXT \(NOT PART OF USER QUERY\)/g),
     ).toHaveLength(1);
-    expect(textOf(first.messages[0])).toContain('twitter-reader');
-    expect(textOf(first.messages[0])).toContain('INTRADAY BODY');
-    expect(textOf(first.messages[0])).toContain('"symbol":"MU.US"');
-    expect(textOf(first.messages[1])).toBe('请重估 MU.US。');
-    expect(textOf(first.messages[2])).toContain('<analyst_run_state>');
+    expect(textOf(first.messages[0])).toContain('<interface_language>');
+    expect(textOf(first.messages[1])).toContain('twitter-reader');
+    expect(textOf(first.messages[1])).toContain('INTRADAY BODY');
+    expect(textOf(first.messages[1])).toContain('"symbol":"MU.US"');
+    expect(textOf(first.messages[2])).toBe('请重估 MU.US。');
+    expect(textOf(first.messages[3])).toContain('<analyst_run_state>');
   });
 
   it('recomputes high-churn run state at the tail without persisting the old value', async () => {

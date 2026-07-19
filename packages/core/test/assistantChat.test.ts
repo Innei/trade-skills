@@ -305,7 +305,7 @@ describe('assistant chat', () => {
     if (result.started) await result.done;
 
     expect(capturedSystemPrompt).toContain('测试纪律标记。');
-    expect(capturedSystemPrompt).toContain('@路径');
+    expect(capturedSystemPrompt).toContain('@path');
   });
 
   it('fails closed when the shared discipline text cannot be loaded', async () => {
@@ -324,7 +324,7 @@ describe('assistant chat', () => {
     unsub();
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({ event: 'error' });
-    expect((events[0] as { message: string }).message).toContain('SKILL.md 读不到');
+    expect((events[0] as { message: string }).message).toContain('SKILL.md is unavailable');
     rmSync(emptyRoot, { recursive: true, force: true });
   });
 

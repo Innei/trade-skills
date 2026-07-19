@@ -4,11 +4,12 @@ import type { MacroEventItem } from '@kansoku/shared/types';
 import { type AiAgentFactory, createAgentSession } from './agentSession.js';
 import { aiConfig } from './models.js';
 import { EVENT_FILTER_PROMPT } from './prompts.js';
+import { MessagesEngine } from './messages/messageEngine.js';
 
 const TIMEOUT_MS = 60_000;
 
 const submitSchema = Type.Object({
-  keep: Type.Array(Type.Integer({ minimum: 0 }), { description: '保留事件的 i 序号' }),
+  keep: Type.Array(Type.Integer({ minimum: 0 }), { description: 'Indexes i of the events to retain.' }),
 });
 
 type SubmitParams = Static<typeof submitSchema>;
@@ -31,7 +32,7 @@ export async function filterMacroForSymbol(
   const tool: AgentTool<typeof submitSchema> = {
     name: 'submit_filter',
     label: 'Submit Filter',
-    description: '提交过滤结果。必须调用恰好一次。',
+    description: 'Submit the filtering result. Call exactly once.',
     parameters: submitSchema,
     execute: async (_id, params: SubmitParams) => {
       kept = params.keep;
@@ -45,6 +46,7 @@ export async function filterMacroForSymbol(
     model,
     systemPrompt: EVENT_FILTER_PROMPT,
     tools: [tool],
+    transformContext: async (messages) => (await new MessagesEngine([]).process(messages)).messages,
     agentFactory: deps.agentFactory,
   });
 

@@ -86,10 +86,10 @@ export function verifyDirectionalRead(
   const prev = pack.day_levels?.prev_day ?? null;
 
   const notes: string[] = [];
-  if (!tail) notes.push('没有 5 分钟 K 线，无法核验现价。');
-  if (!pre) notes.push('拿不到今日盘前区间——无法判断是否真突破（TD-VERIFY-01 要求对比盘前高）。');
-  if (!prev) notes.push('拿不到前一日高/收，无法对比前高。');
-  if (!cash) notes.push('今日尚无正常盘 K 线（盘前/盘后/休市）。');
+  if (!tail) notes.push('No five-minute bar is available, so current price cannot be verified.');
+  if (!pre) notes.push('Today\'s premarket range is unavailable, so a true breakout cannot be determined (TD-VERIFY-01 requires comparison with the premarket high).');
+  if (!prev) notes.push('Prior-day high/close is unavailable, so the prior high cannot be compared.');
+  if (!cash) notes.push('No regular-session bar is available today (premarket, after-hours, or market closed).');
 
   const dataComplete = Boolean(tail && pre && prev);
 
@@ -105,15 +105,15 @@ export function verifyDirectionalRead(
   } else if (abovePre || abovePrevHigh || cashCleared) {
     breakoutVerdict = 'partial';
     if (cashCleared && !abovePre) {
-      notes.push('盘中一度上破盘前高但没守住——是假突破的形态，不是突破。');
+      notes.push('Price briefly exceeded the premarket high intraday but failed to hold it: this is a false-breakout pattern, not a breakout.');
     }
     if (!cashCleared && abovePrevHigh) {
-      notes.push('过了前一日高点，但没过今天的盘前高——只算部分成立。');
+      notes.push('Price exceeded the prior-day high but not today\'s premarket high, so the claim is only partially supported.');
     }
   } else {
     breakoutVerdict = 'contradicted';
     if (cash && pre && cash.high <= pre.high) {
-      notes.push('今天正常盘的最高价从未触及盘前高——把这段涨幅叫「突破」与数据不符。');
+      notes.push('Today\'s regular-session high never reached the premarket high, so calling this move a breakout contradicts the data.');
     }
   }
 
@@ -150,17 +150,17 @@ export function rejectAnswer(
   minted: Map<string, DirectionalVerification>,
 ): string | null {
   if (!submitted.verification_id) {
-    return 'rejected: 这一轮用户对走势下了判断，必须先调用 verify_directional_read，并把它返回的 verification_id 填进来。';
+    return 'rejected: the user made a directional claim this turn. Call verify_directional_read first and provide its verification_id.';
   }
   const verification = minted.get(submitted.verification_id);
   if (!verification) {
-    return 'rejected: verification_id 不是本轮 verify_directional_read 返回的——不接受凭空捏造或复用旧的核验。';
+    return 'rejected: verification_id was not returned by this turn\'s verify_directional_read. Fabricated or reused verifications are not accepted.';
   }
   if (!verification.data_complete && submitted.claim_status !== 'insufficient') {
-    return `rejected: 核验数据不完整（${verification.notes.join(' ')}），此时只能提交 insufficient，不得站队。`;
+    return `rejected: verification data is incomplete (${verification.notes.join(' ')}). Only insufficient may be submitted; do not take a side.`;
   }
   if (verification.breakout_verdict === 'contradicted' && submitted.claim_status === 'supported') {
-    return 'rejected: 机械核验判定为 contradicted（现价与盘中高点都没过盘前高），不能提交 supported。数据冲突时必须明确纠正用户。';
+    return 'rejected: mechanical verification is contradicted because neither current price nor the intraday high exceeded the premarket high. supported cannot be submitted; clearly correct the user when data conflicts.';
   }
   return null;
 }
