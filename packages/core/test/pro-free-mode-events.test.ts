@@ -8,7 +8,7 @@ vi.mock('../src/services/longbridgeCli.js', () => ({
 }));
 
 const { getEventRisk } = await import('../src/services/events.js');
-const { isProPresent } = await import('../src/pro/registry.js');
+const { isEditionActive } = await import('../src/pro/editionRuntime.js');
 
 function macroPayload(now: Date): unknown {
   return {
@@ -30,7 +30,7 @@ function macroPayload(now: Date): unknown {
 
 describe('pro free-mode fallback for events.ts (no builtin registered)', () => {
   it('has nothing registered so the default hooks apply', () => {
-    expect(isProPresent()).toBe(false);
+    expect(isEditionActive()).toBe(false);
   });
 
   it('passes macro items through unchanged without calling any AI filter', async () => {

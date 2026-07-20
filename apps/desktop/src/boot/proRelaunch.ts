@@ -21,11 +21,12 @@ export async function promptProRelaunch(): Promise<void> {
 }
 
 export async function maybePromptProRelaunchAfterKeyLanded(): Promise<void> {
-  const [{ hasEncBundle, isProPresent }, { getActiveBundleKey }] = await Promise.all([
-    import('@kansoku/core/pro/registry'),
+  const [{ hasEncBundle }, { isEditionActive }, { getActiveBundleKey }] = await Promise.all([
+    import('@kansoku/core/pro/bundleState'),
+    import('@kansoku/core/pro/editionRuntime'),
     import('@kansoku/core/license/licenseState'),
   ]);
-  if (!hasEncBundle() || isProPresent() || !getActiveBundleKey()) return;
+  if (!hasEncBundle() || isEditionActive() || !getActiveBundleKey()) return;
   await promptProRelaunch();
 }
 

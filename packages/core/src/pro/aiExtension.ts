@@ -7,7 +7,6 @@ import {
   type MessagePipelineContext,
   type MessageProcessor,
 } from '../ai/messages/messageEngine.js';
-import { getPro } from './registry.js';
 
 class ProPromptContextProvider extends BaseFirstUserContentProvider {
   readonly name = 'ProPromptContextProvider';
@@ -59,7 +58,7 @@ export function normalizeProTranscript(
 
 export async function prepareProAiTurn(
   context: ProAiTurnContext,
-  extension: ProAiExtension | undefined = getPro()?.aiExtension,
+  extension: ProAiExtension | undefined,
 ): Promise<PreparedProAiTurn> {
   if (!extension) return { readMounts: [], processors: [] };
 

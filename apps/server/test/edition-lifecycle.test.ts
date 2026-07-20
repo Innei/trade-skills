@@ -7,10 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { setModelsRuntimeForTests } from '@kansoku/core/ai/modelsRuntime';
 import { BaseServerEdition } from '@kansoku/core/edition/base';
 import { createDefaultServerEditionHost } from '@kansoku/core/edition/host';
+import { ServerEdition } from '@kansoku/core/edition/serverEdition';
 import type { ServerBuilder } from '@kansoku/core/edition/serverBuilder';
 import type { EditionActivation } from '@kansoku/core/pro/editionLoader';
-import { freeHooks, registerProModule, unregisterProModuleForTests } from '@kansoku/core/pro/registry';
-import { resetProtocolClaimForTests } from '@kansoku/core/pro/protocolClaim';
+import { resetEncBundleStateForTests } from '@kansoku/core/pro/bundleState';
 import { createKernel } from '../src/bootstrap.js';
 
 vi.mock('@kansoku/core/pro/editionLoader', async (importOriginal) => {
@@ -18,16 +18,9 @@ vi.mock('@kansoku/core/pro/editionLoader', async (importOriginal) => {
   return { ...actual, loadEdition: vi.fn(actual.loadEdition) };
 });
 
-vi.mock('@kansoku/core/pro/loader', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@kansoku/core/pro/loader')>();
-  return { ...actual, loadPro: vi.fn(actual.loadPro) };
-});
-
 const { initServerRuntime } = await import('../src/runtimeInit.js');
 const { registerShutdownHandlers } = await import('../src/shutdown.js');
-const { LegacyCompatServerEdition } = await import('../src/modules/legacyServerEdition.js');
 const { loadEdition } = await import('@kansoku/core/pro/editionLoader');
-const { loadPro } = await import('@kansoku/core/pro/loader');
 
 @Controller('edition-active-probe')
 class ActiveProbeController {
@@ -52,59 +45,38 @@ let tmpAppDir: string;
 beforeEach(() => {
   tmpAppDir = mkdtempSync(join(tmpdir(), 'kansoku-server-edition-lifecycle-'));
   vi.mocked(loadEdition).mockClear();
-  vi.mocked(loadPro).mockClear();
 });
 
 afterEach(() => {
   rmSync(tmpAppDir, { recursive: true, force: true });
-  unregisterProModuleForTests();
-  resetProtocolClaimForTests();
+  resetEncBundleStateForTests();
   setModelsRuntimeForTests(null);
 });
 
-describe('initServerRuntime: loadEdition-first with legacy fallback', () => {
-  it('absent pro.enc falls through to LegacyCompatServerEdition, and its full lifecycle resolves cleanly', async () => {
+describe('initServerRuntime: loadEdition-first with a free fallback', () => {
+  it('absent pro.enc falls through to the free ServerEdition, and its full lifecycle resolves cleanly', async () => {
     const { edition } = await initServerRuntime({ proAppDir: tmpAppDir });
 
-    expect(edition).toBeInstanceOf(LegacyCompatServerEdition);
+    expect(edition).toBeInstanceOf(ServerEdition);
     await expect(edition.initialize()).resolves.toBeUndefined();
     await expect(edition.start()).resolves.toBeUndefined();
     await expect(edition.dispose()).resolves.toBeUndefined();
   });
 
-  it('absent pro.enc: legacy edition starts the pro scheduler on start() and stops it on dispose()', async () => {
-    const stopScheduler = vi.fn();
-    const startScheduler = vi.fn(() => stopScheduler);
-    registerProModule({ hooks: freeHooks, startScheduler });
-
-    const { edition } = await initServerRuntime({ proAppDir: tmpAppDir });
-
-    await edition.initialize();
-    expect(startScheduler).not.toHaveBeenCalled();
-
-    await edition.start();
-    expect(startScheduler).toHaveBeenCalledTimes(1);
-    expect(stopScheduler).not.toHaveBeenCalled();
-
-    await edition.dispose();
-    expect(stopScheduler).toHaveBeenCalledTimes(1);
-  });
-
   const noBundleStates = ['absent', 'locked'] as const;
 
   for (const state of noBundleStates) {
-    it(`state=${state} falls back to loadPro + LegacyCompatServerEdition, and reports protocol="legacy"`, async () => {
+    it(`state=${state} falls back to the free ServerEdition, and reports bundleActive:false`, async () => {
       vi.mocked(loadEdition).mockResolvedValueOnce({
         state,
         bundlePresent: state !== 'absent',
       } as EditionActivation<BaseServerEdition>);
       const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 
-      const { edition, protocol } = await initServerRuntime({ proAppDir: tmpAppDir });
+      const { edition, bundleActive } = await initServerRuntime({ proAppDir: tmpAppDir });
 
-      expect(edition).toBeInstanceOf(LegacyCompatServerEdition);
-      expect(protocol).toBe('legacy');
-      expect(loadPro).toHaveBeenCalledTimes(1);
+      expect(edition).toBeInstanceOf(ServerEdition);
+      expect(bundleActive).toBe(false);
       const logLine = infoSpy.mock.calls.map((args) => String(args[0])).find((line) => line.startsWith('[edition]'));
       expect(logLine).toContain('runtime=server');
       expect(logLine).toContain(`state=${state}`);
@@ -116,7 +88,7 @@ describe('initServerRuntime: loadEdition-first with legacy fallback', () => {
   const rejectedBundleStates = ['incompatible', 'failed'] as const;
 
   for (const state of rejectedBundleStates) {
-    it(`state=${state} (bundle present but rejected) never calls loadPro, runs free via LegacyCompatServerEdition, and reports protocol="legacy"`, async () => {
+    it(`state=${state} (bundle present but rejected) runs free via the free ServerEdition, and reports bundleActive:false`, async () => {
       vi.mocked(loadEdition).mockResolvedValueOnce({
         state,
         bundlePresent: true,
@@ -125,11 +97,10 @@ describe('initServerRuntime: loadEdition-first with legacy fallback', () => {
       const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      const { edition, protocol } = await initServerRuntime({ proAppDir: tmpAppDir });
+      const { edition, bundleActive } = await initServerRuntime({ proAppDir: tmpAppDir });
 
-      expect(edition).toBeInstanceOf(LegacyCompatServerEdition);
-      expect(protocol).toBe('legacy');
-      expect(loadPro).not.toHaveBeenCalled();
+      expect(edition).toBeInstanceOf(ServerEdition);
+      expect(bundleActive).toBe(false);
       const logLine = infoSpy.mock.calls.map((args) => String(args[0])).find((line) => line.startsWith('[edition]'));
       expect(logLine).toContain('runtime=server');
       expect(logLine).toContain(`state=${state}`);
@@ -142,26 +113,7 @@ describe('initServerRuntime: loadEdition-first with legacy fallback', () => {
     });
   }
 
-  it('dev-source boot (pro.enc absent, apps/pro slot present as plaintext): a second loadEdition() call for another runtime after the legacy claim throws a protocol conflict — proving why bootKernel() must gate its desktop loadEdition() call on protocol === "edition"', async () => {
-    const { mkdirSync, writeFileSync } = await import('node:fs');
-    const desktopAppDir = join(tmpAppDir, 'app');
-    mkdirSync(desktopAppDir, { recursive: true });
-    const proSrcDir = join(tmpAppDir, 'pro', 'src');
-    mkdirSync(proSrcDir, { recursive: true });
-    writeFileSync(join(proSrcDir, 'index.js'), 'export default { hooks: {} };\n');
-
-    const { protocol } = await initServerRuntime({ proAppDir: desktopAppDir });
-    expect(protocol).toBe('legacy');
-
-    const { encPath, virtualDir } = (await import('../src/proEncLayout.js')).serverEncLayout(
-      desktopAppDir,
-    );
-    await expect(
-      loadEdition({ encPath, virtualDir, runtime: 'desktop', keyHex: null, host: {} }),
-    ).rejects.toThrow(/pro protocol conflict/);
-  });
-
-  it('state=active returns the edition constructed by loadEdition, and never calls loadPro', async () => {
+  it('state=active returns the edition constructed by loadEdition', async () => {
     const fakeEdition = { kind: 'fake-pro-edition' } as unknown as BaseServerEdition;
     vi.mocked(loadEdition).mockResolvedValueOnce({
       state: 'active',
@@ -172,11 +124,10 @@ describe('initServerRuntime: loadEdition-first with legacy fallback', () => {
     } as EditionActivation<BaseServerEdition>);
     const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
 
-    const { edition, protocol } = await initServerRuntime({ proAppDir: tmpAppDir });
+    const { edition, bundleActive } = await initServerRuntime({ proAppDir: tmpAppDir });
 
     expect(edition).toBe(fakeEdition);
-    expect(protocol).toBe('edition');
-    expect(loadPro).not.toHaveBeenCalled();
+    expect(bundleActive).toBe(true);
     const logLine = infoSpy.mock.calls.map((args) => String(args[0])).find((line) => line.startsWith('[edition]'));
     expect(logLine).toContain('buildId=test-build');
     expect(logLine).toContain('keyId=test-key');
@@ -196,7 +147,6 @@ describe('initServerRuntime: loadEdition-first with legacy fallback', () => {
     } as EditionActivation<BaseServerEdition>);
 
     const { edition } = await initServerRuntime({ proAppDir: tmpAppDir });
-    expect(loadPro).not.toHaveBeenCalled();
 
     const { app } = await createKernel(edition);
     const res = await app.getInstance().request('/api/edition-active-probe/ping');

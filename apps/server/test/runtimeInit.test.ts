@@ -15,8 +15,7 @@ import {
   defaultAiTurnPipeline,
   resetDefaultAiTurnPipelineForTests,
 } from '@kansoku/core/pro/domain/defaultImplementations';
-import { unregisterProModuleForTests } from '@kansoku/core/pro/registry';
-import { resetProtocolClaimForTests } from '@kansoku/core/pro/protocolClaim';
+import { resetEncBundleStateForTests } from '@kansoku/core/pro/bundleState';
 
 vi.mock('@kansoku/core/pro/editionLoader', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@kansoku/core/pro/editionLoader')>();
@@ -40,8 +39,7 @@ beforeEach(() => {
 
 afterEach(() => {
   rmSync(tmpAppDir, { recursive: true, force: true });
-  unregisterProModuleForTests();
-  resetProtocolClaimForTests();
+  resetEncBundleStateForTests();
   setModelsRuntimeForTests(null);
   resetCapabilitiesServiceForTests();
   resetSymbolsServiceForTests();
@@ -82,7 +80,7 @@ describe('initServerRuntime: active edition capability wiring', () => {
     delete process.env.KANSOKU_LICENSE_BYPASS;
   });
 
-  it('routes capabilitiesService/symbolsService/AI turn pipeline through the active edition, not the legacy registry', async () => {
+  it('routes capabilitiesService/symbolsService/AI turn pipeline through the active edition', async () => {
     const followCalls: string[] = [];
     const fakeEdition = {
       async initialize() {},
@@ -130,7 +128,7 @@ describe('initServerRuntime: active edition capability wiring', () => {
 });
 
 describe('initServerRuntime: dev-dist edition-protocol fallback (design §17)', () => {
-  it('dev host, no pro.enc (state=absent): retries via loadEditionFromDevDist() and wires capabilities the same way an active enc edition would — ABI-shape validation, not loadPro()', async () => {
+  it('dev host, no pro.enc (state=absent): retries via loadEditionFromDevDist() and wires capabilities the same way an active enc edition would', async () => {
     const fakeEdition = {
       async initialize() {},
       async start() {},
@@ -149,7 +147,7 @@ describe('initServerRuntime: dev-dist edition-protocol fallback (design §17)', 
     expect(loadEditionFromDevDist).toHaveBeenCalledWith(
       expect.objectContaining({ runtime: 'server', host: expect.anything() }),
     );
-    expect(result.protocol).toBe('edition');
+    expect(result.bundleActive).toBe(true);
     expect(result.editionSource).toBe('dist-dev');
     expect(result.edition).toBe(fakeEdition);
 
@@ -157,19 +155,19 @@ describe('initServerRuntime: dev-dist edition-protocol fallback (design §17)', 
     expect(capabilities.pro).toBe(true);
   });
 
-  it('production host (state=absent): never attempts loadEditionFromDevDist(), falls straight to the legacy loader', async () => {
+  it('production host (state=absent): never attempts loadEditionFromDevDist(), runs free instead', async () => {
     const result = await initServerRuntime({ proAppDir: tmpAppDir, productionHost: true });
 
     expect(loadEditionFromDevDist).not.toHaveBeenCalled();
-    expect(result.protocol).toBe('legacy');
+    expect(result.bundleActive).toBe(false);
     expect(result.editionSource).toBeUndefined();
   });
 
-  it('dev host, no pro.enc and no dist-dev/ built (dist-dev also resolves absent): falls back to the legacy loadPro() path, same as before this feature existed', async () => {
+  it('dev host, no pro.enc and no dist-dev/ built (dist-dev also resolves absent): runs free', async () => {
     const result = await initServerRuntime({ proAppDir: tmpAppDir, productionHost: false });
 
     expect(loadEditionFromDevDist).toHaveBeenCalledTimes(1);
-    expect(result.protocol).toBe('legacy');
+    expect(result.bundleActive).toBe(false);
     expect(result.editionSource).toBeUndefined();
   });
 
@@ -182,6 +180,6 @@ describe('initServerRuntime: dev-dist edition-protocol fallback (design §17)', 
     const result = await initServerRuntime({ proAppDir: tmpAppDir, productionHost: false });
 
     expect(loadEditionFromDevDist).not.toHaveBeenCalled();
-    expect(result.protocol).toBe('legacy');
+    expect(result.bundleActive).toBe(false);
   });
 });

@@ -6,7 +6,6 @@ import {
 import { clampViewCount } from '../services/history.js';
 import type { ProChannel } from '@kansoku/pro-api';
 import { normalizeSymbol } from '../services/symbol.utils.js';
-import { getPro } from '../pro/registry.js';
 import { coreAiChannels } from './aiChannels.js';
 import { subscribeAnalyses } from './analyses.js';
 import { subscribeBenchmark } from './benchmark.js';
@@ -161,7 +160,7 @@ async function attachChannel(
 }
 
 export function handleConnection(conn: Connection, extraChannels?: readonly ProChannel[]): void {
-  const channels = extraChannels ?? getPro()?.channels ?? [];
+  const channels = extraChannels ?? [];
   const subs = new Map<string, () => void>();
   let closed = false;
 

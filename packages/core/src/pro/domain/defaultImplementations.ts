@@ -6,7 +6,6 @@ import type {
   ProHooks,
 } from '@kansoku/pro-api';
 import { prepareProAiTurn, type PreparedProAiTurn } from '../aiExtension.js';
-import { LegacyAiTurnPipeline } from './legacyAdapters.js';
 import type { AiTurnPipeline } from './aiTurnPipeline.js';
 import type { DeepDiveService } from './deepDiveService.js';
 import type { FollowAutomation } from './followAutomation.js';
@@ -59,14 +58,14 @@ export class EditionAiTurnPipeline implements AiTurnPipeline {
   }
 }
 
-let defaultAiTurnPipelineFactory: () => AiTurnPipeline = () => new LegacyAiTurnPipeline();
+let defaultAiTurnPipelineFactory: () => AiTurnPipeline = () => new EmptyAiTurnPipeline();
 
 export function configureDefaultAiTurnPipeline(factory: () => AiTurnPipeline): void {
   defaultAiTurnPipelineFactory = factory;
 }
 
 export function resetDefaultAiTurnPipelineForTests(): void {
-  defaultAiTurnPipelineFactory = () => new LegacyAiTurnPipeline();
+  defaultAiTurnPipelineFactory = () => new EmptyAiTurnPipeline();
 }
 
 export function defaultAiTurnPipeline(): AiTurnPipeline {

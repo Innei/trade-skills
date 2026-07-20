@@ -1,8 +1,8 @@
 import { currentSnapshotSafe, isLicensed } from '../../license/licenseGate.js';
 import type { CapabilitiesApi } from '../../contract/capabilities.js';
-import { LegacyEditionRuntimeStatusReader } from '../../pro/domain/legacyAdapters.js';
 import {
   configureEditionRuntimeStatus,
+  FreeEditionRuntimeStatusReader,
   resetEditionRuntimeStatusForTests,
   type EditionRuntimeStatusReader,
 } from '../../pro/editionRuntime.js';
@@ -26,7 +26,7 @@ export function createCapabilitiesService(
 }
 
 let currentCapabilitiesService: CapabilitiesApi = createCapabilitiesService(
-  new LegacyEditionRuntimeStatusReader(),
+  new FreeEditionRuntimeStatusReader(),
 );
 
 export function configureCapabilitiesService(statusReader: EditionRuntimeStatusReader): void {
@@ -39,7 +39,7 @@ export function configureCapabilitiesService(statusReader: EditionRuntimeStatusR
 }
 
 export function resetCapabilitiesServiceForTests(): void {
-  currentCapabilitiesService = createCapabilitiesService(new LegacyEditionRuntimeStatusReader());
+  currentCapabilitiesService = createCapabilitiesService(new FreeEditionRuntimeStatusReader());
   resetEditionRuntimeStatusForTests();
 }
 

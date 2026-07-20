@@ -4,16 +4,13 @@ import {
   setLicenseManagerForTests,
   type LicenseManager,
 } from '../src/license/licenseState.js';
-import {
-  freeHooks,
-  registerProModule,
-  setEncBundlePresent,
-  unregisterProModuleForTests,
-} from '../src/pro/registry.js';
+import { setEncBundlePresent } from '../src/pro/bundleState.js';
 import type { EditionRuntimeStatus, EditionRuntimeStatusReader } from '../src/pro/editionRuntime.js';
 import {
   capabilitiesService,
+  configureCapabilitiesService,
   createCapabilitiesService,
+  resetCapabilitiesServiceForTests,
 } from '../src/modules/capabilities/capabilities.service.js';
 
 class FakeEditionRuntimeStatusReader implements EditionRuntimeStatusReader {
@@ -33,7 +30,7 @@ function fakeLicenseManager(licensed: boolean): LicenseManager {
 }
 
 afterEach(() => {
-  unregisterProModuleForTests();
+  resetCapabilitiesServiceForTests();
   setEncBundlePresent(false);
   setLicenseManagerForTests(null);
 });
@@ -64,7 +61,9 @@ describe('capabilitiesService.get', () => {
   });
 
   it('marks pro-tier keys locked when pro is registered but unlicensed', async () => {
-    registerProModule({ hooks: freeHooks });
+    configureCapabilitiesService(
+      new FakeEditionRuntimeStatusReader({ state: 'active', bundlePresent: true }),
+    );
     setLicenseManagerForTests(fakeLicenseManager(false));
     const result = await capabilitiesService.get();
     expect(result.pro).toBe(true);
@@ -76,7 +75,9 @@ describe('capabilitiesService.get', () => {
   });
 
   it('marks pro-tier keys active when pro is registered and licensed', async () => {
-    registerProModule({ hooks: freeHooks });
+    configureCapabilitiesService(
+      new FakeEditionRuntimeStatusReader({ state: 'active', bundlePresent: true }),
+    );
     setLicenseManagerForTests(fakeLicenseManager(true));
     const result = await capabilitiesService.get();
     expect(result.pro).toBe(true);

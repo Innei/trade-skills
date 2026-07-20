@@ -27,7 +27,7 @@ vi.mock('../src/ai/comments.js', () => ({
 }));
 
 const { buildOverviewBoard } = await import('../src/services/cockpit/board.js');
-const { isProPresent } = await import('../src/pro/registry.js');
+const { isEditionActive } = await import('../src/pro/editionRuntime.js');
 const { easternDate } = await import('../src/services/session.js');
 const { handleConnection, parseWsMessage } = await import('../src/realtime/channelProtocol.js');
 
@@ -53,7 +53,7 @@ function doc(): ChartDoc {
 
 describe('pro free-mode fallback for board.ts and realtime channels (no builtin registered)', () => {
   it('has nothing registered so the default hooks apply', () => {
-    expect(isProPresent()).toBe(false);
+    expect(isEditionActive()).toBe(false);
   });
 
   it('reports no follow state and no comments for any symbol', async () => {

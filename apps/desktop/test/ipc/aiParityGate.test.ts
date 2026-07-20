@@ -22,10 +22,8 @@ vi.mock('@kansoku/core/modules/symbols/symbols.service', () => ({ symbolsService
 const { OverviewIpc } = await import('@desktop/ipc/overviewIpc.js');
 const { SettingsIpc } = await import('@desktop/ipc/settingsIpc.js');
 const { SymbolsIpc } = await import('@desktop/ipc/symbolsIpc.js');
-const { unregisterProModuleForTests } = await import('@kansoku/core/pro/registry');
 
 beforeEach(() => {
-  unregisterProModuleForTests();
   overview.usage.mockReset().mockResolvedValue({
     date: '2026-07-18',
     runs: 0,

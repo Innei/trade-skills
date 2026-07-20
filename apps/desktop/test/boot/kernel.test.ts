@@ -1,7 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ProChannel } from '@kansoku/pro-api';
 import { BaseEdition } from '@kansoku/core/edition/base';
-import { freeHooks, registerProModule, unregisterProModuleForTests } from '@kansoku/core/pro/registry';
 import { nonAiIpcServiceClasses } from '../../src/ipc/index.js';
 
 const electron = vi.hoisted(() => ({
@@ -30,10 +28,8 @@ vi.mock('../../src/credentials/bridge.js', () => ({
 
 const loadEdition = vi.hoisted(() => vi.fn());
 const loadEditionFromDevDist = vi.hoisted(() => vi.fn());
-vi.mock('@kansoku/core/pro/editionLoader', () => ({ loadEdition, loadEditionFromDevDist }));
-
 const proDevDistDir = vi.hoisted(() => vi.fn(() => '/app/../pro/dist-dev'));
-vi.mock('@kansoku/core/pro/loader', () => ({ proDevDistDir }));
+vi.mock('@kansoku/core/pro/editionLoader', () => ({ loadEdition, loadEditionFromDevDist, proDevDistDir }));
 
 const initServerRuntime = vi.hoisted(() => vi.fn());
 vi.mock('../../../server/src/runtimeInit.js', () => ({ initServerRuntime }));
@@ -100,7 +96,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  unregisterProModuleForTests();
   vi.restoreAllMocks();
 });
 
@@ -110,12 +105,12 @@ const nonActiveActivation = (state: 'absent' | 'locked') => ({
 });
 
 describe('bootKernel', () => {
-  it('state=absent: boots on the legacy adapter with no pro entries merged, and dispose resolves', async () => {
+  it('state=absent: boots on the free desktop edition, and dispose resolves', async () => {
     const serverEdition = fakeServerEdition();
     initServerRuntime.mockResolvedValueOnce({
       host: fakeCoreHost(),
       edition: serverEdition,
-      protocol: 'legacy',
+      bundleActive: false,
     });
 
     const result = await bootKernel();
@@ -125,12 +120,12 @@ describe('bootKernel', () => {
     await expect(result.dispose()).resolves.toBeUndefined();
   });
 
-  it('state=locked: boots on the legacy adapter with no pro entries merged', async () => {
+  it('state=locked: boots on the free desktop edition', async () => {
     const serverEdition = fakeServerEdition();
     initServerRuntime.mockResolvedValueOnce({
       host: fakeCoreHost(),
       edition: serverEdition,
-      protocol: 'legacy',
+      bundleActive: false,
     });
 
     const result = await bootKernel();
@@ -138,26 +133,6 @@ describe('bootKernel', () => {
     expect(result.ipcServiceClasses).toEqual(nonAiIpcServiceClasses);
     expect(loadEdition).not.toHaveBeenCalled();
     await expect(result.dispose()).resolves.toBeUndefined();
-  });
-
-  it('merges a registered pro module ipc classes/channels into the active desktop output via the legacy adapter', async () => {
-    class DummyIpcService {
-      static groupName = 'dummy';
-    }
-    const dummyChannel: ProChannel = { kind: 'dummy-channel', parse: () => null, attach: () => () => {} };
-    registerProModule({ hooks: freeHooks, ipcServiceClasses: [DummyIpcService], channels: [dummyChannel] });
-
-    const serverEdition = fakeServerEdition();
-    initServerRuntime.mockResolvedValueOnce({
-      host: fakeCoreHost(),
-      edition: serverEdition,
-      protocol: 'legacy',
-    });
-
-    const result = await bootKernel();
-
-    expect(result.ipcServiceClasses).toEqual([...nonAiIpcServiceClasses, DummyIpcService]);
-    expect(attachRealtimeBridge).toHaveBeenCalledWith([dummyChannel]);
   });
 
   it('starts serverEdition and desktopEdition exactly once each', async () => {
@@ -165,7 +140,7 @@ describe('bootKernel', () => {
     initServerRuntime.mockResolvedValueOnce({
       host: fakeCoreHost(),
       edition: serverEdition,
-      protocol: 'legacy',
+      bundleActive: false,
     });
 
     const startSpy = vi.spyOn(BaseEdition.prototype, 'start');
@@ -181,7 +156,7 @@ describe('bootKernel', () => {
     initServerRuntime.mockResolvedValueOnce({
       host: fakeCoreHost(),
       edition: serverEdition,
-      protocol: 'legacy',
+      bundleActive: false,
     });
 
     const disposeSpy = vi.spyOn(BaseEdition.prototype, 'dispose');
@@ -193,13 +168,13 @@ describe('bootKernel', () => {
     expect(disposeSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('protocol="edition": retries the edition protocol for the desktop runtime via loadEdition()', async () => {
+  it('bundleActive=true: retries the edition protocol for the desktop runtime via loadEdition()', async () => {
     loadEdition.mockResolvedValueOnce(nonActiveActivation('absent'));
     const serverEdition = fakeServerEdition();
     initServerRuntime.mockResolvedValueOnce({
       host: fakeCoreHost(),
       edition: serverEdition,
-      protocol: 'edition',
+      bundleActive: true,
     });
 
     const result = await bootKernel();
@@ -209,13 +184,13 @@ describe('bootKernel', () => {
     expect(result.ipcServiceClasses).toEqual(nonAiIpcServiceClasses);
   });
 
-  it('protocol="edition", editionSource="dist-dev": retries the edition protocol for the desktop runtime via loadEditionFromDevDist() against dist-dev/, not loadEdition() against pro.enc (design §17)', async () => {
+  it('bundleActive=true, editionSource="dist-dev": retries the edition protocol for the desktop runtime via loadEditionFromDevDist() against dist-dev/, not loadEdition() against pro.enc (design §17)', async () => {
     loadEditionFromDevDist.mockResolvedValueOnce(nonActiveActivation('absent'));
     const serverEdition = fakeServerEdition();
     initServerRuntime.mockResolvedValueOnce({
       host: fakeCoreHost(),
       edition: serverEdition,
-      protocol: 'edition',
+      bundleActive: true,
       editionSource: 'dist-dev',
     });
 
@@ -229,12 +204,12 @@ describe('bootKernel', () => {
     expect(result.ipcServiceClasses).toEqual(nonAiIpcServiceClasses);
   });
 
-  it('protocol="legacy": never calls loadEdition() again for the desktop runtime — pins the single-protocol-per-process boot ordering (a second loadEdition() call after a legacy claim throws "pro protocol conflict")', async () => {
+  it('bundleActive=false: never calls loadEdition() again for the desktop runtime', async () => {
     const serverEdition = fakeServerEdition();
     initServerRuntime.mockResolvedValueOnce({
       host: fakeCoreHost(),
       edition: serverEdition,
-      protocol: 'legacy',
+      bundleActive: false,
     });
 
     await expect(bootKernel()).resolves.toBeDefined();
@@ -250,7 +225,7 @@ describe('bootKernel', () => {
     initServerRuntime.mockResolvedValueOnce({
       host: fakeCoreHost(),
       edition: serverEdition,
-      protocol: 'edition',
+      bundleActive: true,
     });
 
     await bootKernel();
@@ -268,7 +243,7 @@ describe('bootKernel', () => {
     initServerRuntime.mockResolvedValueOnce({
       host: fakeCoreHost(),
       edition: serverEdition,
-      protocol: 'edition',
+      bundleActive: true,
     });
 
     await bootKernel();
@@ -277,12 +252,12 @@ describe('bootKernel', () => {
     expect(loadEdition).toHaveBeenCalledWith(expect.objectContaining({ expectedPublicCommit: undefined }));
   });
 
-  it('protocol="legacy": still calls readEditionWebManifest() unconditionally and returns its result', async () => {
+  it('bundleActive=false: still calls readEditionWebManifest() unconditionally and returns its result', async () => {
     const serverEdition = fakeServerEdition();
     initServerRuntime.mockResolvedValueOnce({
       host: fakeCoreHost(),
       edition: serverEdition,
-      protocol: 'legacy',
+      bundleActive: false,
     });
     readEditionWebManifest.mockResolvedValueOnce({
       state: 'active',
@@ -302,13 +277,13 @@ describe('bootKernel', () => {
     expect(result.webManifest.files?.get('web/index.mjs')).toBeInstanceOf(Buffer);
   });
 
-  it('protocol="edition": calls loadEdition() and readEditionWebManifest() with the same encPath/keyHex — no double-protocol-claim conflict', async () => {
+  it('bundleActive=true: calls loadEdition() and readEditionWebManifest() with the same encPath/keyHex', async () => {
     loadEdition.mockResolvedValueOnce(nonActiveActivation('absent'));
     const serverEdition = fakeServerEdition();
     initServerRuntime.mockResolvedValueOnce({
       host: fakeCoreHost(),
       edition: serverEdition,
-      protocol: 'edition',
+      bundleActive: true,
     });
     readEditionWebManifest.mockResolvedValueOnce({
       state: 'absent',
@@ -333,7 +308,7 @@ describe('bootKernel', () => {
     initServerRuntime.mockResolvedValueOnce({
       host: fakeCoreHost(),
       edition: serverEdition,
-      protocol: 'legacy',
+      bundleActive: false,
     });
     const files = new Map([['web/index.mjs', Buffer.from('x')]]);
     readEditionWebManifest.mockResolvedValueOnce({

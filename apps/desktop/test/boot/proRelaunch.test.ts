@@ -10,11 +10,15 @@ const electron = vi.hoisted(() => ({
 }));
 vi.mock('electron', () => electron);
 
-const registry = vi.hoisted(() => ({
+const bundleState = vi.hoisted(() => ({
   hasEncBundle: vi.fn(() => true),
-  isProPresent: vi.fn(() => false),
 }));
-vi.mock('@kansoku/core/pro/registry', () => registry);
+vi.mock('@kansoku/core/pro/bundleState', () => bundleState);
+
+const editionRuntime = vi.hoisted(() => ({
+  isEditionActive: vi.fn(() => false),
+}));
+vi.mock('@kansoku/core/pro/editionRuntime', () => editionRuntime);
 
 const licenseState = vi.hoisted(() => ({
   getActiveBundleKey: vi.fn((): string | undefined => 'aa'.repeat(32)),
@@ -29,8 +33,8 @@ beforeEach(() => {
   electron.app.relaunch.mockReset();
   electron.app.quit.mockReset();
   electron.dialog.showMessageBox.mockReset().mockResolvedValue({ response: 0 });
-  registry.hasEncBundle.mockReturnValue(true);
-  registry.isProPresent.mockReturnValue(false);
+  bundleState.hasEncBundle.mockReturnValue(true);
+  editionRuntime.isEditionActive.mockReturnValue(false);
   licenseState.getActiveBundleKey.mockReturnValue('aa'.repeat(32));
 });
 
@@ -56,8 +60,8 @@ describe('maybePromptProRelaunchAfterKeyLanded', () => {
   });
 
   it.each([
-    ['no enc bundle', () => registry.hasEncBundle.mockReturnValue(false)],
-    ['pro already loaded', () => registry.isProPresent.mockReturnValue(true)],
+    ['no enc bundle', () => bundleState.hasEncBundle.mockReturnValue(false)],
+    ['pro already loaded', () => editionRuntime.isEditionActive.mockReturnValue(true)],
     ['no bundle key stored', () => licenseState.getActiveBundleKey.mockReturnValue(undefined)],
   ])('stays quiet with %s', async (_label, arrange) => {
     arrange();

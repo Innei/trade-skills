@@ -1,20 +1,22 @@
-import type { ProModule } from '@kansoku/pro-api';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   setLicenseManagerForTests,
   type LicenseManager,
 } from '@kansoku/core/license/licenseState';
-import { loadPro } from '@kansoku/core/pro/loader';
 import {
-  freeHooks,
-  registerProModule,
-  setEncBundlePresent,
-  unregisterProModuleForTests,
-} from '@kansoku/core/pro/registry';
+  configureCapabilitiesService,
+  resetCapabilitiesServiceForTests,
+} from '@kansoku/core/modules/capabilities/capabilities.service';
+import { setEncBundlePresent } from '@kansoku/core/pro/bundleState';
+import type { EditionRuntimeStatus, EditionRuntimeStatusReader } from '@kansoku/core/pro/editionRuntime';
 import { tsukiRequest } from './helpers.js';
 
-function fakeProModule(overrides: Partial<ProModule> = {}): ProModule {
-  return { hooks: freeHooks, ...overrides };
+class FakeEditionRuntimeStatusReader implements EditionRuntimeStatusReader {
+  constructor(readonly status: EditionRuntimeStatus) {}
+}
+
+function registerActiveEdition(bundlePresent = false): void {
+  configureCapabilitiesService(new FakeEditionRuntimeStatusReader({ state: 'active', bundlePresent }));
 }
 
 function fakeLicenseManager(overrides: Partial<LicenseManager> = {}): LicenseManager {
@@ -35,11 +37,11 @@ function allFeatures(state: 'absent' | 'locked' | 'active') {
 describe('GET /capabilities', () => {
   afterEach(async () => {
     setLicenseManagerForTests(null);
-    await loadPro();
+    resetCapabilitiesServiceForTests();
+    setEncBundlePresent(false);
   });
 
   it('reports pro:false licensed:false when pro is absent', async () => {
-    unregisterProModuleForTests();
     setLicenseManagerForTests(fakeLicenseManager());
     const res = await tsukiRequest('/api/capabilities');
     expect(res.status).toBe(200);
@@ -53,7 +55,6 @@ describe('GET /capabilities', () => {
   });
 
   it('reports locked features and hasEncBundle:true when the enc bundle is present but not loaded', async () => {
-    unregisterProModuleForTests();
     setEncBundlePresent(true);
     setLicenseManagerForTests(fakeLicenseManager());
     const res = await tsukiRequest('/api/capabilities');
@@ -68,7 +69,7 @@ describe('GET /capabilities', () => {
   });
 
   it('reports pro:true licensed:false with an unlicensed snapshot', async () => {
-    registerProModule(fakeProModule());
+    registerActiveEdition();
     setLicenseManagerForTests(
       fakeLicenseManager({ getLicenseSnapshot: () => ({ state: 'unlicensed' }) }),
     );
@@ -84,7 +85,7 @@ describe('GET /capabilities', () => {
   });
 
   it('reports pro:true licensed:true with a licensed snapshot', async () => {
-    registerProModule(fakeProModule());
+    registerActiveEdition();
     setLicenseManagerForTests(
       fakeLicenseManager({
         getLicenseSnapshot: () => ({
@@ -106,7 +107,6 @@ describe('GET /capabilities', () => {
   });
 
   it('keeps the license status route working when pro is absent (does not 404)', async () => {
-    unregisterProModuleForTests();
     setLicenseManagerForTests(fakeLicenseManager());
     const res = await tsukiRequest('/api/license/status');
     expect(res.status).toBe(200);

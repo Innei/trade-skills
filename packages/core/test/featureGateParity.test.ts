@@ -1,7 +1,15 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { allRoutes } from '../src/contract/index.js';
 import { symbolsService } from '../src/modules/symbols/symbols.service.js';
-import { freeHooks, registerProModule, unregisterProModuleForTests } from '../src/pro/registry.js';
+import type { EditionRuntimeStatus, EditionRuntimeStatusReader } from '../src/pro/editionRuntime.js';
+import {
+  configureEditionRuntimeStatus,
+  resetEditionRuntimeStatusForTests,
+} from '../src/pro/editionRuntime.js';
+
+class FakeEditionRuntimeStatusReader implements EditionRuntimeStatusReader {
+  constructor(readonly status: EditionRuntimeStatus) {}
+}
 
 type GatedService = Record<string, (input: { sym: string }) => Promise<unknown>>;
 
@@ -22,7 +30,7 @@ for (const [group, routeGroup] of Object.entries(allRoutes)) {
 }
 
 afterEach(() => {
-  unregisterProModuleForTests();
+  resetEditionRuntimeStatusForTests();
 });
 
 describe('feature gate parity', () => {
@@ -40,7 +48,9 @@ describe('feature gate parity', () => {
           );
           return;
         }
-        registerProModule({ hooks: freeHooks });
+        configureEditionRuntimeStatus(
+          new FakeEditionRuntimeStatusReader({ state: 'active', bundlePresent: true }),
+        );
         const err = await service[method]({ sym: 'NVDA.US' }).catch((e: unknown) => e);
         expect(err).toMatchObject({ status: 403, code: 'LICENSE_REQUIRED' });
       });

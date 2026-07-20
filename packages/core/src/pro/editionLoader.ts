@@ -4,9 +4,23 @@ import { isAbsolute, join, normalize } from "node:path";
 import { pathToFileURL } from "node:url";
 import { EDITION_ABI_VERSION } from "@kansoku/pro-api/edition";
 import type { EditionEntry, EditionRuntimeKind } from "@kansoku/pro-api/edition";
+import { APP_ROOT } from "../env.js";
 import type { ProManifest } from "./encLoader.js";
 import { EncDecryptError, decryptProBlob, registerManifestFiles, virtualModuleUrl } from "./encLoader.js";
-import { assertProtocolAllowed, claimProtocol } from "./protocolClaim.js";
+
+// The unencrypted watch build (design §17): apps/pro/dist-dev/{server,desktop}/
+// index.mjs are plain filesystem paths passed to loadEditionFromDevDist()
+// below. The default (no `appDir`) resolves relative to APP_ROOT (source-
+// location-relative — see env.ts). Once a host bundles this module into a
+// single file at a different directory depth (the Electron main process, via
+// tsdown), that relative arithmetic breaks — such hosts must pass their own
+// app root as `appDir` (e.g. Electron's `app.getAppPath()`) instead.
+export function proDevDistDir(appDir?: string): string {
+  if (appDir) {
+    return join(appDir, "..", "pro", "dist-dev");
+  }
+  return join(APP_ROOT, "pro", "dist-dev");
+}
 
 export type EditionActivationState = "absent" | "locked" | "active" | "incompatible" | "failed";
 
@@ -171,7 +185,6 @@ async function activateEditionModule<THost, TEdition>(
     );
   }
 
-  claimProtocol("edition");
   return { state: "active", bundlePresent: true, ...meta, edition };
 }
 
@@ -289,11 +302,6 @@ export function validateEditionBundle(options: BundleValidationOptions): BundleV
 export async function loadEdition<THost, TEdition>(
   options: LoadEditionOptions<THost>,
 ): Promise<EditionActivation<TEdition>> {
-  // claimProtocol("edition") only fires on the final success path below; every
-  // early return (absent/locked/incompatible/failed) leaves the protocol
-  // unclaimed so the caller can still fall back to the legacy protocol.
-  assertProtocolAllowed("edition");
-
   const validation = validateEditionBundle({
     encPath: options.encPath,
     keyHex: options.keyHex,
@@ -365,8 +373,6 @@ export interface LoadEditionFromDevDistOptions<THost> {
 export async function loadEditionFromDevDist<THost, TEdition>(
   options: LoadEditionFromDevDistOptions<THost>,
 ): Promise<EditionActivation<TEdition>> {
-  assertProtocolAllowed("edition");
-
   const entryPath = join(options.distDevDir, options.runtime, "index.mjs");
   if (!existsSync(entryPath)) {
     return { state: "absent", bundlePresent: false };

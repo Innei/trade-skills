@@ -1,4 +1,4 @@
-import { LegacyEditionRuntimeStatusReader } from "./domain/legacyAdapters.js";
+import { hasEncBundle } from "./bundleState.js";
 import type { EditionActivation, EditionActivationState } from "./editionLoader.js";
 
 export interface EditionRuntimeStatus {
@@ -25,21 +25,35 @@ export class EditionRuntime<TEdition> implements EditionRuntimeStatusReader {
   }
 }
 
-let currentStatusReader: EditionRuntimeStatusReader = new LegacyEditionRuntimeStatusReader();
+export class FreeEditionRuntimeStatusReader implements EditionRuntimeStatusReader {
+  get status(): EditionRuntimeStatus {
+    return {
+      state: hasEncBundle() ? "locked" : "absent",
+      bundlePresent: hasEncBundle(),
+      keyId: undefined,
+    };
+  }
+}
+
+let currentStatusReader: EditionRuntimeStatusReader = new FreeEditionRuntimeStatusReader();
 
 // Composition-root hook: the runtime host (apps/server's runtimeInit.ts,
 // shared by the desktop kernel) calls this once the edition activation
 // outcome is known, so every reader of pro/edition presence (capabilities
 // service, feature gates) observes the same status instead of each falling
-// back to the legacy in-process registry independently.
+// back to an independent default.
 export function configureEditionRuntimeStatus(reader: EditionRuntimeStatusReader): void {
   currentStatusReader = reader;
 }
 
 export function resetEditionRuntimeStatusForTests(): void {
-  currentStatusReader = new LegacyEditionRuntimeStatusReader();
+  currentStatusReader = new FreeEditionRuntimeStatusReader();
 }
 
 export function currentEditionRuntimeStatus(): EditionRuntimeStatus {
   return currentStatusReader.status;
+}
+
+export function isEditionActive(): boolean {
+  return currentStatusReader.status.state === "active";
 }

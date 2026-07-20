@@ -47,7 +47,6 @@ vi.mock('@kansoku/core/pro/webManifest', () => ({ readEditionWebManifest }));
 vi.stubGlobal('__DESKTOP_DEV__', false);
 
 const { bootKernel } = await import('../../src/boot/kernel.js');
-const { unregisterProModuleForTests } = await import('@kansoku/core/pro/registry');
 
 function fakeCoreHost() {
   return {
@@ -85,12 +84,11 @@ beforeEach(() => {
   initServerRuntime.mockImplementation(async () => ({
     host: fakeCoreHost(),
     edition: fakeServerEdition(),
-    protocol: 'edition',
+    bundleActive: true,
   }));
 });
 
 afterEach(() => {
-  unregisterProModuleForTests();
   vi.restoreAllMocks();
 });
 

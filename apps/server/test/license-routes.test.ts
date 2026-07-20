@@ -77,16 +77,9 @@ describe("license routes", () => {
   });
 
   it("works with pro absent (free build): unlicensed status, not 404", async () => {
-    const { loadPro } = await import("@kansoku/core/pro/loader");
-    const { unregisterProModuleForTests } = await import("@kansoku/core/pro/registry");
-    unregisterProModuleForTests();
     setLicenseManagerForTests(fakeManager());
-    try {
-      const res = await tsukiRequest("/api/license/status");
-      expect(res.status).toBe(200);
-      expect((await res.json()).data).toEqual({ state: "unlicensed" });
-    } finally {
-      await loadPro();
-    }
+    const res = await tsukiRequest("/api/license/status");
+    expect(res.status).toBe(200);
+    expect((await res.json()).data).toEqual({ state: "unlicensed" });
   });
 });

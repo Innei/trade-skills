@@ -15,8 +15,8 @@ const { createSymbolsService } = await import('../src/modules/symbols/symbols.se
 const { DisabledDeepDiveService, DisabledFollowAutomation } = await import(
   '../src/pro/domain/defaultImplementations.js'
 );
-const { freeHooks, registerProModule, unregisterProModuleForTests } = await import(
-  '../src/pro/registry.js'
+const { configureEditionRuntimeStatus, resetEditionRuntimeStatusForTests } = await import(
+  '../src/pro/editionRuntime.js'
 );
 type DeepDiveService = InstanceType<typeof DisabledDeepDiveService>;
 type FollowAutomation = InstanceType<typeof DisabledFollowAutomation>;
@@ -27,11 +27,11 @@ afterAll(async () => {
 
 beforeEach(() => {
   process.env.KANSOKU_LICENSE_BYPASS = '1';
-  registerProModule({ hooks: freeHooks });
+  configureEditionRuntimeStatus({ status: { state: 'active', bundlePresent: true } });
 });
 
 afterEach(() => {
-  unregisterProModuleForTests();
+  resetEditionRuntimeStatusForTests();
   delete process.env.KANSOKU_LICENSE_BYPASS;
 });
 

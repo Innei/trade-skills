@@ -3,7 +3,10 @@ import { join } from 'node:path';
 import type { IntradayPrediction, RawBar, SymbolAnalysisRow } from '@kansoku/shared/types';
 import type { DeepDiveService } from '../../pro/domain/deepDiveService.js';
 import type { FollowAutomation } from '../../pro/domain/followAutomation.js';
-import { LegacyDeepDiveService, LegacyFollowAutomation } from '../../pro/domain/legacyAdapters.js';
+import {
+  DisabledDeepDiveService,
+  DisabledFollowAutomation,
+} from '../../pro/domain/defaultImplementations.js';
 import { withFeatureGates } from '../../pro/withFeatureGates.js';
 import { chartUrl } from '../../chartUrl.js';
 import { analystRunStatus, reassessSymbol } from '../../ai/analyst.js';
@@ -244,8 +247,8 @@ export function createSymbolsService(deps: SymbolsServiceDeps): SymbolsApi {
 
 function defaultSymbolsServiceDeps(): SymbolsServiceDeps {
   return {
-    followAutomation: new LegacyFollowAutomation(),
-    deepDiveService: new LegacyDeepDiveService(),
+    followAutomation: new DisabledFollowAutomation(),
+    deepDiveService: new DisabledDeepDiveService(),
   };
 }
 
