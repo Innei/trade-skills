@@ -24,6 +24,8 @@ import type { EpisodeDataAudit } from './episode/audit.js';
 import { fetchGdeltArticlesLive, fetchEdgarFilingsLive } from './generate/newsSource.js';
 import { runGenerate } from './generate/pipeline.js';
 import { fetchCalendarLive, fetchKlineHistoryLive } from './generate/source.js';
+import { fetchKlineHistoryYahoo } from './generate/yahooFetcher.js';
+import type { FetchEpisodeKlineHistory } from './episode/generate.js';
 import { DEFAULT_SYMBOLS, layerForSymbol, type SymbolSpec } from './generate/symbols.js';
 import { listQuestions, loadQuestionForScorer } from './dataset/loader.js';
 import { parseDatasetPathOptions, type DatasetPaths } from './dataset/paths.js';
@@ -309,13 +311,20 @@ interface GenerateEpisodeCaseArgs {
   cutoffDate: string;
   version: string;
   horizonSessions: number;
+  source: 'longbridge' | 'yahoo';
 }
+
+const KLINE_FETCHERS: Record<GenerateEpisodeCaseArgs['source'], FetchEpisodeKlineHistory> = {
+  longbridge: fetchKlineHistoryLive,
+  yahoo: fetchKlineHistoryYahoo,
+};
 
 function parseGenerateEpisodeCaseArgs(argv: string[]): GenerateEpisodeCaseArgs {
   let symbol: string | undefined;
   let cutoffDate: string | undefined;
   let version: string | undefined;
   let horizonSessions = 40;
+  let source: GenerateEpisodeCaseArgs['source'] = 'longbridge';
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -334,6 +343,14 @@ function parseGenerateEpisodeCaseArgs(argv: string[]): GenerateEpisodeCaseArgs {
       }
       case '--horizon-sessions': {
         horizonSessions = Number(argv[++i]);
+        break;
+      }
+      case '--source': {
+        const next = argv[++i];
+        if (next !== 'longbridge' && next !== 'yahoo') {
+          throw new Error(`--source must be longbridge|yahoo, got: ${next}`);
+        }
+        source = next;
         break;
       }
       default: {
@@ -356,7 +373,7 @@ function parseGenerateEpisodeCaseArgs(argv: string[]): GenerateEpisodeCaseArgs {
   }
 
   layerForSymbol(symbol);
-  return { symbol, cutoffDate, version, horizonSessions };
+  return { symbol, cutoffDate, version, horizonSessions, source };
 }
 
 async function runGenerateEpisodeCaseCommand(argv: string[], paths: DatasetPaths): Promise<void> {
@@ -368,7 +385,7 @@ async function runGenerateEpisodeCaseCommand(argv: string[], paths: DatasetPaths
     version: args.version,
     horizonSessions: args.horizonSessions,
     datasetsRoot: paths.datasetsRoot,
-    fetchKlineHistory: fetchKlineHistoryLive,
+    fetchKlineHistory: KLINE_FETCHERS[args.source],
     fetchCalendar: fetchCalendarLive,
     log: (line) => process.stdout.write(`${line}\n`),
   });
