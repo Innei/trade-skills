@@ -11,6 +11,7 @@ import { Dot, Empty, ErrorBox } from '@web/ui';
 import { useTitle } from '@web/useTitle';
 import { AnalysisTimeline } from './AnalysisTimeline';
 import { GenerateAnalysis } from './GenerateAnalysis';
+import { GenerateAnalysisCta } from './GenerateAnalysisCta';
 import { buildSharedSidebarTabs } from './sharedSidebarTabs';
 import { useAiUnreadBadge } from './useAiUnreadBadge';
 import { useCockpitComments } from './useCockpitComments';
@@ -91,13 +92,11 @@ export function PreviewCockpit({
             <GenerateAnalysis sym={sym} />
           </>
         ) : (
-          <div className="preview-cta">
-            <h3 className="preview-cta-title">还没有 AI 分析</h3>
-            <p className="preview-cta-desc">
-              这只股票还没有分析报告——生成一份，图上会标出关键位和多空判断
-            </p>
-            <GenerateAnalysis sym={sym} />
-          </div>
+          <GenerateAnalysisCta
+            sym={sym}
+            title="还没有 AI 分析"
+            desc="这只股票还没有分析报告——生成一份，图上会标出关键位和多空判断"
+          />
         )
       ),
     },

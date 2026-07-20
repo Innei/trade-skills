@@ -14,6 +14,7 @@ import { useLiveQuote } from '../useLiveQuote';
 import { AnalysisRunDetails } from './cockpit/AnalysisRunDetails';
 import { AnalysisTimeline } from './cockpit/AnalysisTimeline';
 import { ChatDock } from './cockpit/chat/ChatDock';
+import { GenerateAnalysisCta } from './cockpit/GenerateAnalysisCta';
 import { PreviewCockpit } from './cockpit/PreviewCockpit';
 import { conclusionOutdated } from '../charts/intraday/ConclusionCard';
 import { PredictionTab } from '../charts/intraday/tabs/PredictionTab';
@@ -212,6 +213,13 @@ export function SymbolCockpit({ sym }: { sym: string }) {
           predictionUpdatedAt={doc.prediction_updated_at}
           predictionStale={doc.prediction_stale}
           reassess={conclusionReassess}
+          emptyCta={
+            <GenerateAnalysisCta
+              sym={sym}
+              title="还没有预测结论"
+              desc="这份图目前只有技术面——生成一份 AI 分析，图上会标出关键位和多空判断"
+            />
+          }
         />
       ),
     },
