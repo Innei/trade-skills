@@ -4,6 +4,7 @@ import { buildChart, rebuild, refreshBody } from '../charts/build.js';
 import { getEventRisk } from '../marketdata/events.js';
 import { TIMEFRAME_ORDER } from '../analysis/intraday/constants.js';
 import { getOptionsLevels } from '../analysis/optionsLevels.js';
+import { currentProDetectors } from '../pro/detectors.js';
 import { getStream } from '../marketdata/registry.js';
 import type { CandlePeriod } from '../marketdata/quoteStream.js';
 import { classifySession, isCurrentSessionId } from '../marketdata/session.js';
@@ -122,7 +123,7 @@ async function buildFromState(
   const [optionsLevels, eventRisk] =
     typeof symbol === 'string'
       ? await Promise.all([
-          getOptionsLevels(symbol).catch(() => null),
+          (currentProDetectors().getOptionsLevels ?? getOptionsLevels)(symbol).catch(() => null),
           getEventRisk(symbol).catch(() => null),
         ])
       : [null, null];

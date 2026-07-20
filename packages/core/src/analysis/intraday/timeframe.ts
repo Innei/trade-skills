@@ -21,6 +21,7 @@ import { classifyMacdStructure, type MacdStructure } from '../macdStructure.js';
 import { detect123Patterns } from '../pattern123.js';
 import { detectSecondBreakouts } from '../secondBreakout.js';
 import { enrichCandlePatterns, offSessionSignalKeeper } from '../patternScoring.js';
+import { currentProDetectors } from '../../pro/detectors.js';
 import {
   BEICHI_WEAKER_RATIO,
   DEFAULT_EMA_PERIODS,
@@ -227,8 +228,15 @@ export function coerceIntradayTimeframe(
   const macdCrosses = findMacdCrosses(hist, timesTs);
   const structure = classifyMacdStructure(dif, hist, timesTs);
   const fvgZones = detectFvgZones(candles);
-  const candlePatterns = enrichCandlePatterns(
-    detectCandlePatterns(opens, highs, lows, closes, timesTs),
+  const proDetectors = currentProDetectors();
+  const candlePatterns = (proDetectors.enrichCandlePatterns ?? enrichCandlePatterns)(
+    (proDetectors.detectCandlePatterns ?? detectCandlePatterns)(
+      opens,
+      highs,
+      lows,
+      closes,
+      timesTs,
+    ),
     {
       highs,
       lows,
@@ -253,21 +261,28 @@ export function coerceIntradayTimeframe(
       .map((p) => ({ ...p, macd_value: histByTime.get(p.time) as number }));
 
   const keepSignal = offSessionSignalKeeper(timesTs, vols);
+  const findPriceDivergenceImpl = proDetectors.findPriceDivergence ?? findPriceDivergence;
   const autoDivergence = [
-    ...findPriceDivergence(withMacd(swingHighs), true),
-    ...findPriceDivergence(withMacd(swingLows), false),
+    ...findPriceDivergenceImpl(withMacd(swingHighs), true),
+    ...findPriceDivergenceImpl(withMacd(swingLows), false),
   ]
     .filter((d) => keepSignal(d.b.time))
     .sort((a, b) => a.b.time - b.b.time);
-  const autoBeichi = findMacdBeichi(hist, highs, lows, timesTs)
+  const autoBeichi = (proDetectors.findMacdBeichi ?? findMacdBeichi)(hist, highs, lows, timesTs)
     .filter((d) => keepSignal(d.b.time))
     .sort((a, b) => a.b.time - b.b.time);
-  const pattern123 = detect123Patterns(highs, lows, closes, timesTs).filter((p) =>
-    keepSignal(p.confirm?.time ?? p.p3.time),
-  );
-  const secondBreakouts = detectSecondBreakouts(highs, lows, closes, timesTs).filter((sb) =>
-    keepSignal(sb.trigger?.time ?? sb.signal.time),
-  );
+  const pattern123 = (proDetectors.detect123Patterns ?? detect123Patterns)(
+    highs,
+    lows,
+    closes,
+    timesTs,
+  ).filter((p) => keepSignal(p.confirm?.time ?? p.p3.time));
+  const secondBreakouts = (proDetectors.detectSecondBreakouts ?? detectSecondBreakouts)(
+    highs,
+    lows,
+    closes,
+    timesTs,
+  ).filter((sb) => keepSignal(sb.trigger?.time ?? sb.signal.time));
   structure.signals = structure.signals.filter((s) => keepSignal(s.time));
 
   return {

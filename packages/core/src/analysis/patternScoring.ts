@@ -1,12 +1,9 @@
-import type {
-  CandlePattern,
-  CandlePatternStats,
-  CandlePatternStatus,
-  IntradayFvgZone,
-  SwingPoint,
-} from '@kansoku/shared/types';
+import type { CandlePattern, CandlePatternStats, CandlePatternStatus } from '@kansoku/shared/types';
+import type { PatternScoringContext } from '@kansoku/pro-api';
 import { CANDLE_PATTERN_META } from './candlePatterns/meta.js';
 import { classifySession } from '../marketdata/session.js';
+
+export type { PatternScoringContext } from '@kansoku/pro-api';
 
 const AVG_RANGE_WINDOW = 14;
 const AVG_VOL_WINDOW = 20;
@@ -32,18 +29,6 @@ const KEY_LEVEL_BONUS = 15;
 
 export const SCORE_FULL_MARKER = 65;
 export const SCORE_DOT_MARKER = 45;
-
-export interface PatternScoringContext {
-  highs: number[];
-  lows: number[];
-  closes: number[];
-  vols: number[];
-  timesTs: number[];
-  emaArrs: { period: number; arr: (number | null)[] }[];
-  swingHighs: SwingPoint[];
-  swingLows: SwingPoint[];
-  fvgZones: IntradayFvgZone[];
-}
 
 interface TrackedPattern extends CandlePattern {
   confirmIdx: number | null;

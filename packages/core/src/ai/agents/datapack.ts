@@ -33,6 +33,7 @@ import { computeRelativeVolume } from '../../analysis/relvol.js';
 import { readActiveLessons } from './lessons.js';
 import { getProvider } from '../../marketdata/registry.js';
 import { getOptionsLevels } from '../../analysis/optionsLevels.js';
+import { currentProDetectors } from '../../pro/detectors.js';
 import type { RawPosition } from '../../marketdata/types.js';
 import { easternDate } from '../../marketdata/session.js';
 import { listCharts, loadChart, type ListFilter } from '../../charts/store.js';
@@ -82,7 +83,8 @@ export const defaultDatapackDeps: DatapackDeps = {
   listComments,
   listCharts,
   loadChart,
-  fetchOptionsLevels: getOptionsLevels,
+  fetchOptionsLevels: (symbol) =>
+    (currentProDetectors().getOptionsLevels ?? getOptionsLevels)(symbol),
   fetchEventRisk: getEventRisk,
   readLessons: readActiveLessons,
   now: () => new Date(),
