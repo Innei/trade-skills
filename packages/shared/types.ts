@@ -545,7 +545,6 @@ export interface IntradaySidebar {
   entryPlan: IntradayEntryPlan | null;
   position: PositionView | null;
   technicals: Record<TimeframeKey, IntradayTfSummary>;
-  technicalsNotes: string[];
   dayContext?: IntradayDayContext | null;
   optionsLevels?: IntradayOptionsLevels | null;
   eventRisk?: IntradayEventRisk | null;

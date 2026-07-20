@@ -8,8 +8,9 @@ Status: approved
 Auto-detect and annotate SB (Second Breakout, Al Brooks High 2 / Low 2) structures on the
 `intraday` multi-timeframe dashboard (5m / 15m / 1h), alongside the existing 123-structure,
 divergence, and candle-pattern detectors. Detection runs server-side in `@kansoku/core`,
-results are frozen into the chart JSON, rendered as markers in the web app, and summarized
-into `technicals` text so AI reads (e.g. the `intraday-signal` skill) can use them.
+results are frozen into the chart JSON, rendered as markers in the web app, and carried in
+each timeframe's `technicals` summary so AI reads (e.g. the `intraday-signal` skill) see them
+via the ReassessPack JSON already sent to the AI.
 
 ## Definition being implemented
 
@@ -73,9 +74,11 @@ interface SecondBreakout {
 ### 3. Orchestrator wiring — `packages/core/src/services/intraday.ts`
 
 - Run the detector once per timeframe (5m / 15m / 1h).
-- Emit results into the intraday chart JSON document next to `pattern123` / `fvgZones`.
-- Append a line per timeframe to the `technicals` text (e.g. "5m: H2 confirmed at 108.10
-  (trigger 14:35), trend up") so AI consumers see it without reading the JSON.
+- Emit results into the intraday chart JSON document next to `pattern123` / `fvgZones`, and
+  into each timeframe's `technicals` summary as `second_breakouts`.
+- AI visibility needs no separate free-text line: `second_breakouts` rides inside each
+  timeframe's summary in the ReassessPack JSON (`packages/core/src/ai/datapack.ts`) that AI
+  consumers (e.g. `analystMessagesEngine`/chat) already receive.
 
 ### 4. Rendering — `apps/web`
 

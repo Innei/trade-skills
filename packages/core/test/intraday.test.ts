@@ -298,7 +298,7 @@ describe('intraday parity vs python golden fixture', () => {
     expect(tf.summary.second_breakouts).toEqual(tf.secondBreakouts);
   });
 
-  it('emits a secondBreakouts field and a technicals note line for a confirmed SB structure', () => {
+  it('emits a secondBreakouts field for a confirmed SB structure', () => {
     const upRamp = (from: number, to: number, step: number) => {
       const out: number[] = [];
       for (let v = from; step > 0 ? v <= to : v >= to; v += step) out.push(v);
@@ -322,21 +322,14 @@ describe('intraday parity vs python golden fixture', () => {
       close: c,
       volume: 1000,
     }));
-    const { built, meta } = buildIntraday({
+    const { built } = buildIntraday({
       ...input,
       timeframes: { ...input.timeframes, m5: sbBars },
     });
 
     expect(built.timeframes.m5.secondBreakouts).toHaveLength(1);
     expect(built.timeframes.m5.secondBreakouts?.[0].status).toBe('confirmed');
-    expect(built.sidebar.technicalsNotes.some((line) => line.startsWith('5m: H2 confirmed at')))
-      .toBe(true);
-    expect(meta.technicals_notes).toEqual(built.sidebar.technicalsNotes);
-    expect(
-      built.sidebar.technicalsNotes.some(
-        (line) => line.startsWith('m15:') || line.startsWith('1h:'),
-      ),
-    ).toBe(false);
+    expect(built.sidebar.technicals.m5.second_breakouts).toEqual(built.timeframes.m5.secondBreakouts);
   });
 
   it('throws ClientError when sources_used is not an array', () => {
