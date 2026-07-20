@@ -662,7 +662,7 @@ describe("loadEditionFromDevDist (design §17 dev boot, in-process, real dynamic
     expect(activation.error).toBeUndefined();
   });
 
-  it("active: valid ABI entry loads and createEdition() receives the host — same ABI-shape validation loadEdition() uses, not loadPro()'s ProModule shape", async () => {
+  it("active: valid ABI entry loads and createEdition() receives the host — same ABI-shape validation loadEdition() uses", async () => {
     const distDevDir = stageDevDist("server", SERVER_ENTRY);
 
     const activation = await loadEditionFromDevDist({
@@ -693,7 +693,7 @@ describe("loadEditionFromDevDist (design §17 dev boot, in-process, real dynamic
     expect(activation.edition).toEqual({ kind: "desktop", name: "bob" });
   });
 
-  it("incompatible: entry module's own runtime disagrees with the requested runtime, ABI mismatch — the loadEdition()-style check, not a ProModule shape check", async () => {
+  it("incompatible: entry module's own runtime disagrees with the requested runtime, ABI mismatch — the loadEdition()-style check", async () => {
     const distDevDir = stageDevDist("server", DESKTOP_ENTRY);
 
     const activation = await loadEditionFromDevDist({

@@ -1,5 +1,4 @@
 import type { DeepDiveStartResult, DeepDiveState } from './aiTypes.js';
-import type { LicenseSnapshot } from './licenseTypes.js';
 
 export * from './aiTypes.js';
 export * from './edition.js';
@@ -9,19 +8,6 @@ export interface ProHooks {
   requestImmediateFollow(symbol: string): void | Promise<void>;
   startDeepDiveForNote(note: string): DeepDiveStartResult;
   deepDiveStatus(): DeepDiveState;
-}
-
-export interface ProHostContext {
-  db: unknown;
-  realtimeHub: unknown;
-  longbridgeClient: unknown;
-  dataDir: string;
-}
-
-export interface ProCapabilities {
-  pro: boolean;
-  licensed: boolean;
-  license?: LicenseSnapshot;
 }
 
 export interface ProChannel {
@@ -76,36 +62,7 @@ export interface ProAiExtension {
   afterTurn?(context: ProAiCompletedTurn): void | Promise<void>;
 }
 
-export interface ProRuntimeHostContext {
-  watchedMarkets?: unknown;
-  aiSettingsStore?: unknown;
-  production?: boolean;
-  kansokuHome?: string;
-  licenseGate?: ProLicenseGate;
-}
-
 export interface EditionProCapabilities {
   hooks?: ProHooks;
   aiExtension?: ProAiExtension;
-}
-
-export interface ProModule {
-  hooks: ProHooks;
-  aiExtension?: ProAiExtension;
-  tsukiModules?: unknown[];
-  ipcServiceClasses?: unknown[];
-  channels?: ProChannel[];
-  startScheduler?: (ctx?: ProHostContext) => void | (() => void);
-  // host carries kernel-owned singletons across the module boundary: the pro
-  // slot loads its own copy of @kansoku/core (tsx in dev, bundled when
-  // packaged), so core's module-level singletons are NOT shared — any state
-  // pro must observe live has to be handed over explicitly here. License state
-  // lives entirely in core (see packages/core/src/license) — pro must read it
-  // through `licenseGate`, never by importing core's license singleton directly.
-  initRuntime?: (
-    db: unknown,
-    secretBox: unknown,
-    host?: ProRuntimeHostContext,
-  ) => void | Promise<void>;
-  migrations?: string;
 }

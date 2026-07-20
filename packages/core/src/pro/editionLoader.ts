@@ -367,9 +367,9 @@ export interface LoadEditionFromDevDistOptions<THost> {
 // Dev-mode counterpart to loadEdition() (design doc §17): instead of
 // decrypting pro.enc, imports the plain, unencrypted watch-build output at
 // <distDevDir>/<runtime>/index.mjs directly off disk and runs it through the
-// same ABI-shape validation loadEdition() uses — NOT loadPro()'s legacy
-// ProModule-shape check. There is no manifest/blob/keyId/buildId here (no
-// bundle was decrypted), so activation metadata is limited to state/edition.
+// same ABI-shape validation loadEdition() uses. There is no manifest/blob/
+// keyId/buildId here (no bundle was decrypted), so activation metadata is
+// limited to state/edition.
 export async function loadEditionFromDevDist<THost, TEdition>(
   options: LoadEditionFromDevDistOptions<THost>,
 ): Promise<EditionActivation<TEdition>> {

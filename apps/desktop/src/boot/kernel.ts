@@ -1,7 +1,9 @@
-// Loaded before the pro slot so global Reflect is patched when the pro slot's
-// Tsuki controller/module decorators run inside loadPro(); otherwise their
-// route metadata is written before reflect-metadata installs and Tsuki maps no
-// routes. bootstrap.js also imports it, but that runs after loadPro().
+// Loaded before initServerRuntime() (which resolves the pro edition via
+// loadEdition()/loadEditionFromDevDist()) so global Reflect is patched when
+// the pro edition's Tsuki controller/module decorators run; otherwise their
+// route metadata is written before reflect-metadata installs and Tsuki maps
+// no routes. bootstrap.js also imports it, but that is dynamically imported
+// later, too late for this ordering requirement.
 import 'reflect-metadata';
 import { join } from 'node:path';
 import { app, ipcMain, safeStorage, shell } from 'electron';
