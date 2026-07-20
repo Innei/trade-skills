@@ -5,7 +5,7 @@ import type {
   IntradayFvgZone,
   SwingPoint,
 } from '@kansoku/shared/types';
-import { CANDLE_PATTERN_META } from './candlePatterns.js';
+import { CANDLE_PATTERN_META } from './candlePatterns/meta.js';
 import { classifySession } from '../marketdata/session.js';
 
 const AVG_RANGE_WINDOW = 14;

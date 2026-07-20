@@ -28,7 +28,7 @@ import {
 import { lastVwap, sessionVwap } from '../../analysis/vwap.js';
 import { macd } from '../../analysis/indicators.js';
 import { getEventRisk } from '../../marketdata/events.js';
-import { coerceIntradayTimeframe } from '../../analysis/intraday.js';
+import { coerceIntradayTimeframe } from '../../analysis/intraday/timeframe.js';
 import { computeRelativeVolume } from '../../analysis/relvol.js';
 import { readActiveLessons } from './lessons.js';
 import { getProvider } from '../../marketdata/registry.js';

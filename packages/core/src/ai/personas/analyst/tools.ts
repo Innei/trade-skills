@@ -15,11 +15,9 @@ import { buildChart } from '../../../charts/build.js';
 import { validatePrediction } from '../../../analysis/predictionRules.js';
 import type { SkillMeta } from '../../agents/skills.js';
 import { createChart } from '../../../charts/store.js';
-import {
-  buildResearchTools,
-  type ExecFn,
-  type FsReadMount,
-} from '../../agents/agentTools.js';
+import type { ExecFn } from '../../agents/agentTools/execTool.js';
+import type { FsReadMount } from '../../agents/agentTools/fsMounts.js';
+import { buildResearchTools } from '../../agents/agentTools/researchTools.js';
 import { buildDataPackTool, buildKlineTool, buildNewsTool, textResult } from '../../agents/dataTools.js';
 import type { ReassessPack } from '../../agents/datapack.js';
 import { DISCIPLINE_SKILL } from '../../runtime/promptPolicy.js';

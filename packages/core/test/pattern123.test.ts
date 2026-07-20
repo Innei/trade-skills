@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { RawBar } from '@kansoku/shared/types';
-import { coerceIntradayTimeframe } from '../src/analysis/intraday.js';
+import { coerceIntradayTimeframe } from '../src/analysis/intraday/timeframe.js';
 import { detect123Patterns } from '../src/analysis/pattern123.js';
 
 function bars(closes: number[]): {

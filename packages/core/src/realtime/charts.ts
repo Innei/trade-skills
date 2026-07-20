@@ -2,7 +2,7 @@ import type { ChartDoc, RawBar, TimeframeKey } from '@kansoku/shared/types';
 import { ClientError } from '../platform/errors.js';
 import { buildChart, rebuild, refreshBody } from '../charts/build.js';
 import { getEventRisk } from '../marketdata/events.js';
-import { TIMEFRAME_ORDER } from '../analysis/intraday.js';
+import { TIMEFRAME_ORDER } from '../analysis/intraday/constants.js';
 import { getOptionsLevels } from '../analysis/optionsLevels.js';
 import { getStream } from '../marketdata/registry.js';
 import type { CandlePeriod } from '../marketdata/quoteStream.js';

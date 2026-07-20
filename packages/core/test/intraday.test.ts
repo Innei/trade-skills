@@ -1,14 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { RawBar, TimeframeKey } from '@kansoku/shared/types';
-import {
-  buildIntraday,
-  capMarkersPerBar,
-  coerceIntradayTimeframe,
-  computeIntradayEntryPlan,
-  mergeAiAutoMarkers,
-  resolveEntryPlanStatus,
-  type IntradayInput,
-} from '../src/analysis/intraday.js';
+import { computeIntradayEntryPlan, resolveEntryPlanStatus } from '../src/analysis/intraday/entryPlan.js';
+import { capMarkersPerBar, mergeAiAutoMarkers } from '../src/analysis/intraday/markers.js';
+import { buildIntraday, type IntradayInput } from '../src/analysis/intraday/orchestrator.js';
+import { coerceIntradayTimeframe } from '../src/analysis/intraday/timeframe.js';
 import { approxDiff, loadFixture } from './helpers.js';
 
 type TfExpected = Record<

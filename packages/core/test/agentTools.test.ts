@@ -2,7 +2,8 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { buildResearchTools, createDefaultExec } from '../src/ai/agents/agentTools.js';
+import { createDefaultExec } from '../src/ai/agents/agentTools/execTool.js';
+import { buildResearchTools } from '../src/ai/agents/agentTools/researchTools.js';
 import type { SkillMeta } from '../src/ai/agents/skills.js';
 
 let repoRoot: string;

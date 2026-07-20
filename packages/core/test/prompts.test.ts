@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ChartDoc } from '@kansoku/shared/types';
-import { buildAnalystSystemPrompt } from '../src/ai/personas/analyst.js';
+import { buildAnalystSystemPrompt } from '../src/ai/personas/analyst/run.js';
 import { buildChatSystemPrompt } from '../src/ai/chat/chat.js';
 import {
   ANALYST_ADAPTER_PROMPT,
