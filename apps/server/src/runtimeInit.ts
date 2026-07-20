@@ -15,6 +15,9 @@ import {
 } from '@kansoku/core/services/credentials/authUrlOpener';
 import { initCredentialProvider } from '@kansoku/core/services/credentials/registry';
 import type { CredentialProvider } from '@kansoku/core/services/credentials/types';
+import { setProPresent } from '@kansoku/core/pro/bundleState';
+import { registerProChannels } from '@kansoku/core/pro/channels';
+import { registerProHooks } from '@kansoku/core/pro/hooks';
 import { registerProAiExtension } from '@kansoku/core/pro/aiExtension';
 import type { ServerProComposition } from './edition/types.js';
 
@@ -55,7 +58,10 @@ export async function initServerRuntime(
       console.warn('[server] pro composition unavailable, running free', error);
       return null;
     });
+  setProPresent(proComposition != null);
+  if (proComposition?.hooks) registerProHooks(proComposition.hooks);
   if (proComposition?.aiExtension) registerProAiExtension(proComposition.aiExtension);
+  if (proComposition?.realtimeChannels) registerProChannels(proComposition.realtimeChannels);
   await proComposition?.start?.();
   return proComposition;
 }
