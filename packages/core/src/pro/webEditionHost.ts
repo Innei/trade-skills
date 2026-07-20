@@ -11,6 +11,14 @@ export interface WebEditionHost {
   // their own minimal locally-declared shape instead of importing apps/web
   // source across the package boundary.
   client?: unknown;
+  // Opaque realtime subscribe handle (apps/web's wsHub.subscribeChannel).
+  // Same narrow-interface rule as `client`: pro slots cast this to the one
+  // channel spec they need instead of importing wsHub directly.
+  realtime?: unknown;
+  // Opaque feature-state handle (apps/web's capabilitiesStore, narrowed to
+  // subscribe/getState). Same narrow-interface rule as `client`: pro slots
+  // cast this instead of importing useFeature/capabilitiesStore directly.
+  features?: unknown;
 }
 
 export interface WebEditionEntryModule {

@@ -3,6 +3,8 @@ import * as ReactJsxRuntime from 'react/jsx-runtime';
 import { isValidWebEditionEntry, WEB_EDITION_ABI_VERSION } from '@kansoku/core/pro/webEditionHost';
 import type { WebEditionHost } from '@kansoku/core/pro/webEditionHost';
 import { client } from '../client';
+import { getFeatureState, subscribeFeatureState } from '../capabilitiesStore';
+import { subscribeChannel } from '../wsHub';
 import { injectSharedReactImportMapOnce } from './bootstrapWebEditionHost';
 import type { BootstrapDeps, ReactSingletonModules } from './bootstrapWebEditionHost';
 
@@ -52,6 +54,8 @@ async function buildProEdition(deps: BootstrapDeps): Promise<ProEditionHandle | 
     registerRoute: deps.registerRoute ?? ((path, loadPage) => routes.set(path, loadPage)),
     registerSlot: (slotId, loadComponent) => slots.set(slotId, loadComponent),
     client,
+    realtime: subscribeChannel,
+    features: { subscribe: subscribeFeatureState, getState: getFeatureState },
   };
 
   const edition = mod.createEdition(host);

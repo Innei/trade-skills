@@ -67,6 +67,14 @@ export function useCapabilities(): Capabilities {
   return snapshot;
 }
 
+export function subscribeFeatureState(listener: () => void): () => void {
+  return subscribe(listener);
+}
+
+export function getFeatureState(key: FeatureKey): FeatureState {
+  return capabilities.features?.[key] ?? 'absent';
+}
+
 export function resetCapabilitiesStoreForTests(): void {
   capabilities = DEFAULT;
   inflight = null;
