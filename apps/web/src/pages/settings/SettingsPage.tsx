@@ -15,6 +15,7 @@ import { SettingsStatusStrip } from './SettingsStatusStrip';
 import { TimeDisplaySettingsCard } from './TimeDisplaySettingsCard';
 import { WatchedMarketsCard } from './WatchedMarketsCard';
 import { deriveSettingsViewModel } from './settingsViewModel';
+import { normalizeAiRoles } from './types';
 import type {
   AiRoles,
   AiSettings,
@@ -195,13 +196,15 @@ export function SettingsPage() {
     );
   }
 
+  const normalizedSettings: AiSettings = { ...settings, roles: normalizeAiRoles(settings.roles) };
+
   return (
     <div className="page settings-page">
       <SettingsBackLink />
       <h1>设置</h1>
       <div className="settings-page-subtitle">显示、AI 模型、Provider 与用量</div>
       <SettingsWorkspace
-        settings={settings}
+        settings={normalizedSettings}
         catalog={catalog}
         usage={usage}
         usageError={usageError}
