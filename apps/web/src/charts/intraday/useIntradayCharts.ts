@@ -99,11 +99,12 @@ const filterByGroup = <T extends { group?: SeriesMarker['group'] }>(
 
 const secondBreakoutMarkers = (sbs: SecondBreakout[]): SeriesMarker[] => {
   const markers: SeriesMarker[] = [];
-  for (const sb of sbs) {
+  sbs.forEach((sb, i) => {
     const bullish = sb.kind === 'H2';
     const firstText = bullish ? 'H1' : 'L1';
     const attemptVerb = bullish ? '突破' : '跌破';
     markers.push({
+      id: `sb-${i}-first`,
       time: sb.first.time,
       position: bullish ? 'aboveBar' : 'belowBar',
       color: theme.textSecondary,
@@ -113,6 +114,7 @@ const secondBreakoutMarkers = (sbs: SecondBreakout[]): SeriesMarker[] => {
     });
     if (sb.status === 'forming') {
       markers.push({
+        id: `sb-${i}-signal`,
         time: sb.signal.time,
         position: bullish ? 'aboveBar' : 'belowBar',
         color: theme.textSecondary,
@@ -121,16 +123,18 @@ const secondBreakoutMarkers = (sbs: SecondBreakout[]): SeriesMarker[] => {
         tooltip: `SB 结构酝酿中：等待收盘${attemptVerb} $${sb.signal.price.toFixed(2)}`,
       });
     } else if (sb.trigger) {
+      const extremeText = bullish ? '最高' : '最低';
       markers.push({
+        id: `sb-${i}-trigger`,
         time: sb.trigger.time,
         position: bullish ? 'belowBar' : 'aboveBar',
         color: theme.accent,
         shape: bullish ? 'arrowUp' : 'arrowDown',
         text: sb.kind,
-        tooltip: `${sb.kind} 结构确认\n收盘 $${sb.trigger.price.toFixed(2)} ${attemptVerb}信号棒`,
+        tooltip: `${sb.kind} 结构确认\n${extremeText} $${sb.trigger.price.toFixed(2)} ${attemptVerb}信号棒`,
       });
     }
-  }
+  });
   return markers;
 };
 
