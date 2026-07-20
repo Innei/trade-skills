@@ -136,7 +136,12 @@ export function resolveProOverlayId(
   return candidate ? `${candidate}${sourceParts.query}` : null;
 }
 
-export { isProModule, proLeakGuard, type ProLeakGuardOptions } from './chunkGuard.js';
+export {
+  isProModule,
+  normalizeModuleId,
+  proLeakGuard,
+  type ProLeakGuardOptions,
+} from './chunkGuard.js';
 
 // Overlay projections are symlinks; the bundler's watcher tracks the symlink
 // path itself and does not follow it to the real target, so an edit to the

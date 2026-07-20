@@ -57,6 +57,15 @@ files:
 extraResources:
   - from: ../web/dist
     to: web-dist
+    # Mirrors dist-main's own '!dist-main/__pro__/**' exclusion above: unlike
+    # dist-main, this copy previously had no filter at all, so a pro-enabled
+    # web build's __pro__ chunk shipped straight into Resources/web-dist
+    # regardless of stagePro.mjs. stagePro deletes it before packaging on a
+    # normal `pnpm package` run; this filter is what stops it if that step is
+    # ever skipped or electron-builder is invoked directly.
+    filter:
+      - '**/*'
+      - '!assets/__pro__/**'
   - from: build/icon.png
     to: icon.png
   - from: ../../packages/core/drizzle

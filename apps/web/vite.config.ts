@@ -29,12 +29,23 @@ export function chunkFileNamesFor(chunk: ChunkNameInput): string {
   return isPro ? `assets/${PRO_CHUNK_DIR}[name]-[hash].js` : 'assets/[name]-[hash].js';
 }
 
+export interface AssetNameInput {
+  originalFileNames: readonly string[];
+}
+
+export function assetFileNamesFor(asset: AssetNameInput): string {
+  const isPro = asset.originalFileNames.some(isProModule);
+  return isPro
+    ? `assets/${PRO_CHUNK_DIR}[name]-[hash][extname]`
+    : 'assets/[name]-[hash][extname]';
+}
+
 export default defineConfig({
   plugins: [
     react(),
     babel({ presets: [reactCompilerPreset()] }),
     ...(proPresent ? [proOverlayPlugin({ overlayRoot })] : []),
-    proLeakGuard({ proDir: PRO_CHUNK_DIR }),
+    proLeakGuard({ proDir: PRO_CHUNK_DIR, overlayRoot: proPresent ? overlayRoot : undefined }),
   ],
   define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
   resolve: {
@@ -49,10 +60,28 @@ export default defineConfig({
       '/legacy': { target: KERNEL_URL },
     },
   },
+  worker: {
+    format: 'es',
+    // Workers get their own nested Rollup build, entirely separate from the
+    // main build's plugins/rollupOptions above — without repeating both the
+    // overlay resolver and the leak guard here, a pro overlay pulled in
+    // through a worker entry would ship with zero boundary enforcement.
+    plugins: () => [
+      ...(proPresent ? [proOverlayPlugin({ overlayRoot })] : []),
+      proLeakGuard({ proDir: PRO_CHUNK_DIR, overlayRoot: proPresent ? overlayRoot : undefined }),
+    ],
+    rollupOptions: {
+      output: {
+        chunkFileNames: chunkFileNamesFor,
+        assetFileNames: assetFileNamesFor,
+      },
+    },
+  },
   build: {
     rollupOptions: {
       output: {
         chunkFileNames: chunkFileNamesFor,
+        assetFileNames: assetFileNamesFor,
       },
     },
   },

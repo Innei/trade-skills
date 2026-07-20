@@ -23,6 +23,15 @@ export function chunkFileNamesFor(chunk: ChunkNameInput): string {
   return isPro ? `${PRO_CHUNK_DIR}[name]-[hash].mjs` : '[name]-[hash].mjs';
 }
 
+export interface AssetNameInput {
+  originalFileNames: readonly string[];
+}
+
+export function assetFileNamesFor(asset: AssetNameInput): string {
+  const isPro = asset.originalFileNames.some(isProModule);
+  return isPro ? `${PRO_CHUNK_DIR}[name]-[hash][extname]` : '[name]-[hash][extname]';
+}
+
 export default defineConfig({
   root: desktopDir,
 
@@ -52,11 +61,12 @@ export default defineConfig({
         format: 'es',
         entryFileNames: '[name].mjs',
         chunkFileNames: chunkFileNamesFor,
+        assetFileNames: assetFileNamesFor,
       },
     },
   },
   plugins: [
     ...(proPresent ? [proOverlayPlugin({ overlayRoot })] : []),
-    proLeakGuard({ proDir: PRO_CHUNK_DIR }),
+    proLeakGuard({ proDir: PRO_CHUNK_DIR, overlayRoot: proPresent ? overlayRoot : undefined }),
   ],
 });

@@ -24,6 +24,7 @@
     "electron-sparkle-updater": "^0.1.0"
   },
   "devDependencies": {
+    "@electron/asar": "^3.4.1",
     "@electron/rebuild": "^4.2.0",
     "@kansoku/build-overlay": "workspace:*",
     "@kansoku/core": "workspace:*",
