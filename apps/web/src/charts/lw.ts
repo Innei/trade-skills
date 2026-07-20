@@ -8,6 +8,7 @@ import {
   type ISeriesMarkersPluginApi,
   type LineData,
   type LogicalRange,
+  type MouseEventParams,
   type SeriesMarker as LwMarker,
   type SeriesType,
   type TickMarkType,
@@ -206,6 +207,43 @@ export function syncTimeScales(charts: IChartApi[]): () => void {
     };
     src.timeScale().subscribeVisibleLogicalRangeChange(onRangeChange);
     return () => src.timeScale().unsubscribeVisibleLogicalRangeChange(onRangeChange);
+  });
+  return () => subscriptions.forEach((unsubscribe) => unsubscribe());
+}
+
+export interface CrosshairPane {
+  chart: IChartApi;
+  series: ISeriesApi<SeriesType>;
+}
+
+export function syncCrosshair(panes: CrosshairPane[]): () => void {
+  let syncing = false;
+  const subscriptions = panes.map((src) => {
+    const onMove = (param: MouseEventParams) => {
+      if (syncing) return;
+      // Data updates on a pane holding a synthetic crosshair re-fire crosshairMove
+      // without sourceEvent; forwarding those echoes makes the crosshair ping-pong.
+      if (param.time !== undefined && param.sourceEvent === undefined) return;
+      syncing = true;
+      for (const dst of panes) {
+        if (dst === src) continue;
+        if (param.time === undefined || param.logical === undefined) {
+          dst.chart.clearCrosshairPosition();
+          continue;
+        }
+        const bar = dst.series.dataByIndex(param.logical);
+        const value =
+          bar && 'value' in bar && bar.value !== undefined
+            ? bar.value
+            : bar && 'close' in bar
+              ? bar.close
+              : 0;
+        dst.chart.setCrosshairPosition(value, param.time, dst.series);
+      }
+      syncing = false;
+    };
+    src.chart.subscribeCrosshairMove(onMove);
+    return () => src.chart.unsubscribeCrosshairMove(onMove);
   });
   return () => subscriptions.forEach((unsubscribe) => unsubscribe());
 }
