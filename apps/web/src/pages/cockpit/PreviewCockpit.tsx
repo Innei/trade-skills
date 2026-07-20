@@ -10,6 +10,7 @@ import { TopbarQuote } from '@web/QuoteBar';
 import { Dot, Empty, ErrorBox } from '@web/ui';
 import { useTitle } from '@web/useTitle';
 import { AnalysisTimeline } from './AnalysisTimeline';
+import { CockpitSkeleton } from './CockpitSkeleton';
 import { GenerateAnalysis } from './GenerateAnalysis';
 import { GenerateAnalysisCta } from './GenerateAnalysisCta';
 import { buildSharedSidebarTabs } from './sharedSidebarTabs';
@@ -62,12 +63,7 @@ export function PreviewCockpit({
     );
   }
 
-  if (!built)
-    return (
-      <div className="page">
-        <Empty>加载中…</Empty>
-      </div>
-    );
+  if (!built) return <CockpitSkeleton />;
 
   const activeIntradayTf = resolveIntradayTf(built, intradayTf);
 

@@ -3918,6 +3918,75 @@ a.zone-item:hover {
   }
 }
 
+.cockpit-skeleton .app-skeleton-bone {
+  animation: none;
+  background: var(--bg-element);
+}
+.cockpit-skeleton .detail-topbar .title {
+  display: inline-flex;
+}
+.cockpit-skeleton-bone--title {
+  width: 180px;
+  height: 14px;
+}
+.cockpit-skeleton-bone--meta {
+  width: 56px;
+  height: 12px;
+}
+.cockpit-skeleton-bone--tf {
+  width: 36px;
+  height: 22px;
+}
+.cockpit-skeleton-bone--quote {
+  width: 130px;
+  height: 14px;
+}
+.cockpit-skeleton-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 12px;
+}
+.cockpit-skeleton-macd {
+  flex: 0 0 190px;
+  padding: 12px;
+}
+.cockpit-skeleton-bone--chart {
+  width: 100%;
+  height: 100%;
+}
+.cockpit-skeleton-tabbar {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.cockpit-skeleton-bone--tab {
+  width: 48px;
+  height: 20px;
+}
+.cockpit-skeleton .sidebar-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cockpit-skeleton-bone--line {
+  width: 100%;
+  height: 12px;
+}
+.cockpit-skeleton-bone--block {
+  width: 100%;
+  height: 72px;
+}
+.cockpit-skeleton-bone--w80 {
+  width: 80%;
+}
+.cockpit-skeleton-bone--w60 {
+  width: 60%;
+}
+.cockpit-skeleton-bone--w40 {
+  width: 40%;
+}
+
 .open-symbol-form {
   display: flex;
   flex-direction: column;

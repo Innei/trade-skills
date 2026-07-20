@@ -8,10 +8,11 @@ import { getPopoutBridge } from '../desktop/desktopWindowsBridge';
 import { TopbarQuote } from '../QuoteBar';
 import { marketOfSymbol } from '../lib/market';
 import { recordRecentSymbol } from '../recentCharts';
-import { Dot, Empty, ErrorBox, MarketTime } from '../ui';
+import { Dot, ErrorBox, MarketTime } from '../ui';
 import { useTitle } from '../useTitle';
 import { useLiveQuote } from '../useLiveQuote';
 import { AnalysisRunDetails } from './cockpit/AnalysisRunDetails';
+import { CockpitSkeleton } from './cockpit/CockpitSkeleton';
 import { AnalysisTimeline } from './cockpit/AnalysisTimeline';
 import { ChatDock } from './cockpit/chat/ChatDock';
 import { GenerateAnalysisCta } from './cockpit/GenerateAnalysisCta';
@@ -164,12 +165,7 @@ export function SymbolCockpit({ sym }: { sym: string }) {
     );
   }
 
-  if (!doc)
-    return (
-      <div className="page">
-        <Empty>加载中…</Empty>
-      </div>
-    );
+  if (!doc) return <CockpitSkeleton />;
 
   if (doc.built.kind === 'sepa') {
     return (
