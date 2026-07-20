@@ -222,6 +222,7 @@ export interface IntradayTfData {
   autoDivergence: DivergencePair[];
   autoBeichi: DivergencePair[];
   pattern123?: Pattern123[];
+  secondBreakouts?: SecondBreakout[];
   offSession?: OffSessionSegment[];
   fvgZones?: IntradayFvgZone[];
 }
@@ -359,6 +360,7 @@ export interface IntradayTfSummary {
   zero_tangle?: boolean;
   candle_patterns?: CandlePattern[];
   pattern_123?: Pattern123[];
+  second_breakouts?: SecondBreakout[];
 }
 
 export interface IntradayEntryPlan {
@@ -543,6 +545,7 @@ export interface IntradaySidebar {
   entryPlan: IntradayEntryPlan | null;
   position: PositionView | null;
   technicals: Record<TimeframeKey, IntradayTfSummary>;
+  technicalsNotes: string[];
   dayContext?: IntradayDayContext | null;
   optionsLevels?: IntradayOptionsLevels | null;
   eventRisk?: IntradayEventRisk | null;

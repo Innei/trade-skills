@@ -26,6 +26,7 @@ import {
   type Pattern123,
   type PredictionScenario,
   type RawBar,
+  type SecondBreakout,
   type SeriesMarker,
   type SwingPoint,
   type TimeframeKey,
@@ -44,6 +45,7 @@ import {
   type MacdStructure,
 } from './macdStructure.js';
 import { detect123Patterns } from './pattern123.js';
+import { detectSecondBreakouts } from './secondBreakout.js';
 import {
   enrichCandlePatterns,
   offSessionSignalKeeper,
@@ -58,6 +60,11 @@ export const TIMEFRAME_LABELS: Record<TimeframeKey, string> = {
   m5: '5分钟',
   m15: '15分钟',
   h1: '1小时',
+};
+const TECHNICALS_NOTE_TF_LABELS: Record<TimeframeKey, string> = {
+  m5: '5m',
+  m15: '15m',
+  h1: '1h',
 };
 export const DEFAULT_EMA_PERIODS = [9, 21, 55];
 const MACD_MIN_BARS = 60;
@@ -282,6 +289,7 @@ export interface CoercedTimeframe {
   autoDivergence: DivergencePair[];
   autoBeichi: DivergencePair[];
   pattern123: Pattern123[];
+  secondBreakouts: SecondBreakout[];
   fvgZones: IntradayFvgZone[];
   lastClose: number;
   summary: IntradayTfSummary;
@@ -388,6 +396,9 @@ export function coerceIntradayTimeframe(
   const pattern123 = detect123Patterns(highs, lows, closes, timesTs)
     .filter((p) => keepSignal(p.confirm?.time ?? p.p3.time))
     .slice(-2);
+  const secondBreakouts = detectSecondBreakouts(highs, lows, closes, timesTs)
+    .filter((sb) => keepSignal(sb.trigger?.time ?? sb.signal.time))
+    .slice(-2);
   structure.signals = structure.signals.filter((s) => keepSignal(s.time));
 
   return {
@@ -404,6 +415,7 @@ export function coerceIntradayTimeframe(
     autoDivergence: autoDivergence.slice(-2),
     autoBeichi: autoBeichi.slice(-2),
     pattern123,
+    secondBreakouts,
     fvgZones,
     lastClose: closes.at(-1)!,
     summary: {
@@ -421,6 +433,7 @@ export function coerceIntradayTimeframe(
       zero_tangle: structure.tangle,
       candle_patterns: candlePatterns.slice(-6),
       pattern_123: pattern123,
+      second_breakouts: secondBreakouts,
     },
   };
 }
@@ -689,6 +702,24 @@ function pattern123Overlay(patterns: Pattern123[], lastBarTime: number): TfOverl
     }
   }
   return { markers, priceConnectors, macdConnectors: [] };
+}
+
+function secondBreakoutNoteLine(tfKey: TimeframeKey, sb: SecondBreakout): string {
+  const tfLabel = TECHNICALS_NOTE_TF_LABELS[tfKey];
+  if (sb.trigger) {
+    return `${tfLabel}: ${sb.kind} confirmed at ${sb.trigger.price.toFixed(2)} (trigger ${barTimeShort(sb.trigger.time)})`;
+  }
+  return `${tfLabel}: ${sb.kind} forming at ${sb.signal.price.toFixed(2)}`;
+}
+
+function buildTechnicalsNotes(tfs: Record<TimeframeKey, CoercedTimeframe>): string[] {
+  const notes: string[] = [];
+  for (const k of TIMEFRAME_ORDER) {
+    const latest = tfs[k].secondBreakouts.at(-1);
+    if (!latest) continue;
+    notes.push(secondBreakoutNoteLine(k, latest));
+  }
+  return notes;
 }
 
 export function computeIntradayEntryPlan(
@@ -1017,6 +1048,7 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
       autoDivergence: tf.autoDivergence,
       autoBeichi: tf.autoBeichi,
       pattern123: tf.pattern123,
+      secondBreakouts: tf.secondBreakouts,
       fvgZones: tf.fvgZones,
       offSession: offSessionSegments(
         tf.candles.map((c) => c.time),
@@ -1030,6 +1062,7 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
     TimeframeKey,
     IntradayTfSummary
   >;
+  const technicalsNotes = buildTechnicalsNotes(tfs);
 
   const lastM5 = tfs.m5.candles.at(-1)!;
   const dayContext = buildDayContext(
@@ -1060,6 +1093,7 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
       entryPlan,
       position,
       technicals,
+      technicalsNotes,
       dayContext,
       optionsLevels: input.options_levels ?? null,
       eventRisk: input.event_risk ?? null,
@@ -1075,6 +1109,7 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
       number
     >,
     technicals,
+    technicals_notes: technicalsNotes,
     day_context: dayContext,
     options_levels: input.options_levels ?? null,
     event_risk: input.event_risk ?? null,

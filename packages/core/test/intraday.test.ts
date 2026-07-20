@@ -267,6 +267,78 @@ describe('intraday parity vs python golden fixture', () => {
     }
   });
 
+  it('flows a confirmed H2 through coerceIntradayTimeframe into summary and tf data', () => {
+    const upRamp = (from: number, to: number, step: number) => {
+      const out: number[] = [];
+      for (let v = from; step > 0 ? v <= to : v >= to; v += step) out.push(v);
+      return out;
+    };
+    const UP_TREND = upRamp(70, 130, 1);
+    const UP_H2_STRUCTURE = [
+      129, 128, 127, 126, 125,
+      126, 127, 128,
+      127, 126, 125, 124, 123,
+      124, 125, 126, 127, 126, 125, 124,
+      125, 126, 127, 128,
+    ];
+    const closes = [...UP_TREND, ...UP_H2_STRUCTURE];
+    const base = Date.parse('2026-06-01T08:00:00.000Z') / 1000;
+    const raw: RawBar[] = closes.map((c, i) => ({
+      time: new Date((base + i * 300) * 1000).toISOString(),
+      open: c,
+      high: c + 0.5,
+      low: c - 0.5,
+      close: c,
+      volume: 1000,
+    }));
+    const tf = coerceIntradayTimeframe(raw, 'm5');
+    expect(tf.secondBreakouts).toHaveLength(1);
+    expect(tf.secondBreakouts[0].kind).toBe('H2');
+    expect(tf.secondBreakouts[0].status).toBe('confirmed');
+    expect(tf.summary.second_breakouts).toEqual(tf.secondBreakouts);
+  });
+
+  it('emits a secondBreakouts field and a technicals note line for a confirmed SB structure', () => {
+    const upRamp = (from: number, to: number, step: number) => {
+      const out: number[] = [];
+      for (let v = from; step > 0 ? v <= to : v >= to; v += step) out.push(v);
+      return out;
+    };
+    const UP_TREND = upRamp(70, 130, 1);
+    const UP_H2_STRUCTURE = [
+      129, 128, 127, 126, 125,
+      126, 127, 128,
+      127, 126, 125, 124, 123,
+      124, 125, 126, 127, 126, 125, 124,
+      125, 126, 127, 128,
+    ];
+    const closes = [...UP_TREND, ...UP_H2_STRUCTURE];
+    const base = Date.parse('2026-06-01T08:00:00.000Z') / 1000;
+    const sbBars: RawBar[] = closes.map((c, i) => ({
+      time: new Date((base + i * 300) * 1000).toISOString(),
+      open: c,
+      high: c + 0.5,
+      low: c - 0.5,
+      close: c,
+      volume: 1000,
+    }));
+    const { built, meta } = buildIntraday({
+      ...input,
+      timeframes: { ...input.timeframes, m5: sbBars },
+    });
+
+    expect(built.timeframes.m5.secondBreakouts).toHaveLength(1);
+    expect(built.timeframes.m5.secondBreakouts?.[0].status).toBe('confirmed');
+    expect(built.sidebar.technicalsNotes.some((line) => line.startsWith('5m: H2 confirmed at')))
+      .toBe(true);
+    expect(meta.technicals_notes).toEqual(built.sidebar.technicalsNotes);
+    expect(
+      built.sidebar.technicalsNotes.some(
+        (line) => line.startsWith('m15:') || line.startsWith('1h:'),
+      ),
+    ).toBe(false);
+  });
+
   it('throws ClientError when sources_used is not an array', () => {
     const context = {
       generated_at: '2026-07-05T14:00:00.000Z',
