@@ -16,14 +16,16 @@ export async function bootKernel() {
     { initServerRuntime },
     { attachRealtimeBridge },
     { CHART_DATA_DIR },
-    { getPro, hasEncBundle, isProPresent },
+    { getPro, hasEncBundle, isProPresent, registerProModule, freeHooks },
     { getActiveBundleKey },
+    { loadPro },
   ] = await Promise.all([
     import('../../../server/src/runtimeInit.js'),
     import('../kernel/realtime/bridge.js'),
     import('@kansoku/core/env'),
     import('@kansoku/core/pro/registry'),
     import('@kansoku/core/license/licenseState'),
+    import('@kansoku/core/pro/loader'),
   ]);
 
   // Dev keeps the pre-P3 plaintext keyfile so ELECTRON_DEV workflows are
@@ -51,12 +53,25 @@ export async function bootKernel() {
     console.log('[desktop] ai scheduler started');
   }
 
+  // loadPro must run before the edition import below: in a packaged build
+  // the plaintext __pro__ chunks are gone, so the pro node chunks only
+  // resolve once loadPro has registered them as virtual modules.
+  const proPayload = await loadPro(app.getAppPath());
+
   const proComposition = await import('../edition/pro.js')
     .then((m) => m.loadProComposition())
     .catch((error: unknown) => {
       console.warn('[desktop] pro composition unavailable, running free', error);
       return null;
     });
+
+  // Task 8 dropped registerProModule from loadPro's own flow (it now only
+  // decrypts + registers virtual modules); the old registry is still what
+  // capabilities/features/proActivationWatch read, so presence is re-fed
+  // here until that registry is retired.
+  if (proComposition) {
+    registerProModule({ hooks: freeHooks });
+  }
 
   const apiApp = kernel.app.getInstance();
   attachRealtimeBridge();
@@ -76,6 +91,7 @@ export async function bootKernel() {
   return {
     kernel,
     proComposition,
+    webFiles: proPayload?.webFiles ?? null,
     dispose: async () => {
       await proComposition?.dispose?.();
     },

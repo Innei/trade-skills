@@ -18,17 +18,38 @@ vi.mock('@desktop/kernel/realtime/bridge.js', () => ({ attachRealtimeBridge }));
 
 vi.mock('@kansoku/core/env', () => ({ CHART_DATA_DIR: '/tmp/chart-data' }));
 
+const callOrder = vi.hoisted(() => [] as string[]);
+
+const registerProModule = vi.hoisted(() => vi.fn());
+const freeHooks = vi.hoisted(() => ({ marker: 'free-hooks' }));
 const getPro = vi.hoisted(() => vi.fn(() => undefined));
 const hasEncBundle = vi.hoisted(() => vi.fn(() => false));
 const isProPresent = vi.hoisted(() => vi.fn(() => false));
-vi.mock('@kansoku/core/pro/registry', () => ({ getPro, hasEncBundle, isProPresent }));
+vi.mock('@kansoku/core/pro/registry', () => ({
+  getPro,
+  hasEncBundle,
+  isProPresent,
+  registerProModule,
+  freeHooks,
+}));
 
 const getActiveBundleKey = vi.hoisted(() => vi.fn(() => undefined));
 vi.mock('@kansoku/core/license/licenseState', () => ({ getActiveBundleKey }));
 
+const loadPro = vi.hoisted(() =>
+  vi.fn(async () => {
+    callOrder.push('loadPro');
+    return null as { webFiles: Map<string, Buffer> } | null;
+  }),
+);
+vi.mock('@kansoku/core/pro/loader', () => ({ loadPro }));
+
 const loadProComposition = vi.hoisted(() =>
   vi.fn<() => Promise<import('@desktop/edition/types.js').DesktopProComposition | null>>(
-    async () => null,
+    async () => {
+      callOrder.push('loadProComposition');
+      return null;
+    },
   ),
 );
 vi.mock('@desktop/edition/pro.js', () => ({ loadProComposition }));
@@ -68,6 +89,7 @@ const { bootKernel } = await import('@desktop/boot/kernel.js');
 describe('bootKernel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    callOrder.length = 0;
     initServerRuntime.mockResolvedValue(null);
     createKernel.mockResolvedValue({ app: { getInstance: () => ({ fetch: fetchHealth }) } });
     fetchHealth.mockResolvedValue(new Response('ok', { status: 200 }));
@@ -79,7 +101,9 @@ describe('bootKernel', () => {
     const result = await bootKernel();
 
     expect(result.proComposition).toBeNull();
+    expect(result.webFiles).toBeNull();
     expect(createKernel).toHaveBeenCalledWith([]);
+    expect(registerProModule).not.toHaveBeenCalled();
   });
 
   it('boots free when the pro composition resolves null', async () => {
@@ -88,6 +112,7 @@ describe('bootKernel', () => {
 
     expect(result.proComposition).toBeNull();
     expect(attachRealtimeBridge).toHaveBeenCalled();
+    expect(registerProModule).not.toHaveBeenCalled();
   });
 
   it('passes server pro modules into createKernel and starts the desktop composition', async () => {
@@ -111,8 +136,28 @@ describe('bootKernel', () => {
     expect(createKernel).toHaveBeenCalledWith([serverModule]);
     expect(start).toHaveBeenCalledTimes(1);
     expect(result.proComposition?.ipcServices).toEqual([ipcServiceClass]);
+    // Task 8's loadPro no longer calls registerProModule itself; bootKernel
+    // must re-feed the old registry so getPro()/isProPresent() (read by
+    // capabilities/features/proActivationWatch) still flip true when pro
+    // actually loads. See kernelProPresence.test.ts for the real-registry proof.
+    expect(registerProModule).toHaveBeenCalledWith({ hooks: freeHooks });
 
     await result.dispose();
     expect(dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns the decrypted web chunks from loadPro', async () => {
+    const webFiles = new Map([['assets/__pro__/pro-a1.js', Buffer.from('x')]]);
+    loadPro.mockResolvedValueOnce({ webFiles });
+
+    const result = await bootKernel();
+
+    expect(result.webFiles).toBe(webFiles);
+  });
+
+  it('registers pro virtual modules via loadPro before reaching the edition composition point', async () => {
+    await bootKernel();
+
+    expect(callOrder).toEqual(['loadPro', 'loadProComposition']);
   });
 });

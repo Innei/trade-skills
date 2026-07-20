@@ -96,6 +96,19 @@ export function lookupMimeType(pathname: string): string {
   return MIME_TYPES[extname(pathname).toLowerCase()] ?? 'application/octet-stream';
 }
 
+export type AssetSource = { kind: 'disk' } | { kind: 'memory'; body: Buffer };
+
+let proAssets: Map<string, Buffer> | null = null;
+
+export function setProAssets(files: Map<string, Buffer> | null): void {
+  proAssets = files;
+}
+
+export function resolveAssetSource(relativePath: string): AssetSource {
+  const body = proAssets?.get(relativePath);
+  return body ? { kind: 'memory', body } : { kind: 'disk' };
+}
+
 export function missingDistErrorHtml(distRoot: string): string {
   return `<!doctype html><title>trade — web build missing</title><body style="font:14px system-ui;padding:2rem">
   <h1>Web build not found</h1>
@@ -120,6 +133,17 @@ export function createAppProtocolHandler(deps: ProtocolHostDeps) {
 
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return new Response('Method Not Allowed', { status: 405 });
+    }
+
+    // Consulted only after decideRoute's guardStaticPath has already
+    // rejected traversal/absolute paths above — a crafted request must
+    // never reach the in-memory map unguarded.
+    const asset = resolveAssetSource(decision.relativePath);
+    if (asset.kind === 'memory') {
+      return new Response(new Uint8Array(asset.body), {
+        status: 200,
+        headers: { 'content-type': lookupMimeType(decision.relativePath) },
+      });
     }
 
     if (!deps.distRootExists()) {
