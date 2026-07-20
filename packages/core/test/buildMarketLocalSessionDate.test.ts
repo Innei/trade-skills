@@ -14,7 +14,7 @@ vi.mock('../src/analysis/sepa.js', () => ({
   })),
 }));
 
-vi.mock('../src/analysis/intraday.js', () => ({
+vi.mock('../src/analysis/intraday/orchestrator.js', () => ({
   buildIntraday: vi.fn((input: { symbol: string }) => ({
     built: {
       kind: 'intraday',
@@ -22,6 +22,9 @@ vi.mock('../src/analysis/intraday.js', () => ({
     },
     meta: {},
   })),
+}));
+
+vi.mock('../src/analysis/intraday/constants.js', () => ({
   TIMEFRAME_ORDER: ['m5', 'm15', 'h1'],
 }));
 

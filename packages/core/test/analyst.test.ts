@@ -5,15 +5,10 @@ import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import { describe, expect, it } from 'vitest';
 import type { CockpitComment } from '@kansoku/shared/types';
 import type { AiAgentFactory, AiAgentHandle } from '../src/ai/agents/agentSession.js';
-import {
-  analystRunStatus,
-  type AnalystDeps,
-  buildAnalystSystemPrompt,
-  buildJournalTool,
-  escalationOnCooldown,
-  executeAnalystRun,
-  runAnalyst,
-} from '../src/ai/personas/analyst.js';
+import type { AnalystDeps } from '../src/ai/personas/analyst/types.js';
+import { buildAnalystSystemPrompt, executeAnalystRun, runAnalyst } from '../src/ai/personas/analyst/run.js';
+import { analystRunStatus, escalationOnCooldown } from '../src/ai/personas/analyst/runState.js';
+import { buildJournalTool } from '../src/ai/personas/analyst/tools.js';
 import type { ReassessPack } from '../src/ai/agents/datapack.js';
 import type { AiModel } from '../src/ai/runtime/models.js';
 

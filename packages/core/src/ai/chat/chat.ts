@@ -16,7 +16,8 @@ import { marketOf } from '../../symbols/symbol.utils.js';
 import { easternDate } from '../../marketdata/session.js';
 import { loadChart as defaultLoadChart } from '../../charts/store.js';
 import type { AiAgentFactory } from '../agents/agentSession.js';
-import { buildResearchTools, type ExecFn } from '../agents/agentTools.js';
+import type { ExecFn } from '../agents/agentTools/execTool.js';
+import { buildResearchTools } from '../agents/agentTools/researchTools.js';
 import {
   appendMessages,
   type ChatMessageRow,

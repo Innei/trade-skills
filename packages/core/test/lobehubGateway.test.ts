@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { Model } from '@earendil-works/pi-ai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createCredentialStore, type AppCredentialStore } from '../src/ai/settings/credentialStore.js';
-import { WebApiLobeHubCloudGateway } from '../src/ai/lobehub/gateway.js';
+import { WebApiLobeHubCloudGateway } from '../src/ai/lobehub/gateway/client.js';
 import { LOBEHUB_API } from '../src/ai/lobehub/types.js';
 import { createSecretBox } from '../src/ai/settings/secretBox.js';
 import { createDb } from '../src/db/index.js';

@@ -8,7 +8,7 @@ import { AgentTimeoutError, createAgentSession } from '../../agents/agentSession
 import { AnalystMessagesEngine } from '../../conversation/messages/analystMessagesEngine.js';
 import { ANALYST_ADAPTER_PROMPT, ANALYST_RETRY_PROMPT, ANALYST_SYSTEM_PROMPT } from '../../runtime/prompts.js';
 import { DisciplineMissingError, loadAppDiscipline } from '../../runtime/promptPolicy.js';
-import { createDefaultExec } from '../../agents/agentTools.js';
+import { createDefaultExec } from '../../agents/agentTools/execTool.js';
 import { appendComment as defaultAppendComment } from '../comments.js';
 import { buildReassessPack as defaultBuildReassessPack } from '../../agents/datapack.js';
 import { aiConfig } from '../../runtime/models.js';

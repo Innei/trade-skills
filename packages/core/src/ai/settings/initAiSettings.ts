@@ -8,7 +8,7 @@ import type { Db } from '../../db/index.js';
 import { aiRoleSettings, appMeta, providerCredentials } from '../../db/schema.js';
 import { CHART_DATA_DIR } from '../../platform/env.js';
 import { type AppCredentialStore, createCredentialStore } from './credentialStore.js';
-import { WebApiLobeHubCloudGateway } from '../lobehub/gateway.js';
+import { WebApiLobeHubCloudGateway } from '../lobehub/gateway/client.js';
 import { createLobeHubProvider } from '../lobehub/provider.js';
 import { LOBEHUB_PROVIDER, type LobeHubCloudGateway } from '../lobehub/types.js';
 import { initModelsRuntime, SINGLE_KEY_PROVIDERS } from '../runtime/modelsRuntime.js';

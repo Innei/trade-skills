@@ -1,7 +1,7 @@
 import { type CockpitComment, type NewsItem, type RawBar } from '@kansoku/shared/types';
 import type { ReassessStatus } from '../../../contract/symbols.js';
 import type { AiAgentFactory } from '../../agents/agentSession.js';
-import type { ExecFn } from '../../agents/agentTools.js';
+import type { ExecFn } from '../../agents/agentTools/execTool.js';
 import type { ReassessPack } from '../../agents/datapack.js';
 import type { AiModel } from '../../runtime/models.js';
 

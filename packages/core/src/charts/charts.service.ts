@@ -11,7 +11,7 @@ import {
   refreshBody,
 } from './build.js';
 import { clampViewCount } from '../analysis/history.js';
-import { TIMEFRAME_ORDER } from '../analysis/intraday.js';
+import { TIMEFRAME_ORDER } from '../analysis/intraday/constants.js';
 import { validatePrediction } from '../analysis/predictionRules.js';
 import { predictionStale } from '../platform/staleness.js';
 import {

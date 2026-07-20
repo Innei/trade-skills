@@ -1,6 +1,7 @@
 import { PROJECT_ROOT } from '../../platform/env.js';
 import type { Db } from '../../db/index.js';
-import { buildResearchTools, type ExecFn } from '../agents/agentTools.js';
+import type { ExecFn } from '../agents/agentTools/execTool.js';
+import { buildResearchTools } from '../agents/agentTools/researchTools.js';
 import type { AiAgentFactory } from '../agents/agentSession.js';
 import {
   appendAssistantMessages,

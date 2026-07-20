@@ -13,7 +13,7 @@ import {
   type SecondBreakout,
 } from '@kansoku/shared/types';
 import { ClientError } from '../../platform/errors.js';
-import { detectCandlePatterns } from '../candlePatterns.js';
+import { detectCandlePatterns } from '../candlePatterns/detect.js';
 import { detectFvgZones } from '../fvg.js';
 import { lastVwap, sessionVwap } from '../vwap.js';
 import { ema, findSwings, lineData, macd, sma, toTs } from '../indicators.js';
