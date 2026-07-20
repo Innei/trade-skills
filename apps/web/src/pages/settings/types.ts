@@ -63,6 +63,29 @@ export interface Catalog {
 
 export const ROLES: Role[] = ['comment', 'analyst', 'deepDive', 'chat', 'memory'];
 
+function defaultRoleSetting(role: Role | 'primary'): RoleSetting {
+  return {
+    mode: role === 'primary' ? 'disabled' : 'inherit',
+    provider: null,
+    modelId: null,
+    thinkingLevel: null,
+    stale: false,
+  };
+}
+
+// react-query persists settings.getAi responses to localStorage
+// (queryClient.ts) and restores them before the live refetch lands, so a
+// role added after a user's last persisted snapshot (e.g. 'memory' on
+// 2026-07-20) is briefly missing from `roles` on app launch — normalize so
+// every ROLES consumer can always index it.
+export function normalizeAiRoles(roles: Partial<AiRoles> | null | undefined): AiRoles {
+  const normalized = {} as AiRoles;
+  for (const role of ['primary', ...ROLES] as const) {
+    normalized[role] = roles?.[role] ?? defaultRoleSetting(role);
+  }
+  return normalized;
+}
+
 export const ROLE_LABEL: Record<Role, string> = {
   comment: '盘中快评',
   analyst: '升级分析',
