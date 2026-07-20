@@ -1,15 +1,15 @@
 'use strict';
 
-const { readdirSync, statSync } = require('node:fs');
+const { readdirSync, readFileSync, statSync } = require('node:fs');
 const { join, relative } = require('node:path');
 
 const EXPECTED_BETTER_SQLITE3_FILES = ['build/Release/better_sqlite3.node'];
 const ALLOWED_PRO_ENTRY = 'pro/pro.enc';
-// Marker only ever emitted by tsdown's `//#region` output for apps/pro's own
-// source tree (verified: present in apps/pro/dist/**/*.mjs, absent from
-// apps/desktop/dist-main and apps/server/dist). A hit inside app.asar means
-// unencrypted pro source leaked into the packaged bundle.
-const PLAINTEXT_PRO_MARKER = 'src/editions/desktop.ts';
+// pro's entries embed this marker (apps/pro src/entries/canary.ts); pro.enc
+// stores it only under AES-GCM + gzip, so the marker appearing in the raw
+// asar bytes means plaintext pro code got packaged. Joined from parts so this
+// script can never trip the scan on itself.
+const PRO_CANARY = ['KANSOKU', 'PRO', 'CANARY', '9d4f2b7e1c'].join('-');
 
 function listFiles(root, directory = root) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -46,7 +46,7 @@ function verifyBetterSqlite3Payload(context) {
 }
 
 async function scanAppAsarForPlaintextLeaks(context) {
-  const { listPackage, extractFile } = await import('@electron/asar');
+  const { listPackage } = await import('@electron/asar');
   const resourcesDir = join(
     context.appOutDir,
     `${context.packager.appInfo.productFilename}.app`,
@@ -71,16 +71,8 @@ async function scanAppAsarForPlaintextLeaks(context) {
     );
   }
 
-  const jsChunks = entries.filter(
-    (entry) => entry.startsWith('dist-main/') && (entry.endsWith('.js') || entry.endsWith('.mjs') || entry.endsWith('.cjs')),
-  );
-  for (const chunk of jsChunks) {
-    const contents = extractFile(asarPath, chunk).toString('utf8');
-    if (contents.includes(PLAINTEXT_PRO_MARKER)) {
-      throw new Error(
-        `app.asar chunk "${chunk}" contains unencrypted pro source (matched marker "${PLAINTEXT_PRO_MARKER}")`,
-      );
-    }
+  if (readFileSync(asarPath).includes(PRO_CANARY)) {
+    throw new Error('pro canary found in app.asar — plaintext pro code leaked into the package');
   }
 }
 
