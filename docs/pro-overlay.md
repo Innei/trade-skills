@@ -34,8 +34,8 @@
 | `pnpm --filter @kansoku/build-overlay check` | 只读校验，不写盘；投影跟 overlays 目录对不上就非零退出 |
 | `pnpm typecheck:pro` | 聚合 `packages/core`、`apps/server`、`apps/desktop`、`apps/web` 各自的 `tsc --noEmit -p tsconfig.pro.json` |
 | `pnpm lint` | 跑 ESLint，含 overlay 依赖方向规则 |
-| `pnpm --filter @kansoku/pro poc:overlay` | 端到端 POC：sync → OSS/Pro 两套 tsc 检查 → 两套 Vite/tsdown 构建 → 打包加密 → 解密回读 → 校验运行时选中结果 |
-| `pnpm --filter @kansoku/pro build` | 私有仓构建脚本，会先跑一次 `sync --check` 当 preflight，不通过就不会进入 tsdown |
+| `pnpm --filter @kansoku/pro poc:overlay` | 端到端 POC：sync → OSS/Pro 两套 tsc 检查 → Vite web + vite-node 两套构建 → 打包加密 → 解密回读 → 校验运行时选中结果 |
+| `pnpm --filter @kansoku/pro build` | 私有仓构建脚本，会先跑一次 `sync --check` 当 preflight，不通过就不会进入 vite 构建 |
 
 工作区层面还有两个钩子（脚本不在本仓库内，只说行为）：创建 `apps/pro` 这个 worktree 之后会自动跑一次 sync；日常校验流程会跑一次 `--check` 确认没有陈旧或缺失的投影。
 
@@ -54,7 +54,7 @@
 
 日常开发不走 `pro.enc` 加密包，走同一套 Edition ABI，但省掉每次改动都重新加密这一步：
 
-- `apps/pro` 的 watch 构建（`tsdown.dev.config.ts`）把 server/desktop 两个 entry 输出到 gitignore 掉的 `apps/pro/dist-dev/{server,desktop}/index.mjs`，明文、不经过 `packEnc`。
+- `apps/pro` 的 watch 构建（`pnpm --filter @kansoku/pro dev:watch`，vite `--mode dev`）把 server/desktop 两个 entry 输出到 gitignore 掉的 `apps/pro/dist-dev/{server,desktop}/index.mjs`，明文、不经过 `packEnc`。
 - `packages/core/src/pro/editionLoader.ts` 的 `loadEditionFromDevDist()` 直接从磁盘 `import()` 这两个明文文件，跑一遍和 `loadEdition()`（解密 `pro.enc` 那条路径）完全一样的 ABI 校验（`abiVersion`/`runtime`/`createEdition`），只是没有解密出来的 manifest，因此没有 `keyId`/`buildId` 可报告。
 - `apps/server/src/runtimeInit.ts` 与 `apps/desktop/src/boot/kernel.ts` 的启动流程：先按常规尝试 `loadEdition()`（读 `pro.enc`），只有当拿到的 `state` 是 `'absent'`（即 `bundlePresent === false`，压根没 staged `pro.enc`）且当前是非生产环境时，才会退回尝试 `loadEditionFromDevDist()` 读 `dist-dev/`；`'locked'`（包在但没 key，`bundlePresent === true`）不会走这条回退——一个已存在但打不开的加密包不能被 `dist-dev/` 的明文构建替代，会直接跑免费版。两条路径共用同一个 `EditionRuntimeKind`/`EditionActivation` 类型，宿主代码不需要区分自己激活的是哪一种来源，只在需要把同一个来源透传给桌面侧复用时记一下 `editionSource: 'enc' | 'dist-dev'`。
 - Web 端日常开发不经过这条协议：直接以 Pro 模式跑单图 Vite dev server，overlay resolver 进 dev 管线；加密 Web entry 的解密加载路径只在发布前 smoke 与 CI 里跑，不进日常开发循环。
@@ -70,4 +70,4 @@
 ## 已知边界
 
 - **Renderer 门：已验收**。浏览器 / Electron Renderer 端对解密后 UI module graph 的真实加载走的是另一条独立机制——加密 Web entry 经自定义协议（`pro-asset://`）由 Electron Main 解密提供，Renderer 侧通过 `WebEditionHost` ABI（`apps/web/src/host/`）挂载页面并复用宿主 React/client/realtime 运行时；`apps/web/src/edition.ts` / `edition.pro.ts` 做路由 composition，Pro 页面已按此路径全量迁移，公开产物无页面代码/路径残留。这条路径**不经过**下一条讲的 `proOverlayPlugin`。
-- **真实应用没有、也不需要接入 bundler 侧的 overlay 双模式**：`apps/web` 的 Vite 配置、`apps/desktop` 的 tsdown 配置至今没有启用 `proOverlayPlugin`——四个包已经有 `tsconfig.pro.json`（类型检查侧的 Pro 模式已就绪），但构建产物层面的双模式选择目前只在 `packages/build-overlay` 的 POC（以及 `pnpm --filter @kansoku/pro poc:overlay`）里被验证过。真实应用改走上一条的 Edition ABI + 加密单包分发，没有再走这条 bundler 双模式路线，因此这一条边界预计长期保持现状，不是待办事项。
+- **真实应用没有、也不需要接入 bundler 侧的 overlay 双模式**：`apps/web` 与 `apps/desktop` 的 Vite 配置至今没有启用 `proOverlayPlugin`——四个包已经有 `tsconfig.pro.json`（类型检查侧的 Pro 模式已就绪），但构建产物层面的双模式选择目前只在 `packages/build-overlay` 的 POC（以及 `pnpm --filter @kansoku/pro poc:overlay`）里被验证过。真实应用改走上一条的 Edition ABI + 加密单包分发，没有再走这条 bundler 双模式路线，因此这一条边界预计长期保持现状，不是待办事项。
