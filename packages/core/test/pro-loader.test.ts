@@ -1,57 +1,40 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { loadPro } from '../src/pro/loader.js';
-import {
-  freeHooks,
-  getPro,
-  hasEncBundle,
-  isProPresent,
-  unregisterProModuleForTests,
-} from '../src/pro/registry.js';
 
-describe('pro loader', () => {
-  afterEach(() => {
-    unregisterProModuleForTests();
+const roots: string[] = [];
+afterEach(() => {
+  while (roots.length) rmSync(roots.pop()!, { recursive: true, force: true });
+});
+
+function stageAppDir(): string {
+  const root = mkdtempSync(join(tmpdir(), 'kansoku-loader-'));
+  roots.push(root);
+  mkdirSync(join(root, 'pro'), { recursive: true });
+  return root;
+}
+
+describe('loadPro', () => {
+  it('returns null when pro.enc is absent', async () => {
+    await expect(loadPro(stageAppDir())).resolves.toBeNull();
   });
 
-  it('falls back to free mode when @kansoku/pro is missing', async () => {
-    const loaded = await loadPro();
-    expect(loaded).toBe(false);
-    expect(isProPresent()).toBe(false);
-    expect(getPro()).toBeNull();
-    expect(hasEncBundle()).toBe(false);
+  it('returns null when pro.enc is present but no key is available', async () => {
+    const root = stageAppDir();
+    writeFileSync(join(root, 'pro', 'pro.enc'), Buffer.from('KPRO1'));
+    await expect(loadPro(root)).resolves.toBeNull();
   });
 
-  it('logs a warning (not the not-found info line) when a present pro module itself fails to import', async () => {
-    const root = mkdtempSync(join(tmpdir(), 'kansoku-pro-'));
-    const appDir = join(root, 'appRoot');
-    const proSrcDir = join(root, 'pro', 'src');
-    mkdirSync(appDir, { recursive: true });
-    mkdirSync(proSrcDir, { recursive: true });
-    writeFileSync(join(proSrcDir, 'index.js'), 'import "./missing-inner.js";\n');
-
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+  it('returns null on a tampered blob rather than throwing', async () => {
+    const root = stageAppDir();
+    writeFileSync(join(root, 'pro', 'pro.enc'), Buffer.from('KPRO1garbage'));
+    process.env.KANSOKU_BUNDLE_KEY = '00'.repeat(32);
     try {
-      const loaded = await loadPro(appDir);
-      expect(loaded).toBe(false);
-      expect(isProPresent()).toBe(false);
-      expect(hasEncBundle()).toBe(false);
-      expect(infoSpy).not.toHaveBeenCalled();
-      expect(warnSpy).toHaveBeenCalledTimes(1);
-      expect(warnSpy.mock.calls[0]?.[0]).toContain('missing-inner.js');
+      await expect(loadPro(root)).resolves.toBeNull();
     } finally {
-      warnSpy.mockRestore();
-      infoSpy.mockRestore();
-      rmSync(root, { recursive: true, force: true });
+      delete process.env.KANSOKU_BUNDLE_KEY;
     }
-  });
-
-  it('free-mode default paid hooks are inert', () => {
-    expect(freeHooks.requestImmediateFollow('NVDA')).toBeUndefined();
-    expect(freeHooks.startDeepDiveForNote('NVDA')).toEqual({ started: false, reason: 'disabled' });
-    expect(freeHooks.deepDiveStatus()).toEqual({ running: false });
   });
 });

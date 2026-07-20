@@ -1,7 +1,5 @@
 import { createDecipheriv } from "node:crypto";
-import { readFileSync } from "node:fs";
 import { registerHooks } from "node:module";
-import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { gunzipSync } from "node:zlib";
 
@@ -73,31 +71,9 @@ function ensureHooks(): void {
   });
 }
 
-export interface LoadEncryptedOptions {
-  encPath: string;
-  keyHex: string;
-  virtualDir: string;
-  entry?: string;
-}
-
-export async function loadEncryptedModule(
-  opts: LoadEncryptedOptions,
-): Promise<{ namespace: Record<string, unknown>; keyId: string }> {
-  const blob = readFileSync(opts.encPath);
-  const manifest = decryptProBlob(blob, opts.keyHex);
-
-  // The virtual root is a fake file: URL under a REAL directory (opts.virtualDir
-  // does not exist on disk): rolldown runtime's createRequire only accepts
-  // file: URLs, and hanging the tree under a real dir lets bare deps
-  // (@tsuki-hono/*, better-sqlite3, electron) resolve through the real
-  // node_modules exactly as the plaintext slot does.
-  for (const [rel, base64] of Object.entries(manifest.files)) {
-    const url = pathToFileURL(join(opts.virtualDir, rel)).href;
-    encSources.set(url, Buffer.from(base64, "base64").toString("utf8"));
-  }
+export function registerVirtualModules(files: Map<string, string>): void {
   ensureHooks();
-
-  const entryUrl = pathToFileURL(join(opts.virtualDir, opts.entry ?? "index.mjs")).href;
-  const namespace = (await import(entryUrl)) as Record<string, unknown>;
-  return { namespace, keyId: manifest.keyId };
+  for (const [path, source] of files) {
+    encSources.set(pathToFileURL(path).href, source);
+  }
 }
