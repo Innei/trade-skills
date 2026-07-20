@@ -1,12 +1,12 @@
 import type { ProChannel } from '@kansoku/pro-api';
 import type { CockpitComment } from '@kansoku/shared/types';
-import { listAnalystRuns, onAnalystRunChange } from '../ai/analyst.js';
-import { assistantChatTurnState, onAssistantChatEvent } from '../ai/assistantChat.js';
-import { type ChatEvent, chatTurnState, onChatEvent } from '../ai/chat.js';
-import { listComments, onAnyComment, onComment } from '../ai/comments.js';
-import { onAnyNotice } from '../ai/notices.js';
-import { easternDate } from '../services/session.js';
-import { normalizeSymbol } from '../services/symbol.utils.js';
+import { listAnalystRuns, onAnalystRunChange } from '../ai/personas/analyst/runState.js';
+import { assistantChatTurnState, onAssistantChatEvent } from '../ai/assistant/assistantChat.js';
+import { type ChatEvent, chatTurnState, onChatEvent } from '../ai/chat/chat.js';
+import { listComments, onAnyComment, onComment } from '../ai/personas/comments.js';
+import { onAnyNotice } from '../ai/personas/notices.js';
+import { easternDate } from '../marketdata/session.js';
+import { normalizeSymbol } from '../symbols/symbol.utils.js';
 
 async function attachComments(
   symbol: string,

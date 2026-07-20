@@ -5,7 +5,7 @@ import {
   type LicenseManager,
 } from '../src/license/licenseState.js';
 import { setEncBundlePresent, setProPresent } from '../src/pro/bundleState.js';
-import { capabilitiesService } from '../src/modules/capabilities/capabilities.service.js';
+import { capabilitiesService } from '../src/capabilities/capabilities.service.js';
 
 const featureKeys = Object.keys(FEATURES) as Array<keyof typeof FEATURES>;
 

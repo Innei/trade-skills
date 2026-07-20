@@ -5,8 +5,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { resetProChannelsForTests } from '@kansoku/core/pro/channels';
 import { resetProHooksForTests } from '@kansoku/core/pro/hooks';
 import { setProPresent } from '@kansoku/core/pro/bundleState';
-import { setAiRuntimeForTests } from '@kansoku/core/ai/initAiSettings';
-import { setModelsRuntimeForTests } from '@kansoku/core/ai/modelsRuntime';
+import { setAiRuntimeForTests } from '@kansoku/core/ai/settings/initAiSettings';
+import { setModelsRuntimeForTests } from '@kansoku/core/ai/runtime/modelsRuntime';
 import { setLicenseManagerForTests } from '@kansoku/core/license/licenseState';
 
 // Regression coverage for defect 1: a Tsuki module owned by the pro
@@ -26,12 +26,13 @@ class FakeProProbeController {
 @Module({ controllers: [FakeProProbeController] })
 class FakeProProbeModule {}
 
-vi.mock('@kansoku/core/ai/comments', () => ({
+vi.mock('@kansoku/core/ai/personas/comments', () => ({
   onComment: vi.fn(() => () => {}),
+  onAnyComment: vi.fn(() => () => {}),
   listComments: vi.fn(async () => []),
   appendComment: vi.fn(),
 }));
-vi.mock('@kansoku/core/ai/chat', () => ({
+vi.mock('@kansoku/core/ai/chat/chat', () => ({
   onChatEvent: vi.fn(),
   chatTurnState: vi.fn(),
 }));

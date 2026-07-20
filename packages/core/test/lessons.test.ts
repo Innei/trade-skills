@@ -5,12 +5,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const journalDir = mkdtempSync(join(tmpdir(), 'lessons-'));
 
-vi.mock('../src/env.js', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('../src/env.js')>()),
+vi.mock('../src/platform/env.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../src/platform/env.js')>()),
   JOURNAL_DIR: journalDir,
 }));
 
-const { readActiveLessons } = await import('../src/services/lessons.js');
+const { readActiveLessons } = await import('../src/ai/agents/lessons.js');
 
 function writeLessons(text: string): void {
   writeFileSync(join(journalDir, 'lessons.md'), text, 'utf8');
@@ -47,11 +47,11 @@ describe('readActiveLessons', () => {
   it('returns [] when the file is missing', async () => {
     const empty = mkdtempSync(join(tmpdir(), 'lessons-empty-'));
     vi.resetModules();
-    vi.doMock('../src/env.js', async (importOriginal) => ({
-      ...(await importOriginal<typeof import('../src/env.js')>()),
+    vi.doMock('../src/platform/env.js', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('../src/platform/env.js')>()),
       JOURNAL_DIR: empty,
     }));
-    const mod = await import('../src/services/lessons.js');
+    const mod = await import('../src/ai/agents/lessons.js');
     expect(await mod.readActiveLessons()).toEqual([]);
   });
 });

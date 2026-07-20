@@ -15,7 +15,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // the corresponding fully-real (native ESM, unmocked) proof that a virtual
 // module import fails before registerVirtualModules and succeeds after.
 
-vi.mock('@kansoku/core/env', () => ({
+vi.mock('@kansoku/core/platform/env', () => ({
   CHART_DATA_DIR: '/tmp/chart-data',
   PROJECT_ROOT: '/tmp/kernel-composition-ordering-test-project-root',
 }));
@@ -25,7 +25,7 @@ vi.mock('@kansoku/core/db/index', () => ({ getDb }));
 
 const getAiRuntime = vi.hoisted(() => vi.fn(() => ({ secretBox: undefined })));
 const initAiSettings = vi.hoisted(() => vi.fn());
-vi.mock('@kansoku/core/ai/initAiSettings', () => ({ getAiRuntime, initAiSettings }));
+vi.mock('@kansoku/core/ai/settings/initAiSettings', () => ({ getAiRuntime, initAiSettings }));
 
 const setProductionHost = vi.hoisted(() => vi.fn());
 vi.mock('@kansoku/core/license/dodoEnv', () => ({ setProductionHost }));
@@ -39,16 +39,16 @@ vi.mock('@kansoku/core/license/licenseState', () => ({ initLicenseManager, getAc
 
 const createWatchedMarketsStore = vi.hoisted(() => vi.fn(() => ({})));
 const setActiveWatchedMarketsStore = vi.hoisted(() => vi.fn());
-vi.mock('@kansoku/core/services/watchedMarketsStore', () => ({
+vi.mock('@kansoku/core/marketdata/watchedMarketsStore', () => ({
   createWatchedMarketsStore,
   setActiveWatchedMarketsStore,
 }));
 
 const initAuthUrlOpener = vi.hoisted(() => vi.fn());
-vi.mock('@kansoku/core/services/credentials/authUrlOpener', () => ({ initAuthUrlOpener }));
+vi.mock('@kansoku/core/credentials/authUrlOpener', () => ({ initAuthUrlOpener }));
 
 const initCredentialProvider = vi.hoisted(() => vi.fn());
-vi.mock('@kansoku/core/services/credentials/registry', () => ({ initCredentialProvider }));
+vi.mock('@kansoku/core/credentials/registry', () => ({ initCredentialProvider }));
 
 const setProPresent = vi.hoisted(() => vi.fn());
 const hasEncBundle = vi.hoisted(() => vi.fn(() => false));

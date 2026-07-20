@@ -1,12 +1,12 @@
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import type { ProAiExtension, ProAiTranscriptMessage, ProAiTurnContext } from '@kansoku/pro-api';
-import type { FsReadMount } from '../ai/agentTools.js';
-import { textOf } from '../ai/conversationShared.js';
-import { BaseFirstUserContentProvider } from '../ai/messages/injectors/baseFirstUserContentProvider.js';
+import type { FsReadMount } from '../ai/agents/agentTools/fsMounts.js';
+import { textOf } from '../ai/conversation/conversationShared.js';
+import { BaseFirstUserContentProvider } from '../ai/conversation/messages/injectors/baseFirstUserContentProvider.js';
 import {
   type MessagePipelineContext,
   type MessageProcessor,
-} from '../ai/messages/messageEngine.js';
+} from '../ai/conversation/messages/messageEngine.js';
 
 let activeExtension: ProAiExtension | null = null;
 

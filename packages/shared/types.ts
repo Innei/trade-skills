@@ -222,6 +222,7 @@ export interface IntradayTfData {
   autoDivergence: DivergencePair[];
   autoBeichi: DivergencePair[];
   pattern123?: Pattern123[];
+  secondBreakouts?: SecondBreakout[];
   offSession?: OffSessionSegment[];
   fvgZones?: IntradayFvgZone[];
 }
@@ -336,6 +337,14 @@ export interface Pattern123 {
   implication: string;
 }
 
+export interface SecondBreakout {
+  kind: 'H2' | 'L2';
+  status: 'forming' | 'confirmed';
+  first: SwingPoint;
+  signal: SwingPoint;
+  trigger: SwingPoint | null;
+}
+
 export interface IntradayTfSummary {
   last_dif: number | null;
   last_dea: number | null;
@@ -351,6 +360,7 @@ export interface IntradayTfSummary {
   zero_tangle?: boolean;
   candle_patterns?: CandlePattern[];
   pattern_123?: Pattern123[];
+  second_breakouts?: SecondBreakout[];
 }
 
 export interface IntradayEntryPlan {

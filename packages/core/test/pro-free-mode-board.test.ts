@@ -6,29 +6,29 @@ const store = vi.hoisted(() => ({
   loadChart: vi.fn(),
 }));
 
-vi.mock('../src/services/store.js', () => store);
+vi.mock('../src/charts/store.js', () => store);
 
 const provider = vi.hoisted(() => ({
   getQuotes: vi.fn(),
 }));
 
-vi.mock('../src/services/marketdata/registry.js', () => ({ getProvider: () => provider }));
+vi.mock('../src/marketdata/registry.js', () => ({ getProvider: () => provider }));
 
-vi.mock('../src/ai/follows.js', () => ({
+vi.mock('../src/ai/personas/follows.js', () => ({
   listFollowedSymbols: () => [],
   symbolFollowState: (symbol: string) => ({ symbol, following: false, startedAt: null }),
   setSymbolFollowing: (symbol: string) => ({ symbol, following: false, startedAt: null }),
 }));
 
-vi.mock('../src/ai/comments.js', () => ({
+vi.mock('../src/ai/personas/comments.js', () => ({
   listComments: async () => [],
   onComment: () => () => {},
   onAnyComment: () => () => {},
 }));
 
-const { buildOverviewBoard } = await import('../src/services/cockpit/board.js');
+const { buildOverviewBoard } = await import('../src/cockpit/board.js');
 const { isProPresent } = await import('../src/pro/bundleState.js');
-const { easternDate } = await import('../src/services/session.js');
+const { easternDate } = await import('../src/marketdata/session.js');
 const { handleConnection, parseWsMessage } = await import('../src/realtime/channelProtocol.js');
 
 function meta(): ChartMeta {

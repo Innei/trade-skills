@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resetProChannelsForTests } from '@kansoku/core/pro/channels';
 import { resetProHooksForTests } from '@kansoku/core/pro/hooks';
 import { setProPresent } from '@kansoku/core/pro/bundleState';
-import { setAiRuntimeForTests } from '@kansoku/core/ai/initAiSettings';
-import { setModelsRuntimeForTests } from '@kansoku/core/ai/modelsRuntime';
+import { setAiRuntimeForTests } from '@kansoku/core/ai/settings/initAiSettings';
+import { setModelsRuntimeForTests } from '@kansoku/core/ai/runtime/modelsRuntime';
 import {
   setLicenseManagerForTests,
   type LicenseManager,

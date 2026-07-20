@@ -1,7 +1,7 @@
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
 import type { ProAiCompletedTurn, ProAiExtension } from '@kansoku/pro-api';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MessagesEngine } from '../src/ai/messages/messageEngine.js';
+import { MessagesEngine } from '../src/ai/conversation/messages/messageEngine.js';
 import {
   prepareProAiTurn,
   registerProAiExtension,

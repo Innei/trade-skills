@@ -10,7 +10,7 @@ import {
   registerProHooks,
   resetProHooksForTests,
 } from '../src/pro/hooks.js';
-import { symbolsService } from '../src/modules/symbols/symbols.service.js';
+import { symbolsService } from '../src/symbols/symbols.service.js';
 
 function fakeLicenseManager(): LicenseManager {
   return {

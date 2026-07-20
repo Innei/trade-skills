@@ -1,5 +1,5 @@
 import type { SecretBox } from '@kansoku/pro-api';
-import { getAiRuntime, initAiSettings } from '@kansoku/core/ai/initAiSettings';
+import { getAiRuntime, initAiSettings } from '@kansoku/core/ai/settings/initAiSettings';
 import { getDb } from '@kansoku/core/db/index';
 import { setProductionHost } from '@kansoku/core/license/dodoEnv';
 import { startLicenseRevalidation } from '@kansoku/core/license/licenseSchedule';
@@ -7,14 +7,14 @@ import { initLicenseManager } from '@kansoku/core/license/licenseState';
 import {
   createWatchedMarketsStore,
   setActiveWatchedMarketsStore,
-} from '@kansoku/core/services/watchedMarketsStore';
+} from '@kansoku/core/marketdata/watchedMarketsStore';
 import { loadDotenv } from './dotenv.js';
 import {
   initAuthUrlOpener,
   type AuthUrlOpener,
-} from '@kansoku/core/services/credentials/authUrlOpener';
-import { initCredentialProvider } from '@kansoku/core/services/credentials/registry';
-import type { CredentialProvider } from '@kansoku/core/services/credentials/types';
+} from '@kansoku/core/credentials/authUrlOpener';
+import { initCredentialProvider } from '@kansoku/core/credentials/registry';
+import type { CredentialProvider } from '@kansoku/core/credentials/types';
 import { setProPresent } from '@kansoku/core/pro/bundleState';
 import { registerProChannels } from '@kansoku/core/pro/channels';
 import { registerProHooks } from '@kansoku/core/pro/hooks';

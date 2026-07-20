@@ -13,6 +13,7 @@ import {
 import type {
   IntradayBuilt,
   IntradayPriceZone,
+  SecondBreakout,
   SeriesMarker,
   TimeframeKey,
 } from '@kansoku/shared/types';
@@ -95,6 +96,47 @@ const filterByGroup = <T extends { group?: SeriesMarker['group'] }>(
   items: T[],
   toggles: Record<IndicatorToggleKey, boolean>,
 ): T[] => items.filter((item) => groupAllowed(toggles, item.group));
+
+const secondBreakoutMarkers = (sbs: SecondBreakout[]): SeriesMarker[] => {
+  const markers: SeriesMarker[] = [];
+  sbs.forEach((sb, i) => {
+    const bullish = sb.kind === 'H2';
+    const firstText = bullish ? 'H1' : 'L1';
+    const attemptVerb = bullish ? '突破' : '跌破';
+    markers.push({
+      id: `sb-${i}-first`,
+      time: sb.first.time,
+      position: bullish ? 'aboveBar' : 'belowBar',
+      color: theme.textSecondary,
+      shape: 'circle',
+      text: firstText,
+      tooltip: `${firstText}（第一次${attemptVerb}尝试，未成立）`,
+    });
+    if (sb.status === 'forming') {
+      markers.push({
+        id: `sb-${i}-signal`,
+        time: sb.signal.time,
+        position: bullish ? 'aboveBar' : 'belowBar',
+        color: theme.textSecondary,
+        shape: 'circle',
+        text: '',
+        tooltip: `SB 结构酝酿中：等待收盘${attemptVerb} $${sb.signal.price.toFixed(2)}`,
+      });
+    } else if (sb.trigger) {
+      const extremeText = bullish ? '最高' : '最低';
+      markers.push({
+        id: `sb-${i}-trigger`,
+        time: sb.trigger.time,
+        position: bullish ? 'belowBar' : 'aboveBar',
+        color: theme.accent,
+        shape: bullish ? 'arrowUp' : 'arrowDown',
+        text: sb.kind,
+        tooltip: `${sb.kind} 结构确认\n${extremeText} $${sb.trigger.price.toFixed(2)} ${attemptVerb}信号棒`,
+      });
+    }
+  });
+  return markers;
+};
 
 export interface DrawingChartHandle {
   chart: IChartApi;
@@ -274,7 +316,10 @@ export function useIntradayCharts(
     h.anchorBg.setData(
       toggles.ai && anchorHere ? [Math.floor(Date.parse(anchorHere.time) / 1000)] : [],
     );
-    const markers = filterByGroup(d.markers, toggles);
+    const sbMarkers = toggles.sb ? secondBreakoutMarkers(d.secondBreakouts ?? []) : [];
+    const markers = [...filterByGroup(d.markers, toggles), ...sbMarkers].sort(
+      (a, b) => a.time - b.time,
+    );
     h.candleMarkers.setMarkers(toMarkers(markers));
     h.mainTip.setMarkers(markers);
     h.dif.setData(padLineData(d.macdDif, timeline));

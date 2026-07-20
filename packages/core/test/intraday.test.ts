@@ -1,14 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import type { RawBar, TimeframeKey } from '@kansoku/shared/types';
-import {
-  buildIntraday,
-  capMarkersPerBar,
-  coerceIntradayTimeframe,
-  computeIntradayEntryPlan,
-  mergeAiAutoMarkers,
-  resolveEntryPlanStatus,
-  type IntradayInput,
-} from '../src/services/intraday.js';
+import { computeIntradayEntryPlan, resolveEntryPlanStatus } from '../src/analysis/intraday/entryPlan.js';
+import { capMarkersPerBar, mergeAiAutoMarkers } from '../src/analysis/intraday/markers.js';
+import { buildIntraday, type IntradayInput } from '../src/analysis/intraday/orchestrator.js';
+import { coerceIntradayTimeframe } from '../src/analysis/intraday/timeframe.js';
 import { approxDiff, loadFixture } from './helpers.js';
 
 type TfExpected = Record<
@@ -265,6 +260,71 @@ describe('intraday parity vs python golden fixture', () => {
       for (const m of tf.markers) perBar.set(m.time, (perBar.get(m.time) ?? 0) + 1);
       for (const count of perBar.values()) expect(count).toBeLessThanOrEqual(2);
     }
+  });
+
+  it('flows a confirmed H2 through coerceIntradayTimeframe into summary and tf data', () => {
+    const upRamp = (from: number, to: number, step: number) => {
+      const out: number[] = [];
+      for (let v = from; step > 0 ? v <= to : v >= to; v += step) out.push(v);
+      return out;
+    };
+    const UP_TREND = upRamp(70, 130, 1);
+    const UP_H2_STRUCTURE = [
+      129, 128, 127, 126, 125,
+      126, 127, 128,
+      127, 126, 125, 124, 123,
+      124, 125, 126, 127, 126, 125, 124,
+      125, 126, 127, 128,
+    ];
+    const closes = [...UP_TREND, ...UP_H2_STRUCTURE];
+    const base = Date.parse('2026-06-01T08:00:00.000Z') / 1000;
+    const raw: RawBar[] = closes.map((c, i) => ({
+      time: new Date((base + i * 300) * 1000).toISOString(),
+      open: c,
+      high: c + 0.5,
+      low: c - 0.5,
+      close: c,
+      volume: 1000,
+    }));
+    const tf = coerceIntradayTimeframe(raw, 'm5');
+    expect(tf.secondBreakouts).toHaveLength(1);
+    expect(tf.secondBreakouts[0].kind).toBe('H2');
+    expect(tf.secondBreakouts[0].status).toBe('confirmed');
+    expect(tf.summary.second_breakouts).toEqual(tf.secondBreakouts);
+  });
+
+  it('emits a secondBreakouts field for a confirmed SB structure', () => {
+    const upRamp = (from: number, to: number, step: number) => {
+      const out: number[] = [];
+      for (let v = from; step > 0 ? v <= to : v >= to; v += step) out.push(v);
+      return out;
+    };
+    const UP_TREND = upRamp(70, 130, 1);
+    const UP_H2_STRUCTURE = [
+      129, 128, 127, 126, 125,
+      126, 127, 128,
+      127, 126, 125, 124, 123,
+      124, 125, 126, 127, 126, 125, 124,
+      125, 126, 127, 128,
+    ];
+    const closes = [...UP_TREND, ...UP_H2_STRUCTURE];
+    const base = Date.parse('2026-06-01T08:00:00.000Z') / 1000;
+    const sbBars: RawBar[] = closes.map((c, i) => ({
+      time: new Date((base + i * 300) * 1000).toISOString(),
+      open: c,
+      high: c + 0.5,
+      low: c - 0.5,
+      close: c,
+      volume: 1000,
+    }));
+    const { built } = buildIntraday({
+      ...input,
+      timeframes: { ...input.timeframes, m5: sbBars },
+    });
+
+    expect(built.timeframes.m5.secondBreakouts).toHaveLength(1);
+    expect(built.timeframes.m5.secondBreakouts?.[0].status).toBe('confirmed');
+    expect(built.sidebar.technicals.m5.second_breakouts).toEqual(built.timeframes.m5.secondBreakouts);
   });
 
   it('throws ClientError when sources_used is not an array', () => {

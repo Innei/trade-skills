@@ -22,7 +22,7 @@ export async function bootKernel() {
   ] = await Promise.all([
     import('../../../server/src/runtimeInit.js'),
     import('../kernel/realtime/bridge.js'),
-    import('@kansoku/core/env'),
+    import('@kansoku/core/platform/env'),
     import('@kansoku/core/pro/bundleState'),
     import('@kansoku/core/license/licenseState'),
     import('@kansoku/core/pro/loader'),
