@@ -165,7 +165,7 @@ function installAppMenu({
 app.whenReady().then(async () => {
   try {
     applyDevDockIcon();
-    const { proComposition } = await bootKernel();
+    const { proComposition, dispose: disposeKernel } = await bootKernel();
     const { ipcServiceClasses } = await import('./kernel/ipc/index.js');
     createServices([...ipcServiceClasses, ...(proComposition?.ipcServices ?? [])]);
 
@@ -214,6 +214,9 @@ app.whenReady().then(async () => {
       try {
         tabsFileStore.flushSync();
         windowManager.flushSync();
+        disposeKernel().catch((error: unknown) => {
+          console.error('[desktop] kernel dispose failed', error);
+        });
       } catch (error) {
         console.error('[desktop] flush on quit failed', error);
       }

@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import type { ComponentType } from 'react';
-import { loadProComposition } from './pro';
 
 let cached: Promise<Record<string, ComponentType> | null> | null = null;
 
+// This import must stay dynamic: a static edge here would pull the pro chunk
+// into the public bundle, defeating the __pro__ encryption boundary.
 function resolveProRoutes(): Promise<Record<string, ComponentType> | null> {
-  cached ??= loadProComposition()
+  cached ??= import('./pro')
+    .then((m) => m.loadProComposition())
     .then((composition) => (composition ? { ...composition.routes } : null))
     .catch(() => null);
   return cached;
