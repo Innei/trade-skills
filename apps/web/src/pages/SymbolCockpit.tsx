@@ -71,7 +71,7 @@ export function SymbolCockpit({ sym }: { sym: string }) {
     intradayTf,
     setIntradayTf,
     loadHistory,
-  } = useIntradayDoc(latestId);
+  } = useIntradayDoc(mode === 'live' ? null : latestId);
 
   useTitle(doc ? doc.title || symLabel : latestChecked && !latestId ? symLabel : undefined);
 
@@ -106,7 +106,7 @@ export function SymbolCockpit({ sym }: { sym: string }) {
       doc?.prediction_stale,
       reassessNow,
     );
-  const conclusionRun = useAnalystRun(sym, reassessNeeded);
+  const conclusionRun = useAnalystRun(sym, mode !== 'live' && reassessNeeded);
   const conclusionReassess = {
     start: conclusionRun.start,
     busy: conclusionRun.pending || conclusionRun.running,
