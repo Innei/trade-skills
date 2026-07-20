@@ -1,5 +1,5 @@
 import type { AgentMessage } from '@earendil-works/pi-agent-core';
-import type { ProAiTranscriptMessage, ProAiTurnContext } from '@kansoku/pro-api';
+import type { ProAiExtension, ProAiTranscriptMessage, ProAiTurnContext } from '@kansoku/pro-api';
 import type { FsReadMount } from '../ai/agentTools.js';
 import { textOf } from '../ai/conversationShared.js';
 import { BaseFirstUserContentProvider } from '../ai/messages/injectors/baseFirstUserContentProvider.js';
@@ -57,8 +57,10 @@ export function normalizeProTranscript(
   return normalized;
 }
 
-export async function prepareProAiTurn(context: ProAiTurnContext): Promise<PreparedProAiTurn> {
-  const extension = getPro()?.aiExtension;
+export async function prepareProAiTurn(
+  context: ProAiTurnContext,
+  extension: ProAiExtension | undefined = getPro()?.aiExtension,
+): Promise<PreparedProAiTurn> {
   if (!extension) return { readMounts: [], processors: [] };
 
   try {

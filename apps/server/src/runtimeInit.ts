@@ -11,6 +11,17 @@ import { setProductionHost } from '@kansoku/core/license/dodoEnv';
 import { isLicensed } from '@kansoku/core/license/licenseGate';
 import { startLicenseRevalidation } from '@kansoku/core/license/licenseSchedule';
 import { getActiveBundleKey, initLicenseManager } from '@kansoku/core/license/licenseState';
+import {
+  configureCapabilitiesService,
+} from '@kansoku/core/modules/capabilities/capabilities.service';
+import { configureSymbolsService } from '@kansoku/core/modules/symbols/symbols.service';
+import {
+  configureDefaultAiTurnPipeline,
+  EditionAiTurnPipeline,
+  EditionDeepDiveService,
+  EditionFollowAutomation,
+} from '@kansoku/core/pro/domain/defaultImplementations';
+import { EditionRuntime } from '@kansoku/core/pro/editionRuntime';
 import { loadEdition } from '@kansoku/core/pro/editionLoader';
 import { loadPro } from '@kansoku/core/pro/loader';
 import { getPro } from '@kansoku/core/pro/registry';
@@ -117,6 +128,15 @@ export async function initServerRuntime(
   if (activation.state === 'active' && activation.edition) {
     edition = activation.edition;
     protocol = 'edition';
+    const capabilities = edition.proCapabilities?.() ?? {};
+    configureCapabilitiesService(new EditionRuntime(activation));
+    if (capabilities.hooks) {
+      configureSymbolsService({
+        followAutomation: new EditionFollowAutomation(capabilities.hooks),
+        deepDiveService: new EditionDeepDiveService(capabilities.hooks),
+      });
+    }
+    configureDefaultAiTurnPipeline(() => new EditionAiTurnPipeline(capabilities.aiExtension));
   } else if (activation.state === 'absent' || activation.state === 'locked') {
     await loadPro(opts?.proAppDir, opts?.proEntry);
     await getPro()?.initRuntime?.(getDb(), opts?.secretBox, {

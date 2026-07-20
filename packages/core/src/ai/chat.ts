@@ -63,7 +63,7 @@ import {
   verifyDirectionalRead,
 } from './verifyRead.js';
 import type { AiTurnPipeline } from '../pro/domain/aiTurnPipeline.js';
-import { LegacyAiTurnPipeline } from '../pro/domain/legacyAdapters.js';
+import { defaultAiTurnPipeline } from '../pro/domain/defaultImplementations.js';
 
 const COMMENT_CAP = 20;
 const RELEVANT_COMMENT_SOURCES = new Set(['analyst', 'system']);
@@ -377,7 +377,7 @@ function prepareTurn(
       );
 
       const repoRoot = deps.repoRoot ?? PROJECT_ROOT;
-      const aiTurnPipeline = deps.aiTurnPipeline ?? new LegacyAiTurnPipeline();
+      const aiTurnPipeline = deps.aiTurnPipeline ?? defaultAiTurnPipeline();
       const proTurn = await aiTurnPipeline.prepareTurn({
         surface: 'chart-chat',
         sessionId: activeSessionId,

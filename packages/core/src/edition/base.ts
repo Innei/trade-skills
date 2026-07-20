@@ -1,3 +1,4 @@
+import type { EditionProCapabilities } from '@kansoku/pro-api';
 import type { CoreEditionHost, DesktopEditionHost, ServerEditionHost } from './host.js';
 import type { IpcRegistry } from './ipcRegistry.js';
 import type { RealtimeChannelRegistry } from './realtimeRegistry.js';
@@ -71,6 +72,9 @@ export abstract class BaseEdition<THost extends CoreEditionHost> {
 export abstract class BaseServerEdition extends BaseEdition<ServerEditionHost> {
   configureServer(builder: ServerBuilder): void {
     builder.addPublicModules();
+  }
+  proCapabilities(): EditionProCapabilities {
+    return {};
   }
 }
 export abstract class BaseDesktopEdition extends BaseEdition<DesktopEditionHost> {

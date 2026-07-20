@@ -84,6 +84,11 @@ export interface ProRuntimeHostContext {
   licenseGate?: ProLicenseGate;
 }
 
+export interface EditionProCapabilities {
+  hooks?: ProHooks;
+  aiExtension?: ProAiExtension;
+}
+
 export interface ProModule {
   hooks: ProHooks;
   aiExtension?: ProAiExtension;

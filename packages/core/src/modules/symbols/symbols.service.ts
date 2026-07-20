@@ -242,7 +242,23 @@ export function createSymbolsService(deps: SymbolsServiceDeps): SymbolsApi {
   });
 }
 
-export const symbolsService: SymbolsApi = createSymbolsService({
-  followAutomation: new LegacyFollowAutomation(),
-  deepDiveService: new LegacyDeepDiveService(),
+function defaultSymbolsServiceDeps(): SymbolsServiceDeps {
+  return {
+    followAutomation: new LegacyFollowAutomation(),
+    deepDiveService: new LegacyDeepDiveService(),
+  };
+}
+
+let currentSymbolsService: SymbolsApi = createSymbolsService(defaultSymbolsServiceDeps());
+
+export function configureSymbolsService(deps: SymbolsServiceDeps): void {
+  currentSymbolsService = createSymbolsService(deps);
+}
+
+export function resetSymbolsServiceForTests(): void {
+  currentSymbolsService = createSymbolsService(defaultSymbolsServiceDeps());
+}
+
+export const symbolsService: SymbolsApi = new Proxy({} as SymbolsApi, {
+  get: (_target, prop, receiver) => Reflect.get(currentSymbolsService as object, prop, receiver),
 });

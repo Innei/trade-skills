@@ -20,7 +20,7 @@ import {
 import { buildResearchLibraryTools } from './researchLibraryTools.js';
 import type { AiModel } from './models.js';
 import type { AiTurnPipeline } from '../pro/domain/aiTurnPipeline.js';
-import { LegacyAiTurnPipeline } from '../pro/domain/legacyAdapters.js';
+import { defaultAiTurnPipeline } from '../pro/domain/defaultImplementations.js';
 
 export interface AssistantChatDeps {
   model: AiModel | null;
@@ -67,7 +67,7 @@ function prepareTurn(
     buildTurn: async (activeSessionId) => {
       const disciplineText = deps.disciplineText ?? loadSharedDiscipline(rootDir);
       if (!disciplineText) throw new DisciplineMissingError();
-      const aiTurnPipeline = deps.aiTurnPipeline ?? new LegacyAiTurnPipeline();
+      const aiTurnPipeline = deps.aiTurnPipeline ?? defaultAiTurnPipeline();
       const proTurn = await aiTurnPipeline.prepareTurn({
         surface: 'assistant',
         sessionId: activeSessionId,
