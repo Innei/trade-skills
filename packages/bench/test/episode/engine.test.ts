@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   advanceEpisode,
   createEpisodeState,
+  EpisodeGuardrailError,
   observeEpisode,
   submitEpisode,
 } from '../../src/episode/engine.js';
@@ -183,7 +184,7 @@ describe('episode engine', () => {
       reasoned({ type: 'hold' }),
     );
     expect(() => advanceEpisode(longFilled.state, q, reasoned({ type: 'amend', stop: 94 }))).toThrow(
-      /may only tighten/,
+      EpisodeGuardrailError,
     );
 
     const shortFilled = advanceEpisode(
@@ -193,7 +194,11 @@ describe('episode engine', () => {
     );
     expect(() =>
       advanceEpisode(shortFilled.state, q, reasoned({ type: 'amend', stop: 111 })),
-    ).toThrow(/may only tighten/);
+    ).toThrow(EpisodeGuardrailError);
+    // A malformed call must stay distinguishable from a guardrail refusal.
+    expect(() => advanceEpisode(longFilled.state, q, reasoned({ type: 'amend' }))).not.toThrow(
+      EpisodeGuardrailError,
+    );
   });
 
   it('still accepts a tightening amendment and an unchanged stop', () => {

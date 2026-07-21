@@ -419,6 +419,17 @@ function visibleReferencePrice(question: Question, state: EpisodeState): number 
   return numberOf(last.close);
 }
 
+// A guardrail refusal is a legal move the risk boundary forbids, not a malformed call. Runners
+// must be able to tell the two apart: a malformed call says the model cannot drive the protocol,
+// while a guardrail hit says it tried something the engine exists to prevent. Conflating them
+// throws away an otherwise complete episode over a single rejected amendment.
+export class EpisodeGuardrailError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'EpisodeGuardrailError';
+  }
+}
+
 function applyAmendment(
   position: PositionState,
   action: Extract<EpisodeTradeAction, { type: 'amend' }>,
@@ -433,7 +444,7 @@ function applyAmendment(
   const widensStop = position.direction === 'long' ? stop < position.stop : stop > position.stop;
   if (wrongStop) throw new Error(`amended ${position.direction} stop crosses the visible price`);
   if (widensStop)
-    throw new Error(
+    throw new EpisodeGuardrailError(
       `amended ${position.direction} stop increases the risk already committed; an open position's stop may only tighten`,
     );
   if (wrongTarget)
