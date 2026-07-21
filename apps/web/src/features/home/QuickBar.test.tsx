@@ -2,13 +2,9 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const navigate = vi.fn();
 const openLicenseModal = vi.fn();
 const capabilities = { pro: false, licensed: false };
 
-vi.mock('@web/router', () => ({
-  navigate: (...args: unknown[]) => navigate(...args),
-}));
 vi.mock('@web/features/edition/capabilitiesStore', () => ({
   useCapabilities: () => capabilities,
 }));
@@ -20,7 +16,6 @@ const { QuickBar } = await import('./QuickBar');
 
 afterEach(() => {
   cleanup();
-  navigate.mockReset();
   openLicenseModal.mockReset();
   capabilities.pro = false;
   capabilities.licensed = false;
