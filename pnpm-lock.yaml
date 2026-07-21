@@ -406,6 +406,9 @@ importers:
 
   packages/bench-report-ui:
     dependencies:
+      lightweight-charts:
+        specifier: ^5.2.0
+        version: 5.2.0
       react:
         specifier: ^19.2.7
         version: 19.2.7
