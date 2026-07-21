@@ -38,6 +38,11 @@ export default defineConfig({
   define: {
     __DESKTOP_DEV__: JSON.stringify(isDev),
   },
+  resolve: {
+    alias: {
+      '@pro': fileURLToPath(new URL('../pro/src', import.meta.url)),
+    },
+  },
   ssr: {
     // Single-graph invariant: everything JS is bundled so main and the pro
     // chunk share one module instance of every dep (tsuki decorator metadata

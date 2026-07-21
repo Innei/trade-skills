@@ -11,7 +11,8 @@
     "forceConsistentCasingInFileNames": true,
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "paths": {
-      "@web/*": ["./src/*"]
+      "@web/*": ["./src/*"],
+      "@pro/*": ["../pro/src/*"]
     }
   },
   "include": ["src", "vite.config.ts"]
