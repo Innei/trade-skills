@@ -531,6 +531,7 @@ export interface MacroEventItem {
   title: string;
   estimate: string | null;
   previous: string | null;
+  actual?: string | null;
 }
 
 export interface IntradayEventRisk {
@@ -605,6 +606,7 @@ export interface QuoteCell {
   pct: number | null;
   regularLast: number;
   regularPct: number | null;
+  turnover?: number;
   asOf?: string;
 }
 
@@ -749,10 +751,50 @@ export interface OverviewRow {
   alert_count: number;
 }
 
+export interface MarketTemp {
+  temperature: number;
+  valuation: number | null;
+  sentiment: number | null;
+  description: string | null;
+}
+
 export interface OverviewBoard {
   date: string;
   session: SessionKind;
   rows: OverviewRow[];
+  flows?: Record<string, number | null>;
+  flows_at?: number | null;
+  market?: MarketTemp | null;
+  caps?: Record<string, number>;
+}
+
+export interface HomeEventItem {
+  date: string;
+  ts: string | null;
+  kind: 'earnings' | 'macro';
+  symbol: string | null;
+  title: string;
+  estimate: string | null;
+  previous: string | null;
+  actual: string | null;
+  owned: boolean;
+}
+
+export interface HomeEvents {
+  date: string;
+  items: HomeEventItem[];
+}
+
+export interface IndustryRankRow {
+  name: string;
+  chg: number | null;
+  leading_ticker: string | null;
+  leading_chg: number | null;
+}
+
+export interface IndustryPanorama {
+  at: number;
+  items: IndustryRankRow[];
 }
 
 export interface PortfolioPositionRow {

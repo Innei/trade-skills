@@ -13,6 +13,7 @@ export interface RawQuote {
   last: string;
   prev_close: string;
   change_percentage: string;
+  turnover?: string;
   pre_market?: ExtendedQuote;
   post_market?: ExtendedQuote;
   overnight?: ExtendedQuote;
@@ -66,6 +67,20 @@ export interface EarningsCalendarEntry {
 export type MacroCalendarResult =
   { supported: true; items: MacroEventItem[] } | { supported: false };
 
+export interface IndustryRankResult {
+  name: string;
+  chg: number | null;
+  leading_ticker: string | null;
+  leading_chg: number | null;
+}
+
+export interface MarketTempResult {
+  temperature: number;
+  valuation: number | null;
+  sentiment: number | null;
+  description: string | null;
+}
+
 export type Capability =
   | 'flow'
   | 'capital-distribution'
@@ -73,7 +88,10 @@ export type Capability =
   | 'watchlist'
   | 'portfolio'
   | 'earnings-calendar'
-  | 'macro-calendar';
+  | 'macro-calendar'
+  | 'market-temp'
+  | 'industry-rank'
+  | 'market-cap';
 
 export interface MarketDataProvider {
   readonly name: string;
@@ -94,4 +112,7 @@ export interface MarketDataProvider {
     endDate: string,
     minStar: number,
   ): Promise<MacroCalendarResult>;
+  getMarketTemp?(market: Market): Promise<MarketTempResult | null>;
+  getIndustryRank?(market: Market): Promise<IndustryRankResult[]>;
+  getMarketCaps?(symbols: string[]): Promise<Record<string, number>>;
 }

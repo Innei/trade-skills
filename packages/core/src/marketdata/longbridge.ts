@@ -6,8 +6,10 @@ import type { FlowRow } from '../analysis/simple.js';
 import type { Market } from '../symbols/symbol.utils.js';
 import type {
   EarningsCalendarEntry,
+  IndustryRankResult,
   MacroCalendarResult,
   MarketDataProvider,
+  MarketTempResult,
   RawCapitalDistribution,
   RawPortfolio,
   RawPosition,
@@ -181,6 +183,9 @@ export function createLongbridgeProvider(
       'portfolio',
       'earnings-calendar',
       'macro-calendar',
+      'market-temp',
+      'industry-rank',
+      'market-cap',
     ]),
 
     async getKline(
@@ -359,10 +364,77 @@ export function createLongbridgeProvider(
             title: info.content,
             estimate: calendarKv(info, 'estimate'),
             previous: calendarKv(info, 'previous'),
+            actual: calendarKv(info, 'actual'),
           });
         }
       }
       return { supported: true, items };
+    },
+
+    async getMarketTemp(market: Market): Promise<MarketTempResult | null> {
+      const rows = await callCli<Array<{ field?: string; value?: string }>>('market-temp', run, [
+        'market-temp',
+        market,
+      ]);
+      const byField = new Map(rows.map((row) => [row.field, row.value]));
+      const num = (field: string): number | null => {
+        const value = Number(byField.get(field));
+        return Number.isFinite(value) ? value : null;
+      };
+      const temperature = num('Temperature');
+      if (temperature == null) return null;
+      return {
+        temperature,
+        valuation: num('Valuation'),
+        sentiment: num('Sentiment'),
+        description: byField.get('Description')?.trim() || null,
+      };
+    },
+
+    async getIndustryRank(market: Market): Promise<IndustryRankResult[]> {
+      const payload = await callCli<{
+        items?: Array<{
+          lists?: Array<{
+            name?: string;
+            chg?: string;
+            leading_ticker?: string;
+            leading_chg?: string;
+          }>;
+        }>;
+      }>('industry-rank', run, ['industry-rank', '--market', market]);
+      const pctNum = (value: string | undefined): number | null => {
+        const n = Number(value);
+        return value != null && value !== '' && Number.isFinite(n) ? n * 100 : null;
+      };
+      const rows: IndustryRankResult[] = [];
+      for (const item of payload.items ?? []) {
+        for (const entry of item.lists ?? []) {
+          if (!entry.name) continue;
+          rows.push({
+            name: entry.name,
+            chg: pctNum(entry.chg),
+            leading_ticker: entry.leading_ticker?.trim() || null,
+            leading_chg: pctNum(entry.leading_chg),
+          });
+        }
+      }
+      return rows;
+    },
+
+    async getMarketCaps(symbols: string[]): Promise<Record<string, number>> {
+      if (!symbols.length) return {};
+      const rows = await callCli<Array<{ symbol?: string; mktcap?: string }>>('calc-index', run, [
+        'calc-index',
+        ...symbols,
+        '--fields',
+        'mktcap',
+      ]);
+      const caps: Record<string, number> = {};
+      for (const row of rows) {
+        const cap = Number(row.mktcap);
+        if (row.symbol && Number.isFinite(cap) && cap > 0) caps[row.symbol] = cap;
+      }
+      return caps;
     },
   };
 }

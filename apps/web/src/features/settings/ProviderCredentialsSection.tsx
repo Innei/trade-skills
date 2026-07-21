@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { errorMessage } from '@web/lib/api';
+import { money } from '@web/lib/format';
 import { client } from '@web/lib/client';
 import { Button, Dot, Input, openModal, SectionTitle, Select } from '@web/ui';
 import { DeviceLoginDialog } from './DeviceLoginDialog';
@@ -171,7 +172,7 @@ function CodexAuthRow({ provider }: { provider: CatalogProvider }) {
   );
 }
 
-const formatUsd = (value: number) => `$${value.toFixed(value < 1 ? 4 : 2)}`;
+const formatUsd = (value: number) => money(value, value < 1 ? 4 : 2);
 
 function LobeHubAuthRow({
   provider,

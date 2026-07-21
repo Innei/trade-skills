@@ -1,10 +1,10 @@
 import type { PortfolioSummary } from '@kansoku/shared/types';
-import { fmt, signed, upDown } from '@web/lib/format';
+import { fmt, money, signed, upDown } from '@web/lib/format';
 import { Card, Dot, ErrorBox } from '@web/ui';
 
 function signedMoney(value: number): string {
   const sign = value < 0 ? '−' : '+';
-  return `${sign}$${Math.abs(value).toFixed(1)}`;
+  return `${sign}$${fmt(Math.abs(value), 1)}`;
 }
 
 export function PositionsCard({
@@ -29,10 +29,10 @@ export function PositionsCard({
           总盈亏 <b className={upDown(portfolio.total_pl)}>{signedMoney(portfolio.total_pl)}</b>
         </span>
         <span>
-          市值 <b>${portfolio.market_cap.toFixed(0)}</b>
+          市值 <b>{money(portfolio.market_cap, 0)}</b>
         </span>
         <span>
-          现金 <b>${portfolio.cash.toFixed(0)}</b>
+          现金 <b>{money(portfolio.cash, 0)}</b>
         </span>
       </div>
       <div className="positions-list">

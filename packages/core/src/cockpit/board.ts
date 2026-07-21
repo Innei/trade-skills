@@ -13,6 +13,7 @@ import { getProvider } from '../marketdata/registry.js';
 import { classifySession, easternDate } from '../marketdata/session.js';
 import { predictionStale } from '../platform/staleness.js';
 import { listCharts, loadChart } from '../charts/store.js';
+import { buildHomeExtras } from '../overview/homeExtras.js';
 import { normalizeQuote } from '../realtime/quotes.js';
 
 function distancePct(level: number | null | undefined, last: number | null): number | null {
@@ -72,17 +73,19 @@ export async function buildOverviewBoard(
   const bySymbol = latestPerSymbol(metas);
   const symbols = [...bySymbol.keys()];
   if (!symbols.length) {
-    return { date: today, session, rows: [] };
+    const extras = await buildHomeExtras([]);
+    return { date: today, session, rows: [], ...extras };
   }
   const followedSymbols = new Set(listFollowedSymbols());
 
   const nowMs = Date.now();
-  const [quotesRes, docs, commentsList] = await Promise.all([
+  const [quotesRes, docs, commentsList, extras] = await Promise.all([
     getProvider()
       .getQuotes(symbols)
       .catch(() => []),
     Promise.all([...bySymbol.values()].map((m) => loadChart(m.id))),
     Promise.all(symbols.map((s) => listComments(s, today))),
+    buildHomeExtras(symbols),
   ]);
   const quoteBySymbol = new Map(
     quotesRes.map((q) => {
@@ -101,5 +104,5 @@ export async function buildOverviewBoard(
       chartUrl,
     ),
   );
-  return { date: today, session, rows };
+  return { date: today, session, rows, ...extras };
 }

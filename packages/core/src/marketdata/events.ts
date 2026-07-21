@@ -18,13 +18,13 @@ const relevanceCache = new Map<
   { at: number; fingerprint: string; val: MacroEventItem[] }
 >();
 
-async function nextEarnings(
+export async function nextEarnings(
   symbol: string,
   now: Date,
 ): Promise<IntradayEventRisk['next_earnings']> {
   const hit = earningsCache.get(symbol);
   if (hit && Date.now() - hit.at < EARNINGS_TTL_MS) return hit.val;
-  let val: IntradayEventRisk['next_earnings'] = null;
+  let val: IntradayEventRisk['next_earnings'];
   try {
     const today = easternDate(now);
     const provider = getProvider(marketOf(symbol));

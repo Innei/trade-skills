@@ -99,6 +99,7 @@ export class LongbridgeStream implements QuoteStream {
       pct,
       regularLast: regular?.last ?? quote.lastDone,
       regularPct: regular?.pct ?? pct,
+      ...(quote.turnover > 0 ? { turnover: quote.turnover } : {}),
       ...(quote.timestamp > 0 ? { asOf: new Date(quote.timestamp * 1000).toISOString() } : {}),
     };
   }
@@ -121,6 +122,7 @@ export class LongbridgeStream implements QuoteStream {
       this.lastRegular.set(row.symbol, regularCell);
       const snapshot = this.snapshots.get(row.symbol);
       if (!snapshot) {
+        const rowTurnover = Number(row.turnover);
         this.snapshots.set(row.symbol, {
           symbol: row.symbol,
           session: '日盘',
@@ -128,6 +130,7 @@ export class LongbridgeStream implements QuoteStream {
           pct: regularCell.pct,
           regularLast: last,
           regularPct: regularCell.pct,
+          ...(Number.isFinite(rowTurnover) && rowTurnover > 0 ? { turnover: rowTurnover } : {}),
         });
       } else if (snapshot.pct === null) {
         const push = this.lastPush.get(row.symbol);

@@ -1,20 +1,29 @@
 import { useEffect, useState } from 'react';
-import type { ChartMeta, OverviewBoard, PortfolioSummary } from '@kansoku/shared/types';
+import type {
+  ChartMeta,
+  HomeEvents,
+  OverviewBoard,
+  PortfolioSummary,
+  QuoteSnapshot,
+} from '@kansoku/shared/types';
 import { marketDate } from '@kansoku/shared/time';
-import { useQuery } from '../../lib/apiHooks';
+import { usePollingQuery, useQuery } from '../../lib/apiHooks';
 import { client } from '../../lib/client';
 import { navigate, useQueryParam } from '../../lib/router';
-import { QuoteBar } from '../quotes/QuoteBar';
 import { isDesktopRealtime } from '../../lib/portTransport';
-import { Badge, DataAgeBadge, ErrorBox, SectionTitle } from '../../ui';
+import { DataAgeBadge, ErrorBox, SectionTitle } from '../../ui';
 import { useTitle } from '../../lib/useTitle';
 import { useWsChannel } from '../../lib/ws/useWsChannel';
 import { useIntervalFetch } from '../cockpit/useIntervalFetch';
-import { CROSS_SECTION_TYPES, CrossSectionCharts } from './CrossSectionCharts';
+import { CROSS_SECTION_TYPES } from './CrossSectionCharts';
 import { DateTimeline } from './DateTimeline';
+import { EventCalendar } from './EventCalendar';
+import { HomeTopStrip, INDEX_SYMBOLS } from './HomeTopStrip';
+import { MarketPanorama } from './MarketPanorama';
 import { PositionsCard } from './PositionsCard';
 import { QuickBar } from './QuickBar';
 import { RecapBoard } from './RecapBoard';
+import { SymbolGrid } from './SymbolGrid';
 import { WatchBoard } from './WatchBoard';
 
 const SESSION_LABEL: Record<string, string> = {
@@ -53,6 +62,13 @@ export function Home() {
     setBoard,
   );
   const boardError = boardDegraded ? '盘面数据获取失败，正在重试' : null;
+
+  const [quoteSnap, setQuoteSnap] = useState<QuoteSnapshot | null>(null);
+  const { degraded: quotesDegraded, snapshotAt: quotesSnapshotAt } = useWsChannel<QuoteSnapshot>(
+    { kind: 'quotes', extra: INDEX_SYMBOLS },
+    setQuoteSnap,
+  );
+
   const {
     data: portfolio,
     error: portfolioError,
@@ -64,6 +80,12 @@ export function Home() {
     60_000,
   );
   const portfolioAgeAt = portfolio != null && !portfolioRefreshed ? portfolioUpdatedAt : null;
+
+  const { data: events, error: eventsError } = usePollingQuery<HomeEvents>(
+    isToday ? 'overview.events' : null,
+    () => client.overview.events(),
+    5 * 60_000,
+  );
 
   const { data: chartMetas } = useQuery<ChartMeta[]>(`charts.list:${CROSS_SECTION_TYPES}`, () =>
     client.charts.list({ type: CROSS_SECTION_TYPES }),
@@ -86,26 +108,50 @@ export function Home() {
 
   const session = board?.session ?? null;
   const trading = isToday && (session === 'pre' || session === 'regular');
+  const after = isToday && !trading;
   const watching = new Set(board?.rows.map((r) => r.symbol) ?? []);
   const shortcuts = [
     ...new Set([...watching, ...(portfolio?.positions.map((p) => p.symbol) ?? [])]),
   ];
 
+  const flowSection = (
+    <>
+      <SectionTitleWithAge label="市场全景" at={quotesSnapshotAt} />
+      <MarketPanorama
+        quotes={quoteSnap?.quotes ?? []}
+        portfolio={portfolio ?? null}
+        caps={board?.caps ?? {}}
+      />
+    </>
+  );
+  const eventSection = (
+    <>
+      <SectionTitle>事件日历</SectionTitle>
+      <EventCalendar events={events ?? null} error={eventsError} after={after} />
+    </>
+  );
+  const positionsSection = (
+    <>
+      <SectionTitleWithAge label="持仓" at={portfolioAgeAt} />
+      <PositionsCard portfolio={portfolio} error={portfolioError} watching={watching} />
+    </>
+  );
+
+  const recapDate = (recapDates ?? []).find((d) => d < today) ?? null;
+
   return (
     <div className="page home-page">
-      <h1>
-        盘面{' '}
-        {isToday && session && (
-          <Badge className="session-tag">{SESSION_LABEL[session] ?? session}</Badge>
-        )}
-      </h1>
-      <div className="sub">
-        {isToday
-          ? `${board?.date ?? ''} · 盘中看盘、盘后复盘，随时段自动切换`
-          : `${date} · 历史复盘`}
-      </div>
+      <HomeTopStrip
+        sessionLabel={session ? (SESSION_LABEL[session] ?? session) : null}
+        date={isToday ? (board?.date ?? date) : date}
+        isToday={isToday}
+        quotes={quoteSnap?.quotes ?? []}
+        market={board?.market}
+        degraded={quotesDegraded}
+        snapshotAt={quotesSnapshotAt}
+        recapDate={recapDate}
+      />
       {notice && NOTICE_LABEL[notice] && <ErrorBox>{NOTICE_LABEL[notice]}</ErrorBox>}
-      <QuoteBar />
       <QuickBar shortcuts={shortcuts} showGlobalActions={!isDesktopRealtime()} />
       <DateTimeline
         dates={timelineDates}
@@ -114,37 +160,48 @@ export function Home() {
       />
       {isToday && !board && !boardError && <div className="note-block">盘面加载中…</div>}
       {isToday && boardError && !board && <ErrorBox>{boardError}</ErrorBox>}
-      {(!isToday || board) && (
+      {!isToday && <RecapBoard date={date} defaultExpanded />}
+      {isToday && board && trading && (
         <div className="home-grid">
           <div className="home-main">
-            {trading ? (
-              <>
-                <SectionTitleWithAge label="看盘" at={boardSnapshotAt} />
-                <WatchBoard board={board!} error={boardError} compact={false} />
-                <CrossSectionCharts date={date} />
-              </>
-            ) : (
-              <RecapBoard date={date} defaultExpanded />
-            )}
+            <SectionTitleWithAge
+              label={session === 'pre' ? '隔夜行情 · 自选 + 持仓' : '看盘 · 自选 + 持仓'}
+              at={boardSnapshotAt}
+            />
+            <SymbolGrid
+              quotes={quoteSnap?.quotes ?? []}
+              board={board}
+              portfolio={portfolio ?? null}
+              events={events ?? null}
+            />
+            {flowSection}
           </div>
           <div className="home-side">
-            {trading ? (
+            {session === 'regular' ? (
               <>
-                <SectionTitleWithAge label="持仓" at={portfolioAgeAt} />
-                <PositionsCard portfolio={portfolio} error={portfolioError} watching={watching} />
-                <RecapBoard date={date} defaultExpanded={false} />
-              </>
-            ) : isToday ? (
-              <>
-                <SectionTitleWithAge label="看盘（定格）" at={boardSnapshotAt} />
-                <WatchBoard board={board!} error={boardError} compact />
-                <SectionTitleWithAge label="持仓" at={portfolioAgeAt} />
-                <PositionsCard portfolio={portfolio} error={portfolioError} watching={watching} />
-                <CrossSectionCharts date={date} />
+                {positionsSection}
+                {eventSection}
               </>
             ) : (
-              <CrossSectionCharts date={date} />
+              <>
+                {eventSection}
+                {positionsSection}
+              </>
             )}
+          </div>
+        </div>
+      )}
+      {isToday && board && after && (
+        <div className="home-grid">
+          <div className="home-main">
+            <RecapBoard date={date} defaultExpanded />
+            {flowSection}
+          </div>
+          <div className="home-side">
+            {eventSection}
+            <SectionTitleWithAge label="收盘定格" at={boardSnapshotAt} />
+            <WatchBoard board={board} error={boardError} compact />
+            {positionsSection}
           </div>
         </div>
       )}

@@ -17,6 +17,8 @@ import {
   zoneFromPrediction,
 } from '../cockpit/outcome.js';
 import { getResolvedOutcomes, saveResolvedOutcome } from '../cockpit/outcomeCache.js';
+import { buildHomeEvents } from './homeEvents.js';
+import { getIndustryPanorama } from './industryPanorama.js';
 import { aggregateStats, type StatsRow } from '../cockpit/stats.js';
 import { getProvider } from '../marketdata/registry.js';
 import { easternDate } from '../marketdata/session.js';
@@ -164,6 +166,14 @@ function assertDate(date: string): void {
 export const overviewService: OverviewApi = {
   async board() {
     return buildOverviewBoard(chartUrl);
+  },
+
+  async events() {
+    return buildHomeEvents();
+  },
+
+  async industries() {
+    return getIndustryPanorama();
   },
 
   async recap(input) {

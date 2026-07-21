@@ -1,0 +1,95 @@
+// @vitest-environment jsdom
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { OverviewBoard, SessionKind } from '@kansoku/shared/types';
+import { marketDate } from '@kansoku/shared/time';
+
+let boardData: OverviewBoard | null = null;
+
+vi.mock('../../lib/ws/useWsChannel', async () => {
+  const { useEffect } = await import('react');
+  return {
+    useWsChannel: (spec: { kind: string } | null, onData: (data: unknown) => void) => {
+      const kind = spec?.kind ?? null;
+      useEffect(() => {
+        if (kind === 'board' && boardData) onData(boardData);
+        if (kind === 'quotes') onData({ ts: Date.now(), quotes: [] });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      }, [kind]);
+      return { degraded: false, connected: true, snapshotAt: null };
+    },
+  };
+});
+vi.mock('../../lib/client', () => ({
+  client: {
+    overview: {
+      events: vi.fn(async () => ({ date: marketDate(), items: [] })),
+      recapDates: vi.fn(async () => []),
+    },
+    charts: { list: vi.fn(async () => []) },
+    positions: { list: vi.fn(async () => null) },
+    capabilities: { get: vi.fn(async () => ({ features: {} })) },
+  },
+}));
+vi.mock('../../lib/portTransport', () => ({ isDesktopRealtime: () => true }));
+vi.mock('./RecapBoard', () => ({
+  RecapBoard: ({ defaultExpanded }: { defaultExpanded: boolean }) => (
+    <div>recap-board:{String(defaultExpanded)}</div>
+  ),
+}));
+vi.mock('./CrossSectionCharts', () => ({
+  CROSS_SECTION_TYPES: 'flow,cohort',
+  CrossSectionCharts: () => <div>cross-section</div>,
+}));
+vi.mock('./SymbolGrid', () => ({ SymbolGrid: () => <div>symbol-grid</div> }));
+vi.mock('./WatchBoard', () => ({ WatchBoard: () => <div>watch-strip</div> }));
+vi.mock('./PositionsCard', () => ({ PositionsCard: () => <div>positions-card</div> }));
+vi.mock('./MarketPanorama', () => ({ MarketPanorama: () => <div>market-panorama</div> }));
+vi.mock('./EventCalendar', () => ({ EventCalendar: () => <div>event-calendar</div> }));
+
+const { Home } = await import('./Home');
+
+function renderHome(session: SessionKind) {
+  boardData = { date: marketDate(), session, rows: [] };
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <Home />
+    </QueryClientProvider>,
+  );
+}
+
+afterEach(() => {
+  cleanup();
+  boardData = null;
+  window.history.replaceState(null, '', '/');
+});
+
+describe('Home session layouts', () => {
+  it('pre-market: overnight grid main, events and positions in the rail, no recap', async () => {
+    renderHome('pre');
+    expect(await screen.findByText('symbol-grid')).toBeTruthy();
+    expect(screen.getByText(/隔夜行情/)).toBeTruthy();
+    expect(screen.getByText('market-panorama')).toBeTruthy();
+    expect(screen.getByText('event-calendar')).toBeTruthy();
+    expect(screen.queryByText(/recap-board/)).toBeNull();
+  });
+
+  it('regular session: watch grid main, positions and calendar in the rail, no recap in sidebar', async () => {
+    renderHome('regular');
+    expect(await screen.findByText('symbol-grid')).toBeTruthy();
+    expect(screen.getByText(/看盘 · 自选 \+ 持仓/)).toBeTruthy();
+    expect(screen.getByText('positions-card')).toBeTruthy();
+    expect(screen.getByText('event-calendar')).toBeTruthy();
+    expect(screen.queryByText(/recap-board/)).toBeNull();
+  });
+
+  it('post session: expanded recap main, close-freeze strip and events in the rail', async () => {
+    renderHome('post');
+    expect(await screen.findByText('recap-board:true')).toBeTruthy();
+    expect(screen.getByText('watch-strip')).toBeTruthy();
+    expect(screen.getByText(/收盘定格/)).toBeTruthy();
+    expect(screen.queryByText('symbol-grid')).toBeNull();
+  });
+});

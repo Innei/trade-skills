@@ -365,11 +365,13 @@ function decodeSecurityQuote(body: Uint8Array): RawQuote {
   const pre = bytesValue(get(11));
   const post = bytesValue(get(12));
   const overnight = bytesValue(get(13));
+  const turnover = stringValue(get(9));
   return {
     symbol: stringValue(get(1)),
     last,
     prev_close: prevClose,
     change_percentage: changePercentage(last, prevClose),
+    ...(turnover ? { turnover } : {}),
     ...(pre ? { pre_market: decodePrePostQuote(pre) } : {}),
     ...(post ? { post_market: decodePrePostQuote(post) } : {}),
     ...(overnight ? { overnight: decodePrePostQuote(overnight) } : {}),

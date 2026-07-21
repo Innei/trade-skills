@@ -10,6 +10,9 @@ const OPTIONAL_METHODS: Record<Capability, keyof MarketDataProvider> = {
   'portfolio': 'getPortfolio',
   'earnings-calendar': 'getEarningsCalendar',
   'macro-calendar': 'getMacroCalendar',
+  'market-temp': 'getMarketTemp',
+  'industry-rank': 'getIndustryRank',
+  'market-cap': 'getMarketCaps',
 };
 
 describe('marketdata registry', () => {

@@ -12,6 +12,16 @@ export class OverviewIpc extends IpcService implements WrapEnvelope<OverviewApi>
   }
 
   @IpcMethod()
+  events() {
+    return toEnvelope('overview.events', () => overviewService.events());
+  }
+
+  @IpcMethod()
+  industries() {
+    return toEnvelope('overview.industries', () => overviewService.industries());
+  }
+
+  @IpcMethod()
   recap(input: Parameters<OverviewApi['recap']>[0]) {
     return toEnvelope('overview.recap', () => overviewService.recap(input));
   }

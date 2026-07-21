@@ -18,6 +18,8 @@ export function normalizeQuote(q: RawQuote, nowMs: number): QuoteCell {
   const regularPct = Number(q.change_percentage);
   const market = marketOf(q.symbol);
   const clock = classifySession(Math.floor(nowMs / 1000), market);
+  const turnoverNum = Number(q.turnover);
+  const turnover = Number.isFinite(turnoverNum) && turnoverNum > 0 ? { turnover: turnoverNum } : {};
   if (clock === 'regular') {
     return {
       symbol: q.symbol,
@@ -26,6 +28,7 @@ export function normalizeQuote(q: RawQuote, nowMs: number): QuoteCell {
       pct: regularPct,
       regularLast,
       regularPct,
+      ...turnover,
     };
   }
   const label = sessionLabel(clock, market);
@@ -43,6 +46,7 @@ export function normalizeQuote(q: RawQuote, nowMs: number): QuoteCell {
         pct: prev ? (last / prev - 1) * 100 : null,
         regularLast,
         regularPct,
+        ...turnover,
       };
     }
   }
@@ -53,6 +57,7 @@ export function normalizeQuote(q: RawQuote, nowMs: number): QuoteCell {
     pct: regularPct,
     regularLast,
     regularPct,
+    ...turnover,
   };
 }
 

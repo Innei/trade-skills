@@ -11,6 +11,18 @@ export class OverviewController {
     return { ok: true, data };
   }
 
+  @Get('/events')
+  async getEvents() {
+    const data = await overviewService.events();
+    return { ok: true, data };
+  }
+
+  @Get('/industries')
+  async getIndustries() {
+    const data = await overviewService.industries();
+    return { ok: true, data };
+  }
+
   @Get('/recap')
   async getRecap(@Query() query: { date?: string }) {
     const data = await overviewService.recap({ date: query.date });

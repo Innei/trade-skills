@@ -1,4 +1,5 @@
 import type { HTMLAttributes } from 'react';
+import { fmt } from '../lib/format';
 
 type NumProps = {
   value: number;
@@ -15,7 +16,7 @@ export function Num({ value, diff, digits = 2, suffix, className, ...rest }: Num
   return (
     <span className={cls} {...rest}>
       {sign}
-      {value.toFixed(digits)}
+      {fmt(value, digits)}
       {suffix}
     </span>
   );

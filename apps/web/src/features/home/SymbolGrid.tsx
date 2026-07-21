@@ -1,0 +1,220 @@
+import { useState } from 'react';
+import type {
+  HomeEvents,
+  OverviewBoard,
+  OverviewRow,
+  PortfolioSummary,
+  QuoteCell,
+} from '@kansoku/shared/types';
+import { fmt, signed } from '@web/lib/format';
+import { Badge, Card, Dot, Empty, MarketTime, Num } from '@web/ui';
+import { directionTone } from '@web/features/charts/intraday/directionLabels';
+import { fmtFlow, flowTone } from './flowFormat';
+import { INDEX_SYMBOLS } from './HomeTopStrip';
+import { FollowToggle, ReassessButton } from './SymbolActions';
+
+const DIRECTION_LABEL: Record<string, string> = { long: '做多', short: '做空', neutral: '观望' };
+const EARNINGS_BADGE_DAYS = 7;
+const OPTION_SYMBOL_RE = /\d{6}[CP]\d+/;
+const MOVER_PCT = 3;
+const MOVER_EARNINGS_DAYS = 4;
+
+export function isCardWorthySymbol(symbol: string): boolean {
+  return !symbol.startsWith('.') && !OPTION_SYMBOL_RE.test(symbol);
+}
+
+export function isMover(entry: GridEntry, today: string | null): boolean {
+  const pct = entry.quote?.pct ?? null;
+  if (pct != null && Math.abs(pct) >= MOVER_PCT) return true;
+  if (entry.earningsDate && today) {
+    const cutoff = new Date(
+      new Date(`${today}T00:00:00Z`).getTime() + MOVER_EARNINGS_DAYS * 86_400_000,
+    )
+      .toISOString()
+      .slice(0, 10);
+    if (entry.earningsDate <= cutoff) return true;
+  }
+  return false;
+}
+
+interface GridEntry {
+  symbol: string;
+  quote: QuoteCell | null;
+  row: OverviewRow | null;
+  flow: number | null;
+  owned: boolean;
+  earningsDate: string | null;
+}
+
+function pctCell(value: number | null): string {
+  return value == null ? '—' : `${signed(value)}%`;
+}
+
+export function buildGridEntries({
+  quotes,
+  board,
+  portfolio,
+  events,
+}: {
+  quotes: QuoteCell[];
+  board: OverviewBoard | null;
+  portfolio: PortfolioSummary | null;
+  events: HomeEvents | null;
+}): GridEntry[] {
+  const indexSet = new Set(INDEX_SYMBOLS);
+  const quoteBySymbol = new Map(quotes.map((q) => [q.symbol, q]));
+  const rowBySymbol = new Map((board?.rows ?? []).map((r) => [r.symbol, r]));
+  const owned = new Set((portfolio?.positions ?? []).map((p) => p.symbol));
+  const earningsBySymbol = new Map<string, string>();
+  if (events) {
+    const cutoff = new Date(
+      new Date(`${events.date}T00:00:00Z`).getTime() + EARNINGS_BADGE_DAYS * 86_400_000,
+    )
+      .toISOString()
+      .slice(0, 10);
+    for (const item of events.items) {
+      if (item.kind === 'earnings' && item.symbol && item.date <= cutoff) {
+        earningsBySymbol.set(item.symbol, item.date);
+      }
+    }
+  }
+  const symbols = [
+    ...new Set([...quoteBySymbol.keys(), ...rowBySymbol.keys(), ...owned]),
+  ].filter((s) => !indexSet.has(s) && isCardWorthySymbol(s));
+  const flows = board?.flows ?? {};
+  const entries = symbols.map((symbol) => ({
+    symbol,
+    quote: quoteBySymbol.get(symbol) ?? null,
+    row: rowBySymbol.get(symbol) ?? null,
+    flow: flows[symbol] ?? null,
+    owned: owned.has(symbol),
+    earningsDate: earningsBySymbol.get(symbol) ?? null,
+  }));
+  return entries.sort((a, b) => {
+    if (a.owned !== b.owned) return a.owned ? -1 : 1;
+    return a.symbol < b.symbol ? -1 : 1;
+  });
+}
+
+function GridCard({ entry }: { entry: GridEntry }) {
+  const { symbol, quote, row, flow, owned, earningsDate } = entry;
+  const last = quote?.last ?? row?.last ?? null;
+  const pct = quote?.pct ?? row?.pct ?? null;
+  const comment = row?.latest_comment ?? null;
+  return (
+    <Card link className="symbol-card" href={`/symbol/${encodeURIComponent(symbol)}`}>
+      <div className="symbol-card-head">
+        <span className="sym">{symbol.replace(/\.US$/, '')}</span>
+        {row?.direction && (
+          <Badge tone={directionTone(row.direction)}>{DIRECTION_LABEL[row.direction]}</Badge>
+        )}
+        {last != null && (
+          <span className="quote">
+            {fmt(last)}
+            {pct != null && (
+              <>
+                {' '}
+                <Num value={pct} diff suffix="%" />
+              </>
+            )}
+          </span>
+        )}
+        {quote && quote.session !== '日盘' && <Badge className="qc-session">{quote.session}</Badge>}
+        {owned && <Badge className="hold-badge">持仓</Badge>}
+        {earningsDate && (
+          <Badge tone="accent" className="earnings-badge">
+            财报 {earningsDate.slice(5)}
+          </Badge>
+        )}
+        {row && <FollowToggle symbol={symbol} initialFollowing={row.ai_following} />}
+        {row?.prediction_stale && <Dot tone="accent" title="预测已过期" />}
+        {row && row.alert_count > 0 && (
+          <Badge tone="down" className="unread-badge">
+            {row.alert_count}
+          </Badge>
+        )}
+      </div>
+      <div className="symbol-card-levels">
+        <span className={flowTone(flow)}>净流入 {fmtFlow(flow)}</span>
+        {row && <span>止损 {pctCell(row.stop_distance_pct)}</span>}
+        {row && <span>目标1 {pctCell(row.target1_distance_pct)}</span>}
+        {row && <ReassessButton symbol={symbol} />}
+      </div>
+      {comment && (
+        <div className={`symbol-card-comment ${comment.level}`}>
+          <MarketTime value={comment.ts} format="clock" /> · {comment.text}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function TailCell({ entry }: { entry: GridEntry }) {
+  const pct = entry.quote?.pct ?? null;
+  return (
+    <a className="watch-tail-cell" href={`/symbol/${encodeURIComponent(entry.symbol)}`}>
+      <span className="sym">{entry.symbol.replace(/\.US$/, '')}</span>
+      {pct != null && <Num value={pct} diff suffix="%" />}
+      {entry.flow != null && (
+        <span className={`num tail-flow ${flowTone(entry.flow)}`}>{fmtFlow(entry.flow)}</span>
+      )}
+      {entry.earningsDate && (
+        <Badge tone="accent" className="earnings-badge">
+          财报 {entry.earningsDate.slice(5)}
+        </Badge>
+      )}
+    </a>
+  );
+}
+
+export function SymbolGrid(props: {
+  quotes: QuoteCell[];
+  board: OverviewBoard | null;
+  portfolio: PortfolioSummary | null;
+  events: HomeEvents | null;
+}) {
+  const entries = buildGridEntries(props);
+  if (!entries.length) {
+    return <Empty>自选和持仓还是空的——去长桥加自选，或在 cockpit 跑一次分析</Empty>;
+  }
+  const cards = entries.filter((e) => e.row != null || e.owned);
+  const tail = entries.filter((e) => e.row == null && !e.owned);
+  const today = props.events?.date ?? null;
+  const movers = tail.filter((e) => isMover(e, today));
+  const quiet = tail.filter((e) => !isMover(e, today));
+  return (
+    <>
+      {cards.length > 0 && (
+        <div className="overview-grid">
+          {cards.map((entry) => (
+            <GridCard key={entry.symbol} entry={entry} />
+          ))}
+        </div>
+      )}
+      <MoverTail movers={movers} quiet={quiet} />
+    </>
+  );
+}
+
+function MoverTail({ movers, quiet }: { movers: GridEntry[]; quiet: GridEntry[] }) {
+  const [expanded, setExpanded] = useState(false);
+  if (!movers.length && !quiet.length) return null;
+  return (
+    <div className="watch-tail">
+      {movers.map((entry) => (
+        <TailCell key={entry.symbol} entry={entry} />
+      ))}
+      {quiet.length > 0 && (
+        <button
+          type="button"
+          className="watch-tail-fold"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          {expanded ? '收起 ▴' : `+ ${quiet.length} 只平静 ▾`}
+        </button>
+      )}
+      {expanded &&
+        quiet.map((entry) => <TailCell key={entry.symbol} entry={entry} />)}
+    </div>
+  );
+}
