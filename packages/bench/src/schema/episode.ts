@@ -47,6 +47,29 @@ export const episodeTradeActionSchema = Type.Union([
 
 export type EpisodeTradeAction = Static<typeof episodeTradeActionSchema>;
 
+// Wire shape for the advance_trade tool. OpenAI-compatible function schemas must have a single
+// top-level `type: "object"` — DeepSeek rejects the union above outright — so the variants are
+// flattened into one discriminated object. Per-variant constraints are still enforced: the runner
+// re-checks every call against episodeTradeActionSchema, so any new variant must land in both.
+export const episodeTradeActionToolSchema = Type.Object(
+  {
+    type: Type.Union([
+      Type.Literal('hold'),
+      Type.Literal('amend'),
+      Type.Literal('cancel'),
+      Type.Literal('exit_next_open'),
+    ]),
+    bars: Type.Optional(Type.Integer({ minimum: 1, maximum: 20 })),
+    period: Type.Optional(
+      Type.Union([Type.Literal('h1'), Type.Literal('day'), Type.Literal('week')]),
+    ),
+    stop: Type.Optional(Type.Number()),
+    target: Type.Optional(Type.Number()),
+    ...optionalReason,
+  },
+  { additionalProperties: false },
+);
+
 export const episodeActionSchema = Type.Union([
   Type.Object({ type: Type.Literal('observe') }, { additionalProperties: false }),
   Type.Object(

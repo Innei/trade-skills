@@ -21,6 +21,7 @@ export {
   episodeActionSchema,
   episodeSubmissionSchema,
   episodeTradeActionSchema,
+  episodeTradeActionToolSchema,
   episodeAnswerSchema,
   episodeClosedTradeSchema,
   episodeTradeResultSchema,
