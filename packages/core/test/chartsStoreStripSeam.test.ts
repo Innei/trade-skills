@@ -19,7 +19,6 @@ function fakeLicenseManager(licensed: boolean): LicenseManager {
   return {
     getLicenseSnapshot: () => ({ state: licensed ? 'licensed' : 'unlicensed' }),
     getBundleKey: () => undefined,
-    getBundleKeyId: () => undefined,
     activate: async () => ({ activated: true }),
     deactivate: async () => ({}) as never,
     revalidate: async () => {},

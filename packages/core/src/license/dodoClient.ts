@@ -1,10 +1,7 @@
-import type { BundleKeyWrap } from "./bundleKeyWrap.js";
-
 export interface DodoInstance {
   id: string;
   bundleKey?: string;
   keyId?: string;
-  bundleKeyWrap?: BundleKeyWrap;
   [key: string]: unknown;
 }
 
@@ -12,18 +9,13 @@ export interface DodoValidateResult {
   valid: boolean;
   bundleKey?: string;
   keyId?: string;
-  bundleKeyWrap?: BundleKeyWrap;
 }
 
 export type DodoResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
 export interface DodoClient {
-  activate(input: { licenseKey: string; name: string; devicePublicKey?: string }): Promise<DodoResult<DodoInstance>>;
-  validate(input: {
-    licenseKey: string;
-    instanceId?: string;
-    devicePublicKey?: string;
-  }): Promise<DodoResult<DodoValidateResult>>;
+  activate(input: { licenseKey: string; name: string }): Promise<DodoResult<DodoInstance>>;
+  validate(input: { licenseKey: string; instanceId?: string }): Promise<DodoResult<DodoValidateResult>>;
   deactivate(input: { licenseKey: string; instanceId: string }): Promise<DodoResult<void>>;
 }
 
@@ -68,24 +60,12 @@ export function createDodoClient(opts: DodoClientOptions = {}): DodoClient {
   }
 
   return {
-    activate: ({ licenseKey, name, devicePublicKey }) =>
-      request<DodoInstance>(
-        "/licenses/activate",
-        {
-          license_key: licenseKey,
-          name,
-          ...(devicePublicKey ? { device_public_key: devicePublicKey } : {}),
-        },
-        true,
-      ),
-    validate: ({ licenseKey, instanceId, devicePublicKey }) =>
+    activate: ({ licenseKey, name }) =>
+      request<DodoInstance>("/licenses/activate", { license_key: licenseKey, name }, true),
+    validate: ({ licenseKey, instanceId }) =>
       request<DodoValidateResult>(
         "/licenses/validate",
-        {
-          license_key: licenseKey,
-          license_key_instance_id: instanceId,
-          ...(devicePublicKey ? { device_public_key: devicePublicKey } : {}),
-        },
+        { license_key: licenseKey, license_key_instance_id: instanceId },
         true,
       ),
     deactivate: ({ licenseKey, instanceId }) =>

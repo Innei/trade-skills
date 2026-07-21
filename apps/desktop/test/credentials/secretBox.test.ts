@@ -1,6 +1,6 @@
-import { existsSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDesktopSecretBox } from '@desktop/data/credentials/secretBox.js';
 import { SecretBoxError } from '@kansoku/core/platform/secretCrypto';
@@ -55,7 +55,7 @@ describe('desktopSecretBox', () => {
     expect(box.status()).toBe('ready');
   });
 
-  it('legacy path: wraps a pre-existing plaintext keyfile and deletes the original', () => {
+  it('legacy path: wraps a pre-existing plaintext keyfile and keeps the original', () => {
     const legacyKey = Buffer.alloc(32, 7);
     writeFileSync(legacyKeyPath, legacyKey, { mode: 0o600 });
 
@@ -67,9 +67,8 @@ describe('desktopSecretBox', () => {
     const envelope = box.encrypt('longbridge', 'secret-value');
 
     expect(existsSync(wrappedKeyPath)).toBe(true);
-    // The bare plaintext key must not survive migration — leaving it next to
-    // the Keychain-wrapped copy would defeat the wrapping.
-    expect(existsSync(legacyKeyPath)).toBe(false);
+    expect(existsSync(legacyKeyPath)).toBe(true);
+    expect(readFileSync(legacyKeyPath)).toEqual(legacyKey);
     expect(box.decrypt('longbridge', envelope)).toBe('secret-value');
   });
 
@@ -84,8 +83,7 @@ describe('desktopSecretBox', () => {
     });
     const envelope = boxA.encrypt('longbridge', 'secret-value');
 
-    // migration already deleted the plaintext keyfile; a fresh box instance
-    // must still decrypt via the wrapped copy alone
+    rmSync(legacyKeyPath);
     const boxB = createDesktopSecretBox({
       safeStorage: fakeSafeStorage(),
       wrappedKeyPath,
@@ -152,7 +150,7 @@ describe('desktopSecretBox', () => {
     expect(() => box.resetKey()).toThrow(SecretBoxError);
   });
 
-  it('resetKey deletes an existing legacy keyfile instead of rewriting it', () => {
+  it('resetKey keeps an existing legacy keyfile in sync with the new wrapped key', () => {
     const legacyKey = Buffer.alloc(32, 3);
     writeFileSync(legacyKeyPath, legacyKey, { mode: 0o600 });
     const box = createDesktopSecretBox({
@@ -163,9 +161,20 @@ describe('desktopSecretBox', () => {
 
     box.resetKey();
 
-    expect(existsSync(legacyKeyPath)).toBe(false);
-    const fresh = box.encrypt('longbridge', 'secret-value');
-    expect(box.decrypt('longbridge', fresh)).toBe('secret-value');
+    const rewrittenLegacy = readFileSync(legacyKeyPath);
+    expect(rewrittenLegacy).not.toEqual(legacyKey);
+    expect(rewrittenLegacy).toHaveLength(32);
+    expect(statSync(legacyKeyPath).mode & 0o777).toBe(0o600);
+
+    // A bare-Node consumer reading only legacyKeyPath must decrypt with the
+    // same key resetKey() just wrapped.
+    const envelope = box.encrypt('longbridge', 'secret-value');
+    const bareNodeBox = createDesktopSecretBox({
+      safeStorage: fakeSafeStorage(),
+      wrappedKeyPath: join(dirname(wrappedKeyPath), 'unrelated-wrapped.json'),
+      legacyKeyPath,
+    });
+    expect(bareNodeBox.decrypt('longbridge', envelope)).toBe('secret-value');
   });
 
   it('resetKey does not create a legacy keyfile that never existed', () => {

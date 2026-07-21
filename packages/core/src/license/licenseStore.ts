@@ -3,7 +3,6 @@ import type { Db } from "../db/index.js";
 import { providerCredentials } from "../db/schema.js";
 import { LICENSE_PROVIDER_KEY } from "../ai/settings/credentialStore.js";
 import type { SecretBox } from "../ai/settings/secretBox.js";
-import type { BundleKeyWrap } from "./bundleKeyWrap.js";
 
 const LICENSE_PROVIDER = LICENSE_PROVIDER_KEY;
 
@@ -15,13 +14,8 @@ export interface LicenseRecord {
   deviceName: string;
   lastValidatedAt: string;
   lastOutcome: LicenseOutcome;
-  /** plaintext hex from a legacy Worker, or base64 ciphertext when bundleKeyWrap is set */
   bundleKey?: string;
   keyId?: string;
-  bundleKeyWrap?: BundleKeyWrap;
-  /** base64 SPKI/PKCS8 device keypair uploaded at activate; private key never leaves this record */
-  devicePublicKey?: string;
-  devicePrivateKey?: string;
 }
 
 export interface LicenseStore {
