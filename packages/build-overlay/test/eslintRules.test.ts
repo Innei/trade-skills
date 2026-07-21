@@ -231,6 +231,51 @@ describe('no-pro-only-resolution (fs fixtures)', () => {
   });
 });
 
+describe('no-overlay-relative-escape (fs fixtures)', () => {
+  const fixture = makeFixture();
+  writeFile(join(fixture.overlayRoot, 'apps', 'web', 'src', 'pages', 'Page.pro.tsx'));
+  const options = [{ overlayRoot: fixture.overlayRoot, publicRoot: fixture.publicRoot }];
+
+  ruleTester.run('no-overlay-relative-escape', overlayPlugin.rules['no-overlay-relative-escape'], {
+    invalid: [
+      {
+        code: "import { s } from '../../../pro/src/ai/scheduler.js';",
+        errors: [{ data: { source: '../../../pro/src/ai/scheduler.js' }, messageId: 'useProAlias' }],
+        filename: join(fixture.overlayRoot, 'apps', 'desktop', 'src', 'edition', 'pro.pro.ts'),
+        options,
+      },
+      {
+        code: "import { T } from './types.js';",
+        errors: [{ data: { source: './types.js' }, messageId: 'useHostAlias' }],
+        filename: join(fixture.overlayRoot, 'apps', 'desktop', 'src', 'edition', 'pro.pro.ts'),
+        options,
+      },
+    ],
+    valid: [
+      {
+        code: "import { P } from '../pages/Page';",
+        filename: join(fixture.overlayRoot, 'apps', 'web', 'src', 'edition', 'pro.pro.ts'),
+        options,
+      },
+      {
+        code: "import { s } from '@pro/ai/scheduler.js';",
+        filename: join(fixture.overlayRoot, 'apps', 'desktop', 'src', 'edition', 'pro.pro.ts'),
+        options,
+      },
+      {
+        code: "import { x } from './anything.js';",
+        filename: '/repo/pkg/edition.pro.ts',
+        options,
+      },
+      {
+        code: "import { x } from './anything.js';",
+        filename: join(fixture.overlayRoot, 'apps', 'web', 'src', 'edition', 'notPro.ts'),
+        options,
+      },
+    ],
+  });
+});
+
 describe('overlay-manifest-consistency (fs fixtures)', () => {
   const fixture = makeFixture();
   writeFile(join(fixture.publicRoot, 'pkg', 'a.ts'));

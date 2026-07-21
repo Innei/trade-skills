@@ -234,6 +234,45 @@ const noSelfDefaultImport = {
   },
 };
 
+const noOverlayRelativeEscape = {
+  create(context) {
+    const filename = context.filename;
+    const options = context.options[0] ?? {};
+    const { overlayRoot, publicRoot } = options;
+    if (!isProFile(filename) || !overlayRoot || !within(overlayRoot, filename)) return {};
+    const appsProRoot = publicRoot ? path.join(publicRoot, 'apps', 'pro') : null;
+    return createSourceVisitor((sourceNode) => {
+      const value = sourceNode.value;
+      if (typeof value !== 'string' || !value.startsWith('.')) return;
+      const { ext, stem } = splitSpecifierExtension(value);
+      const absoluteStem = path.resolve(path.dirname(filename), stem);
+      if (within(overlayRoot, absoluteStem)) {
+        const candidates = [
+          ...(defaultCandidatePaths(absoluteStem, ext) ?? []),
+          ...(proCandidatePaths(absoluteStem, ext) ?? []),
+        ];
+        if (candidates.some(cachedExists)) return;
+      }
+      const effectiveTarget = path.resolve(effectiveDir(filename, options), value);
+      const messageId =
+        appsProRoot && within(appsProRoot, effectiveTarget) ? 'useProAlias' : 'useHostAlias';
+      context.report({ data: { source: value }, messageId, node: sourceNode });
+    });
+  },
+  meta: {
+    docs: {
+      description:
+        'Forbid relative imports in .pro overlays that leave the overlay tree; pro sources use "@pro/*", host sources use the host app alias.',
+    },
+    messages: {
+      useHostAlias: 'Overlay imports a host source via a relative path; use the host app alias (@desktop/@server/@web): {{source}}',
+      useProAlias: 'Overlay imports pro sources via a relative path; use "@pro/*": {{source}}',
+    },
+    schema: optionsSchema,
+    type: 'problem',
+  },
+};
+
 const overlayManifestConsistency = {
   create(context) {
     const filename = context.filename;
@@ -309,6 +348,7 @@ export const overlayPlugin = {
     'no-apps-pro-import': noAppsProImport,
     'no-escaping-import': noEscapingImport,
     'no-explicit-pro-import': noExplicitProImport,
+    'no-overlay-relative-escape': noOverlayRelativeEscape,
     'no-pro-only-resolution': noProOnlyResolution,
     'no-self-default-import': noSelfDefaultImport,
     'overlay-manifest-consistency': overlayManifestConsistency,

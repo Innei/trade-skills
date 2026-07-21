@@ -13,7 +13,8 @@
     "types": ["node", "electron"],
     "paths": {
       "@desktop/*": ["./src/*"],
-      "@server/*": ["../server/src/*"]
+      "@server/*": ["../server/src/*"],
+      "@pro/*": ["../pro/src/*"]
     }
   },
   "include": ["src", "test/**/*.ts"]

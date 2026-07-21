@@ -12,7 +12,8 @@
     "forceConsistentCasingInFileNames": true,
     "types": ["node"],
     "paths": {
-      "@server/*": ["./src/*"]
+      "@server/*": ["./src/*"],
+      "@pro/*": ["../pro/src/*"]
     }
   },
   "include": ["src", "test/**/*.ts", "scripts/**/*.ts"]
