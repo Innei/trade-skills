@@ -13,20 +13,24 @@ function resolveProRoutes(): Promise<Record<string, ComponentType> | null> {
   return cached;
 }
 
-export function useProRoutes(): Record<string, ComponentType> | null {
-  const [routes, setRoutes] = useState<Record<string, ComponentType> | null>(null);
+export type ProRoutesState =
+  | { status: 'loading'; routes: null }
+  | { status: 'ready'; routes: Record<string, ComponentType> | null };
+
+export function useProRoutes(): ProRoutesState {
+  const [state, setState] = useState<ProRoutesState>({ status: 'loading', routes: null });
 
   useEffect(() => {
     let active = true;
     void resolveProRoutes().then((resolved) => {
-      if (active) setRoutes(resolved);
+      if (active) setState({ status: 'ready', routes: resolved });
     });
     return () => {
       active = false;
     };
   }, []);
 
-  return routes;
+  return state;
 }
 
 export function resetProRoutesForTests(): void {

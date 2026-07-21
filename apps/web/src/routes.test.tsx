@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { ReactElement } from 'react';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryRouter, RouterProvider } from 'react-router';
@@ -114,6 +115,22 @@ describe('AI routes render unconditionally', () => {
 });
 
 describe('pro-supplied /research/assistant route', () => {
+  it('renders nothing while the pro composition is still loading', async () => {
+    let resolveComposition!: (
+      value: { routes: Record<string, () => ReactElement> } | null,
+    ) => void;
+    loadProComposition.mockReturnValue(
+      new Promise((resolve) => {
+        resolveComposition = resolve;
+      }),
+    );
+    renderRoute('/research/assistant');
+    expect(screen.queryByTestId('research-assistant-stub')).toBeNull();
+    expect(screen.queryByTestId('pro-research-assistant')).toBeNull();
+    resolveComposition({ routes: {} });
+    await waitFor(() => expect(screen.getByTestId('research-assistant-stub')).toBeTruthy());
+  });
+
   it('renders the pro component once the composition supplies it', async () => {
     loadProComposition.mockResolvedValue({
       routes: { '/research/assistant': () => <div data-testid="pro-research-assistant" /> },
