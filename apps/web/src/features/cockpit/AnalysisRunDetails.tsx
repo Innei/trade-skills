@@ -39,21 +39,23 @@ export function AnalysisRunDetails({ status }: { status: RunningReassessStatus }
 
   return (
     <div className="ai-run-status">
-      <div className="ai-run-status-head">
-        <span className="ai-run-status-phase">
-          <Dot tone="accent" pulse />
-          {PHASE_LABEL[status.phase]}
-        </span>
-        <span className="ai-run-status-elapsed">
-          {ORIGIN_LABEL[status.origin]} · 已运行 {elapsed}
-        </span>
-      </div>
-      <div className="ai-run-status-activity" aria-live="polite">
-        {status.activity}
-      </div>
-      <div className="ai-run-status-meta">
-        开始于 <MarketTime value={status.startedAt} format="clock" includeZone /> · 最近动作{' '}
-        <MarketTime value={status.updatedAt} format="clock" includeZone />
+      <span className="ai-run-status-indicator" aria-hidden="true">
+        <Dot tone="accent" pulse />
+      </span>
+      <div className="ai-run-status-body">
+        <div className="ai-run-status-head">
+          <span className="ai-run-status-phase">{PHASE_LABEL[status.phase]}</span>
+          <span className="ai-run-status-elapsed">
+            {ORIGIN_LABEL[status.origin]} · 已运行 {elapsed}
+          </span>
+        </div>
+        <div className="ai-run-status-activity" aria-live="polite">
+          {status.activity}
+        </div>
+        <div className="ai-run-status-meta">
+          开始于 <MarketTime value={status.startedAt} format="clock" includeZone /> · 最近动作{' '}
+          <MarketTime value={status.updatedAt} format="clock" includeZone />
+        </div>
       </div>
     </div>
   );

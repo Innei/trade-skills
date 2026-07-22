@@ -1,9 +1,9 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowDown, ChevronRight } from 'lucide-react';
+import { ArrowDown, Check, ChevronRight } from 'lucide-react';
 import { ScrollArea } from '@web/ui';
 import { Markdown } from '../markdown';
 import { mergeTimeline, type TranscriptInsert } from './transcriptTimeline.js';
-import { summarizeToolInput, toolRowKey } from './toolSummary.js';
+import { presentToolCall, toolRowKey } from './toolSummary.js';
 import type { ChatLiveTool, ChatRow } from './useChatSession';
 
 const SCROLL_STICK_THRESHOLD = 48;
@@ -28,24 +28,46 @@ function ToolRow({
 }) {
   const [open, setOpen] = useState(false);
   const hasDetail = Boolean(input || output);
-  const summary = summarizeToolInput(input);
+  const presentation = presentToolCall(label, input);
+  const hasContext = presentation.items.length > 0 || Boolean(presentation.meta);
 
   return (
-    <div className="chat-tool">
+    <div className={`chat-tool${running ? ' chat-tool--running' : ''}`}>
       <button
         type="button"
         className="chat-tool-head"
         onClick={() => setOpen((current) => !current)}
         disabled={!hasDetail}
         aria-expanded={open}
+        aria-label={`${presentation.title}，${running ? '进行中' : '已完成'}`}
       >
-        <span className={`chat-tool-dot${running ? ' running' : ''}`} />
-        <span>
-          {running ? '正在' : '已调用 '}
-          {label}
-          {running ? '…' : ''}
+        <span className={`chat-tool-status${running ? ' running' : ''}`} aria-hidden="true">
+          {running ? (
+            <span className="chat-tool-status-dot" />
+          ) : (
+            <Check size={10} strokeWidth={2} />
+          )}
         </span>
-        {summary ? <span className="chat-tool-summary">{summary}</span> : null}
+        <span className="chat-tool-content">
+          <span className="chat-tool-title-row">
+            <span className="chat-tool-title">{presentation.title}</span>
+            <span className="chat-tool-state" aria-live="polite">
+              {running ? '进行中' : '已完成'}
+            </span>
+          </span>
+          {hasContext ? (
+            <span className="chat-tool-context">
+              {presentation.items.map((item, index) => (
+                <span className="chat-tool-item" key={`${item}-${index}`}>
+                  {item}
+                </span>
+              ))}
+              {presentation.meta ? (
+                <span className="chat-tool-meta">{presentation.meta}</span>
+              ) : null}
+            </span>
+          ) : null}
+        </span>
         {hasDetail ? (
           <ChevronRight size={12} className={`chat-tool-caret${open ? ' open' : ''}`} />
         ) : null}
@@ -54,13 +76,13 @@ function ToolRow({
         <div className="chat-tool-detail">
           {input ? (
             <div>
-              <div className="chat-tool-detail-label">查了什么</div>
+              <div className="chat-tool-detail-label">原始请求</div>
               <pre>{input}</pre>
             </div>
           ) : null}
           {output ? (
             <div>
-              <div className="chat-tool-detail-label">拿回什么</div>
+              <div className="chat-tool-detail-label">原始响应</div>
               <pre>{output}</pre>
             </div>
           ) : null}
