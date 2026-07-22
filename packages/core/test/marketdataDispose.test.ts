@@ -3,6 +3,7 @@ import { disposeMarketData, getStream } from '../src/marketdata/registry.js';
 import { getLongbridgeStream } from '../src/marketdata/longbridgeStream.js';
 import { getSharedQuoteSocket } from '../src/marketdata/sharedSocket.js';
 import { LongbridgeQuoteSocket } from '../src/marketdata/longbridgeSocket.js';
+import { getYahooStream } from '../src/marketdata/yahoo/stream.js';
 
 afterEach(() => {
   disposeMarketData();
@@ -20,6 +21,12 @@ describe('disposeMarketData', () => {
     expect(close).toHaveBeenCalledTimes(1);
     expect(getSharedQuoteSocket()).not.toBe(socket);
     expect(getLongbridgeStream()).not.toBe(stream);
+  });
+
+  it('also resets the yahoo stream singleton', () => {
+    const stream = getYahooStream();
+    disposeMarketData();
+    expect(getYahooStream()).not.toBe(stream);
   });
 
   it('lets getStream lazily recreate a stream after disposal', () => {

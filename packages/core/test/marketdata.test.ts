@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getProvider, listProviders } from '../src/marketdata/registry.js';
+import { getProvider, getStream, listProviders } from '../src/marketdata/registry.js';
+import { getYahooStream, resetYahooStream } from '../src/marketdata/yahoo/stream.js';
 import type { Capability, MarketDataProvider } from '../src/marketdata/types.js';
 
 const OPTIONAL_METHODS: Record<Capability, keyof MarketDataProvider> = {
@@ -64,6 +65,18 @@ describe('marketdata registry', () => {
   it('selects the yahoo provider when named by MARKET_PROVIDER', () => {
     vi.stubEnv('MARKET_PROVIDER', 'yahoo');
     expect(getProvider().name).toBe('yahoo');
+  });
+});
+
+describe('marketdata stream registry', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    resetYahooStream();
+  });
+
+  it('selects the yahoo stream when named by MARKET_PROVIDER', () => {
+    vi.stubEnv('MARKET_PROVIDER', 'yahoo');
+    expect(getStream()).toBe(getYahooStream());
   });
 });
 

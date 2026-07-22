@@ -6,6 +6,7 @@ import type { QuoteStream } from './quoteStream.js';
 import { resetSharedQuoteSocket } from './sharedSocket.js';
 import type { MarketDataProvider } from './types.js';
 import { yahooProvider } from './yahoo/provider.js';
+import { getYahooStream, resetYahooStream } from './yahoo/stream.js';
 
 const providers: Record<string, MarketDataProvider> = {
   longbridge: longbridgeProvider,
@@ -14,6 +15,7 @@ const providers: Record<string, MarketDataProvider> = {
 
 const streamFactories: Record<string, () => QuoteStream> = {
   longbridge: getLongbridgeStream,
+  yahoo: getYahooStream,
 };
 
 function resolveProviderName(market: Market): string {
@@ -50,5 +52,6 @@ export function listProviders(): string[] {
 
 export function disposeMarketData(): void {
   resetLongbridgeStream();
+  resetYahooStream();
   resetSharedQuoteSocket();
 }
