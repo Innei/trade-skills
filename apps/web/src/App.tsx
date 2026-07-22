@@ -5,8 +5,15 @@ import { Onboarding } from './features/onboarding/Onboarding';
 import { useCredentialsGate } from './features/onboarding/useCredentialsGate';
 import { CommandPalette } from './features/palette/CommandPalette';
 import { RestrictedBanner } from './features/edition/RestrictedBanner';
+import { DelayedQuotesBanner } from './features/quotes/DelayedQuotesBanner';
 import { isDesktopRealtime } from './lib/portTransport';
-import { getBrowserRouter, matchPopoutSymbolRoute, navigate, routePathname, useRoute } from './lib/router';
+import {
+  getBrowserRouter,
+  matchPopoutSymbolRoute,
+  navigate,
+  routePathname,
+  useRoute,
+} from './lib/router';
 import { ContextMenuHost, ModalHost } from './ui';
 import { RoutedGlobalNotifications } from './features/notifications/GlobalNotifications';
 
@@ -43,6 +50,7 @@ export function App() {
   return (
     <>
       <RestrictedBanner />
+      <DelayedQuotesBanner />
       <RoutedGlobalNotifications />
       <RouterProvider router={browserRouter} />
       <CommandPalette onOpenRoute={navigate} />

@@ -3,6 +3,7 @@ import type { QuoteCell, QuoteSnapshot } from '@kansoku/shared/types';
 import { money, signed, upDown } from '../../lib/format';
 import { useWsChannel } from '../../lib/ws/useWsChannel';
 import { Badge, DataAgeBadge, Dot } from '../../ui';
+import { DelayedBadge } from './DelayedBadge';
 
 function pctTone(pct: number | null): string {
   return pct == null ? '' : upDown(pct);
@@ -16,10 +17,9 @@ function Cell({ q }: { q: QuoteCell }) {
   return (
     <a className="quote-cell" href={`/symbol/${encodeURIComponent(q.symbol)}`}>
       <span className="qc-symbol">{q.symbol.replace(/\.US$/, '')}</span>
-      <span className={`num qc-price ${pctTone(q.pct)}`}>
-        {money(q.last, q.last < 10 ? 3 : 2)}
-      </span>
+      <span className={`num qc-price ${pctTone(q.pct)}`}>{money(q.last, q.last < 10 ? 3 : 2)}</span>
       <span className={`num qc-pct ${pctTone(q.pct)}`}>{pctText(q.pct)}</span>
+      <DelayedBadge symbol={q.symbol} />
       {q.session !== '日盘' && <Badge className="qc-session">{q.session}</Badge>}
     </a>
   );
@@ -60,6 +60,7 @@ export function TopbarQuote({ quote }: { quote: QuoteCell | null }) {
     <span className="topbar-quote">
       <span className={`num qc-price ${pctTone(quote.pct)}`}>{money(quote.last)}</span>
       <span className={`num qc-pct ${pctTone(quote.pct)}`}>{pctText(quote.pct)}</span>
+      <DelayedBadge symbol={quote.symbol} />
       <Badge className="qc-session">{quote.session}</Badge>
     </span>
   );

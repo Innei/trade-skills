@@ -9,6 +9,7 @@ import type {
 import { fmt, signed } from '@web/lib/format';
 import { Badge, Card, Dot, Empty, MarketTime, Num } from '@web/ui';
 import { directionTone } from '@web/features/charts/intraday/directionLabels';
+import { DelayedBadge } from '@web/features/quotes/DelayedBadge';
 import { fmtFlow, flowTone } from './flowFormat';
 import { INDEX_SYMBOLS } from './HomeTopStrip';
 import { FollowToggle, ReassessButton } from './SymbolActions';
@@ -78,9 +79,9 @@ export function buildGridEntries({
       }
     }
   }
-  const symbols = [
-    ...new Set([...quoteBySymbol.keys(), ...rowBySymbol.keys(), ...owned]),
-  ].filter((s) => !indexSet.has(s) && isCardWorthySymbol(s));
+  const symbols = [...new Set([...quoteBySymbol.keys(), ...rowBySymbol.keys(), ...owned])].filter(
+    (s) => !indexSet.has(s) && isCardWorthySymbol(s),
+  );
   const flows = board?.flows ?? {};
   const entries = symbols.map((symbol) => ({
     symbol,
@@ -119,6 +120,7 @@ function GridCard({ entry }: { entry: GridEntry }) {
             )}
           </span>
         )}
+        <DelayedBadge symbol={symbol} />
         {quote && quote.session !== '日盘' && <Badge className="qc-session">{quote.session}</Badge>}
         {owned && <Badge className="hold-badge">持仓</Badge>}
         {earningsDate && (
@@ -205,16 +207,11 @@ function MoverTail({ movers, quiet }: { movers: GridEntry[]; quiet: GridEntry[] 
         <TailCell key={entry.symbol} entry={entry} />
       ))}
       {quiet.length > 0 && (
-        <button
-          type="button"
-          className="watch-tail-fold"
-          onClick={() => setExpanded((v) => !v)}
-        >
+        <button type="button" className="watch-tail-fold" onClick={() => setExpanded((v) => !v)}>
           {expanded ? '收起 ▴' : `+ ${quiet.length} 只平静 ▾`}
         </button>
       )}
-      {expanded &&
-        quiet.map((entry) => <TailCell key={entry.symbol} entry={entry} />)}
+      {expanded && quiet.map((entry) => <TailCell key={entry.symbol} entry={entry} />)}
     </div>
   );
 }

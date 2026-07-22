@@ -5,6 +5,7 @@ import {
   getDesktopCredentialsBridge,
   type CredentialsGetResult,
 } from '../settings/desktopCredentials';
+import { refreshCapabilities } from '../edition/capabilitiesStore';
 import { clearRestricted } from '../edition/restrictedMode';
 import { getDesktopOnboardingBridge, type OnboardingState } from './desktopOnboarding';
 import { computeGateStatus, type GateStatus, type OnboardingStep } from './gateStatus';
@@ -34,7 +35,10 @@ export function useCredentialsGate(): {
   );
 
   useEffect(() => {
-    if (data?.configured) clearRestricted();
+    if (data?.configured) {
+      clearRestricted();
+      void refreshCapabilities();
+    }
   }, [data?.configured]);
 
   // Only block on the AI flag once Longbridge is actually connected — otherwise

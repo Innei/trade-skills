@@ -10,6 +10,7 @@ export interface Capabilities {
   license?: LicenseSnapshot;
   features?: Record<FeatureKey, FeatureState>;
   hasEncBundle?: boolean;
+  datasources?: { market: string; name: string; realtime: boolean }[];
 }
 
 const DEFAULT: Capabilities = { pro: null, licensed: false };

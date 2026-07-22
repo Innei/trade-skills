@@ -11,6 +11,7 @@ const getAi = vi.fn();
 const getCatalog = vi.fn();
 const getUsageToday = vi.fn();
 const getWatchedMarkets = vi.fn();
+const getLocalWatchlist = vi.fn();
 const getSubscribeUrl = vi.fn();
 const credentialsStatus = vi.fn();
 const capabilitiesGet = vi.fn();
@@ -24,6 +25,7 @@ vi.mock('@web/lib/client', () => ({
       getCatalog: (...args: unknown[]) => getCatalog(...args),
       getUsageToday: (...args: unknown[]) => getUsageToday(...args),
       getWatchedMarkets: (...args: unknown[]) => getWatchedMarkets(...args),
+      getLocalWatchlist: (...args: unknown[]) => getLocalWatchlist(...args),
       getSubscribeUrl: (...args: unknown[]) => getSubscribeUrl(...args),
     },
     credentials: {
@@ -41,7 +43,13 @@ vi.mock('@web/lib/client', () => ({
 
 const { SettingsPage } = await import('./SettingsPage');
 
-const disabled: RoleSetting = { mode: 'disabled', provider: null, modelId: null, thinkingLevel: null, stale: false };
+const disabled: RoleSetting = {
+  mode: 'disabled',
+  provider: null,
+  modelId: null,
+  thinkingLevel: null,
+  stale: false,
+};
 
 // The 'memory' role shipped 2026-07-20 (aa9bb43). A settings.getAi response
 // restored from react-query's localStorage persistence (queryClient.ts) can
@@ -75,6 +83,7 @@ describe('SettingsPage', () => {
       getCatalog,
       getUsageToday,
       getWatchedMarkets,
+      getLocalWatchlist,
       getSubscribeUrl,
       credentialsStatus,
       capabilitiesGet,
@@ -99,9 +108,14 @@ describe('SettingsPage', () => {
       total: { calls: 0, cost: 0 },
     });
     getWatchedMarkets.mockResolvedValue({ markets: ['US'] });
+    getLocalWatchlist.mockResolvedValue({ symbols: [] });
     getSubscribeUrl.mockResolvedValue({ subscribeUrl: null });
     credentialsStatus.mockResolvedValue({ configured: false, path: null });
-    capabilitiesGet.mockResolvedValue({ pro: false, licensed: false, license: { state: 'unlicensed' } });
+    capabilitiesGet.mockResolvedValue({
+      pro: false,
+      licensed: false,
+      license: { state: 'unlicensed' },
+    });
     lobehubGetAccount.mockResolvedValue({
       status: 'disconnected',
       email: null,

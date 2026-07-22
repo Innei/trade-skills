@@ -4,6 +4,7 @@ import { GlobalNotifications } from '../notifications/GlobalNotifications';
 import { symbolFromRoute } from '../../lib/symbol';
 import { CommandPalette } from '../palette/CommandPalette';
 import { RestrictedBanner } from '../edition/RestrictedBanner';
+import { DelayedQuotesBanner } from '../quotes/DelayedQuotesBanner';
 import { ContextMenuHost, ModalHost } from '../../ui';
 import { clearActiveSymbol, setActiveSymbol } from '../cockpit/analystRunsStore';
 import { DesktopTitlebar } from './DesktopTitlebar';
@@ -27,6 +28,7 @@ export function DesktopShell() {
       <GlobalNotifications route={controller.activeTab.route} />
       <div className="desktop-content" key={controller.activeTab.id}>
         <RestrictedBanner />
+        <DelayedQuotesBanner />
         <RouterProvider router={controller.activeRouter} />
       </div>
       <CommandPalette onOpenRoute={controller.openTab} />
