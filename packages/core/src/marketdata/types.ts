@@ -95,6 +95,7 @@ export type Capability =
 
 export interface MarketDataProvider {
   readonly name: string;
+  readonly realtime: boolean;
   readonly capabilities: ReadonlySet<Capability>;
   getKline(symbol: string, period: string, count: number, session?: string): Promise<RawBar[]>;
   getQuotes(symbols: string[]): Promise<RawQuote[]>;

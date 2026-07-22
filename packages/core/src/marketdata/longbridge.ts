@@ -175,6 +175,7 @@ export function createLongbridgeProvider(
 
   return {
     name: 'longbridge',
+    realtime: true,
     capabilities: new Set([
       'flow',
       'capital-distribution',

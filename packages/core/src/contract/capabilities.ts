@@ -8,6 +8,7 @@ export interface CapabilitiesOut {
   license?: LicenseSnapshot;
   features: Record<FeatureKey, FeatureState>;
   hasEncBundle?: boolean;
+  datasources: { market: string; name: string; realtime: boolean }[];
 }
 
 export interface CapabilitiesApi {

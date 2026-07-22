@@ -6,6 +6,7 @@ import { localizeChartDocName, resolveSecurityName } from '../src/symbols/securi
 function provider(getSecurityName: MarketDataProvider['getSecurityName']): MarketDataProvider {
   return {
     name: 'test',
+    realtime: true,
     capabilities: new Set(),
     getKline: async () => [],
     getQuotes: async () => [],

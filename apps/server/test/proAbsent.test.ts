@@ -37,6 +37,7 @@ describe('pro-absent HTTP surface', () => {
         'options-walls': 'absent',
       },
       hasEncBundle: false,
+      datasources: [{ market: 'US', name: 'longbridge', realtime: true }],
     });
   });
 });

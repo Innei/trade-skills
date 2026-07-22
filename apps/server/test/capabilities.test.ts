@@ -46,6 +46,7 @@ describe('GET /capabilities', () => {
       license: { state: 'unlicensed' },
       features: allFeatures('absent'),
       hasEncBundle: false,
+      datasources: [{ market: 'US', name: 'longbridge', realtime: true }],
     });
   });
 
@@ -61,6 +62,7 @@ describe('GET /capabilities', () => {
       license: { state: 'unlicensed' },
       features: allFeatures('locked'),
       hasEncBundle: true,
+      datasources: [{ market: 'US', name: 'longbridge', realtime: true }],
     });
   });
 
@@ -77,6 +79,7 @@ describe('GET /capabilities', () => {
       license: { state: 'unlicensed' },
       features: allFeatures('locked'),
       hasEncBundle: false,
+      datasources: [{ market: 'US', name: 'longbridge', realtime: true }],
     });
   });
 
@@ -99,6 +102,7 @@ describe('GET /capabilities', () => {
       license: { state: 'licensed', deviceName: 'my-mac', maskedKey: '••••7890' },
       features: allFeatures('active'),
       hasEncBundle: false,
+      datasources: [{ market: 'US', name: 'longbridge', realtime: true }],
     });
   });
 

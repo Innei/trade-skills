@@ -38,6 +38,11 @@ describe('capabilitiesService.get', () => {
     }
   });
 
+  it('reports the longbridge datasource for the default watched market', async () => {
+    const result = await capabilitiesService.get();
+    expect(result.datasources).toEqual([{ market: 'US', name: 'longbridge', realtime: true }]);
+  });
+
   it('marks pro-tier keys locked and reports hasEncBundle when only the enc bundle is present', async () => {
     setEncBundlePresent(true);
     const result = await capabilitiesService.get();
