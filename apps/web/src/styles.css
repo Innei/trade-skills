@@ -2271,7 +2271,19 @@ a.zone-item:hover {
 }
 
 .home-page {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+.home-page > .home-page-viewport {
+  height: auto;
+}
+.home-page-content {
+  width: 100%;
   max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
 }
 .home-page .session-tag {
   margin-left: 8px;
@@ -2283,9 +2295,68 @@ a.zone-item:hover {
   gap: 24px;
   align-items: start;
 }
+.home-side {
+  position: sticky;
+  top: 16px;
+  height: calc(100vh - 32px);
+  margin-right: -8px;
+}
+.home-side-content {
+  padding-right: 8px;
+}
+.home-side-scroll {
+  height: 100%;
+}
+.desktop-content .home-side {
+  top: 56px;
+  height: calc(100vh - 72px);
+}
+@media (min-width: 1001px) {
+  #root:has(> .home-page--split),
+  .desktop-content:has(> .home-page--split) {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+  #root > .home-page--split,
+  .desktop-content > .home-page--split {
+    flex: 1 1 auto;
+  }
+  .home-page--split {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .home-page--split > .home-page-viewport {
+    height: 100%;
+  }
+  .home-page--split .home-page-content {
+    padding-bottom: 20px;
+  }
+}
 @media (max-width: 1000px) {
   .home-grid {
     grid-template-columns: 1fr;
+  }
+  .home-side,
+  .desktop-content .home-side {
+    position: static;
+    height: auto;
+    margin-right: 0;
+  }
+  .home-side-scroll {
+    height: auto;
+  }
+  .home-side-scroll > .scroll-area-viewport {
+    height: auto;
+  }
+  .home-side-scroll > .scroll-area-scrollbar {
+    display: none;
+  }
+  .home-side-content {
+    padding-right: 0;
   }
 }
 
@@ -2388,8 +2459,12 @@ a.zone-item:hover {
   font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
-.recap-cell:hover { color: var(--text-primary); }
-.recap-cell:hover .recap-label { text-decoration: underline; }
+.recap-cell:hover {
+  color: var(--text-primary);
+}
+.recap-cell:hover .recap-label {
+  text-decoration: underline;
+}
 .recap-cell .recap-label {
   color: var(--accent);
   font-weight: 600;
@@ -2397,8 +2472,12 @@ a.zone-item:hover {
 .recap-cell .recap-stat {
   color: var(--text-secondary);
 }
-.recap-cell .recap-stat.up { color: var(--up); }
-.recap-cell .recap-stat.down { color: var(--down); }
+.recap-cell .recap-stat.up {
+  color: var(--up);
+}
+.recap-cell .recap-stat.down {
+  color: var(--down);
+}
 .index-placeholder {
   color: var(--text-muted);
   font-size: var(--fs-base);
@@ -2469,6 +2548,7 @@ a.zone-item:hover {
 .pano-sector {
   display: flex;
   flex-direction: column;
+  aspect-ratio: 1 / 1;
   border: 1px solid var(--border);
   background: var(--bg-surface);
   min-width: 0;
@@ -3904,23 +3984,26 @@ a.zone-item:hover {
   overflow-x: hidden;
 }
 .scroll-area-scrollbar {
-  opacity: 0;
-  transition: opacity 0.15s ease;
+  opacity: 0.5;
+  touch-action: none;
+  user-select: none;
+  transition: opacity 0.16s ease;
 }
 .scroll-area-scrollbar[data-orientation='horizontal'] {
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 3px;
+  height: 12px;
 }
 .scroll-area-scrollbar[data-orientation='vertical'] {
   position: absolute;
   top: 0;
   bottom: 0;
   right: 0;
-  width: 3px;
+  width: 12px;
 }
+.scroll-area-scrollbar:hover,
 .scroll-area-scrollbar[data-hovering],
 .scroll-area-scrollbar[data-scrolling] {
   opacity: 1;
@@ -3930,6 +4013,30 @@ a.zone-item:hover {
   height: var(--scroll-area-thumb-height);
   background: var(--border-strong);
   border-radius: var(--radius-full);
+  transition:
+    width 0.16s ease,
+    height 0.16s ease,
+    background-color 0.16s ease;
+}
+.scroll-area-scrollbar[data-orientation='vertical'] > .scroll-area-thumb {
+  width: 5px;
+  margin-left: auto;
+}
+.scroll-area-scrollbar[data-orientation='horizontal'] > .scroll-area-thumb {
+  height: 5px;
+  margin-top: auto;
+}
+.scroll-area-scrollbar[data-orientation='vertical'] > .scroll-area-thumb:is(:hover, :active) {
+  width: 9px;
+}
+.scroll-area-scrollbar[data-orientation='horizontal'] > .scroll-area-thumb:is(:hover, :active) {
+  height: 9px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-area-scrollbar,
+  .scroll-area-thumb {
+    transition: none;
+  }
 }
 
 .desktop-titlebar {
@@ -4611,7 +4718,46 @@ a.zone-item:hover {
 }
 
 .settings-page {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+.settings-page > .settings-page-viewport {
+  height: auto;
+}
+.settings-page-content {
+  width: 100%;
   max-width: 1180px;
+  margin: 0 auto;
+  padding: 24px 20px 60px;
+}
+.settings-page-content > h1 {
+  margin: 0 0 4px;
+  color: var(--text-primary);
+  font-size: var(--fs-xl);
+  font-weight: 600;
+}
+@media (min-width: 1001px) {
+  #root:has(> .settings-page),
+  .desktop-content:has(> .settings-page) {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+  #root > .settings-page,
+  .desktop-content > .settings-page {
+    flex: 1 1 auto;
+  }
+  .settings-page {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .settings-page > .settings-page-viewport {
+    height: 100%;
+  }
 }
 .settings-back-link {
   display: inline-flex;
@@ -5310,7 +5456,7 @@ a.zone-item:hover {
 }
 
 @media (max-width: 560px) {
-  .settings-page {
+  .settings-page-content {
     padding-inline: 12px;
   }
   .settings-statusline {

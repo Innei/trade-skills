@@ -28,7 +28,28 @@ vi.mock('../../lib/client', () => ({
       recapDates: vi.fn(async () => []),
     },
     charts: { list: vi.fn(async () => []) },
-    positions: { list: vi.fn(async () => null) },
+    positions: {
+      list: vi.fn(async () => ({
+        currency: 'USD',
+        total_asset: 110,
+        market_cap: 100,
+        cash: 10,
+        total_pl: 5,
+        today_pl: 1,
+        positions: [
+          {
+            symbol: 'NVDA.US',
+            name: 'NVIDIA',
+            quantity: 1,
+            cost_price: 95,
+            last: 100,
+            market_value: 100,
+            pnl: 5,
+            pnl_pct: 5.26,
+          },
+        ],
+      })),
+    },
     capabilities: { get: vi.fn(async () => ({ features: {} })) },
   },
 }));
@@ -66,6 +87,14 @@ afterEach(() => {
   window.history.replaceState(null, '', '/');
 });
 
+async function expectPositionsBeforeCalendar() {
+  const positions = await screen.findByText('positions-card');
+  const calendar = screen.getByText('event-calendar');
+  expect(positions.compareDocumentPosition(calendar) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+    Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+}
+
 describe('Home session layouts', () => {
   it('pre-market: overnight grid main, events and positions in the rail, no recap', async () => {
     renderHome('pre');
@@ -73,15 +102,19 @@ describe('Home session layouts', () => {
     expect(screen.getByText(/隔夜行情/)).toBeTruthy();
     expect(screen.getByText('market-panorama')).toBeTruthy();
     expect(screen.getByText('event-calendar')).toBeTruthy();
+    await expectPositionsBeforeCalendar();
     expect(screen.queryByText(/recap-board/)).toBeNull();
   });
 
   it('regular session: watch grid main, positions and calendar in the rail, no recap in sidebar', async () => {
     renderHome('regular');
-    expect(await screen.findByText('symbol-grid')).toBeTruthy();
+    const symbolGrid = await screen.findByText('symbol-grid');
+    expect(symbolGrid.closest('.home-main-scroll')).toBeNull();
+    expect(symbolGrid.closest('.home-page')).toBeTruthy();
     expect(screen.getByText(/看盘 · 自选 \+ 持仓/)).toBeTruthy();
-    expect(screen.getByText('positions-card')).toBeTruthy();
+    expect(screen.getByText('positions-card').closest('.home-side-scroll')).toBeTruthy();
     expect(screen.getByText('event-calendar')).toBeTruthy();
+    await expectPositionsBeforeCalendar();
     expect(screen.queryByText(/recap-board/)).toBeNull();
   });
 
@@ -90,6 +123,7 @@ describe('Home session layouts', () => {
     expect(await screen.findByText('recap-board:true')).toBeTruthy();
     expect(screen.getByText('watch-strip')).toBeTruthy();
     expect(screen.getByText(/收盘定格/)).toBeTruthy();
+    await expectPositionsBeforeCalendar();
     expect(screen.queryByText('symbol-grid')).toBeNull();
   });
 });

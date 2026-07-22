@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
 import { useQuery } from '@web/lib/apiHooks';
 import { client } from '@web/lib/client';
 import { navigate } from '@web/lib/router';
-import { Button, Card, ErrorBox, SectionTitle } from '@web/ui';
+import { Button, Card, ErrorBox, ScrollArea, SectionTitle } from '@web/ui';
 import { useTitle } from '@web/lib/useTitle';
 import { DataRootSection } from './DataRootSection';
 import { DiagnosticsSection } from './DiagnosticsSection';
@@ -132,6 +132,18 @@ function SettingsBackLink() {
   );
 }
 
+function SettingsPageScrollArea({ children }: { children: ReactNode }) {
+  return (
+    <ScrollArea
+      className="page settings-page"
+      viewportClassName="settings-page-viewport"
+      contentClassName="settings-page-content"
+    >
+      {children}
+    </ScrollArea>
+  );
+}
+
 export function SettingsPage() {
   useTitle('设置');
   const {
@@ -168,7 +180,7 @@ export function SettingsPage() {
 
   if (settingsError || catalogError) {
     return (
-      <div className="page settings-page">
+      <SettingsPageScrollArea>
         <SettingsBackLink />
         <h1>设置</h1>
         <ErrorBox className="settings-load-error">
@@ -182,24 +194,24 @@ export function SettingsPage() {
             重试
           </Button>
         </ErrorBox>
-      </div>
+      </SettingsPageScrollArea>
     );
   }
 
   if (!settings || !catalog) {
     return (
-      <div className="page settings-page">
+      <SettingsPageScrollArea>
         <SettingsBackLink />
         <h1>设置</h1>
         <div className="note-block">加载中…</div>
-      </div>
+      </SettingsPageScrollArea>
     );
   }
 
   const normalizedSettings: AiSettings = { ...settings, roles: normalizeAiRoles(settings.roles) };
 
   return (
-    <div className="page settings-page">
+    <SettingsPageScrollArea>
       <SettingsBackLink />
       <h1>设置</h1>
       <div className="settings-page-subtitle">显示、AI 模型、Provider 与用量</div>
@@ -217,6 +229,6 @@ export function SettingsPage() {
       <div className="settings-about-link">
         <a href="/about">关于 Kansoku · 版本 {__APP_VERSION__}</a>
       </div>
-    </div>
+    </SettingsPageScrollArea>
   );
 }

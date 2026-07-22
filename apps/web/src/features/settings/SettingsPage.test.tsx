@@ -41,7 +41,13 @@ vi.mock('@web/lib/client', () => ({
 
 const { SettingsPage } = await import('./SettingsPage');
 
-const disabled: RoleSetting = { mode: 'disabled', provider: null, modelId: null, thinkingLevel: null, stale: false };
+const disabled: RoleSetting = {
+  mode: 'disabled',
+  provider: null,
+  modelId: null,
+  thinkingLevel: null,
+  stale: false,
+};
 
 // The 'memory' role shipped 2026-07-20 (aa9bb43). A settings.getAi response
 // restored from react-query's localStorage persistence (queryClient.ts) can
@@ -101,7 +107,11 @@ describe('SettingsPage', () => {
     getWatchedMarkets.mockResolvedValue({ markets: ['US'] });
     getSubscribeUrl.mockResolvedValue({ subscribeUrl: null });
     credentialsStatus.mockResolvedValue({ configured: false, path: null });
-    capabilitiesGet.mockResolvedValue({ pro: false, licensed: false, license: { state: 'unlicensed' } });
+    capabilitiesGet.mockResolvedValue({
+      pro: false,
+      licensed: false,
+      license: { state: 'unlicensed' },
+    });
     lobehubGetAccount.mockResolvedValue({
       status: 'disconnected',
       email: null,
@@ -114,6 +124,9 @@ describe('SettingsPage', () => {
 
     renderWithClient(<SettingsPage />);
 
-    expect(await screen.findByText('记忆整理')).toBeTruthy();
+    const memoryRole = await screen.findByText('记忆整理');
+    const page = memoryRole.closest('.settings-page');
+    expect(page).toBeTruthy();
+    expect(page?.querySelector(':scope > .settings-page-viewport')).toBeTruthy();
   });
 });

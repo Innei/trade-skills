@@ -4,6 +4,7 @@ import { industryOf, UNCLASSIFIED_INDUSTRY } from '@kansoku/shared/industryMap';
 import { signed } from '@web/lib/format';
 import { usePollingQuery } from '@web/lib/apiHooks';
 import { client } from '@web/lib/client';
+import { Tooltip } from '@web/ui';
 import { INDEX_SYMBOLS } from './HomeTopStrip';
 import { isCardWorthySymbol } from './SymbolGrid';
 import { squarify, type TreemapRect } from './treemap';
@@ -104,9 +105,7 @@ export function splitPanorama(groups: PanoramaGroup[]): {
 }
 
 export function panoramaReadLine(groups: PanoramaGroup[]): string | null {
-  const rated = groups.filter(
-    (g) => g.weightedPct != null && !TOOL_INDUSTRIES.has(g.industry),
-  );
+  const rated = groups.filter((g) => g.weightedPct != null && !TOOL_INDUSTRIES.has(g.industry));
   if (rated.length < 2) return null;
   const top = rated.reduce((a, b) => (b.weightedPct! > a.weightedPct! ? b : a));
   const bottom = rated.reduce((a, b) => (b.weightedPct! < a.weightedPct! ? b : a));
@@ -162,11 +161,6 @@ function pairRows(groups: PanoramaGroup[]): PanoramaGroup[][] {
   return out;
 }
 
-function rowHeight(pair: PanoramaGroup[]): number {
-  const maxTiles = Math.max(...pair.map((g) => g.tiles.length));
-  return Math.max(180, Math.min(340, 80 + maxTiles * 10));
-}
-
 interface TileRenderProps {
   rect: TreemapRect;
   dense: boolean;
@@ -214,21 +208,26 @@ function SectorPanel({ group }: { group: PanoramaGroup }) {
           const label = t.symbol.replace(/\.US$/, '');
           const pctLabel = t.pct == null ? '—' : `${signed(t.pct)}%`;
           return (
-            <a
+            <Tooltip
               key={t.symbol}
-              className={`pano-tile ${heatClass(t.pct)}${t.owned ? ' pano-tile--owned' : ''}${dense ? ' pano-tile--dense' : ''}`}
-              style={{
-                left: `${rect.x}px`,
-                top: `${rect.y}px`,
-                width: `${rect.w}px`,
-                height: `${rect.h}px`,
-              }}
-              href={`/symbol/${encodeURIComponent(t.symbol)}`}
-              title={`${label} ${t.pct == null ? '' : pctLabel}`}
+              content={`${t.symbol}\n${pctLabel}`}
+              renderTrigger={
+                <a
+                  aria-label={`${t.symbol} ${pctLabel}`}
+                  className={`pano-tile ${heatClass(t.pct)}${t.owned ? ' pano-tile--owned' : ''}${dense ? ' pano-tile--dense' : ''}`}
+                  href={`/symbol/${encodeURIComponent(t.symbol)}`}
+                  style={{
+                    left: `${rect.x}px`,
+                    top: `${rect.y}px`,
+                    width: `${rect.w}px`,
+                    height: `${rect.h}px`,
+                  }}
+                />
+              }
             >
               <span className="pano-sym">{label}</span>
               {!dense && <span className="pano-pct num">{pctLabel}</span>}
-            </a>
+            </Tooltip>
           );
         })}
       </div>
@@ -254,11 +253,7 @@ function WatchPanorama({
     <>
       <div className="pano-rows">
         {rows.map((pair, idx) => (
-          <div
-            className="pano-row"
-            key={pair.map((g) => g.industry).join('|') || `row-${idx}`}
-            style={{ height: `${rowHeight(pair)}px` }}
-          >
+          <div className="pano-row" key={pair.map((g) => g.industry).join('|') || `row-${idx}`}>
             {pair.map((g) => (
               <SectorPanel key={g.industry} group={g} />
             ))}
@@ -303,9 +298,7 @@ function IndustryTreemap({ items }: { items: IndustryPanorama['items'] }) {
           >
             <span className="pano-sym">{row.name}</span>
             {!dense && (
-              <span className="pano-pct num">
-                {row.chg == null ? '—' : `${signed(row.chg)}%`}
-              </span>
+              <span className="pano-pct num">{row.chg == null ? '—' : `${signed(row.chg)}%`}</span>
             )}
             {!dense && row.leading_ticker && (
               <span className="pano-tile-sub">

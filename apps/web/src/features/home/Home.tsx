@@ -11,7 +11,7 @@ import { usePollingQuery, useQuery } from '../../lib/apiHooks';
 import { client } from '../../lib/client';
 import { navigate, useQueryParam } from '../../lib/router';
 import { isDesktopRealtime } from '../../lib/portTransport';
-import { DataAgeBadge, ErrorBox, SectionTitle } from '../../ui';
+import { DataAgeBadge, ErrorBox, ScrollArea, SectionTitle } from '../../ui';
 import { useTitle } from '../../lib/useTitle';
 import { useWsChannel } from '../../lib/ws/useWsChannel';
 import { useIntervalFetch } from '../cockpit/useIntervalFetch';
@@ -136,11 +136,17 @@ export function Home() {
       <PositionsCard portfolio={portfolio} error={portfolioError} watching={watching} />
     </>
   );
+  const hasPositions = (portfolio?.positions.length ?? 0) > 0;
+  const hasSplitBoard = isToday && board !== null;
 
   const recapDate = (recapDates ?? []).find((d) => d < today) ?? null;
 
   return (
-    <div className="page home-page">
+    <ScrollArea
+      className={`page home-page${hasSplitBoard ? ' home-page--split' : ''}`}
+      viewportClassName="home-page-viewport"
+      contentClassName="home-page-content"
+    >
       <HomeTopStrip
         sessionLabel={session ? (SESSION_LABEL[session] ?? session) : null}
         date={isToday ? (board?.date ?? date) : date}
@@ -177,17 +183,11 @@ export function Home() {
             {flowSection}
           </div>
           <div className="home-side">
-            {session === 'regular' ? (
-              <>
-                {positionsSection}
-                {eventSection}
-              </>
-            ) : (
-              <>
-                {eventSection}
-                {positionsSection}
-              </>
-            )}
+            <ScrollArea className="home-side-scroll" contentClassName="home-side-content">
+              {hasPositions && positionsSection}
+              {eventSection}
+              {!hasPositions && positionsSection}
+            </ScrollArea>
           </div>
         </div>
       )}
@@ -198,13 +198,16 @@ export function Home() {
             {flowSection}
           </div>
           <div className="home-side">
-            {eventSection}
-            <SectionTitleWithAge label="收盘定格" at={boardSnapshotAt} />
-            <WatchBoard board={board} error={boardError} compact />
-            {positionsSection}
+            <ScrollArea className="home-side-scroll" contentClassName="home-side-content">
+              {hasPositions && positionsSection}
+              {eventSection}
+              <SectionTitleWithAge label="收盘定格" at={boardSnapshotAt} />
+              <WatchBoard board={board} error={boardError} compact />
+              {!hasPositions && positionsSection}
+            </ScrollArea>
           </div>
         </div>
       )}
-    </div>
+    </ScrollArea>
   );
 }

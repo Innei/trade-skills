@@ -1,5 +1,5 @@
 import { Tooltip as BaseTooltip } from '@base-ui/react/tooltip';
-import type { ReactNode } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 
 type TooltipPlacement = 'top' | 'bottom';
 
@@ -10,6 +10,7 @@ interface TooltipProps {
   disabled?: boolean;
   focusable?: boolean;
   placement?: TooltipPlacement;
+  renderTrigger?: ReactElement<{ className?: string; tabIndex?: number }>;
 }
 
 function hasContent(content: ReactNode): boolean {
@@ -23,27 +24,30 @@ export function Tooltip({
   disabled,
   focusable = false,
   placement = 'top',
+  renderTrigger,
 }: TooltipProps) {
-  if (disabled || !hasContent(content)) return <>{children}</>;
+  const active = !disabled && hasContent(content);
+  if (!active && !renderTrigger) return <>{children}</>;
+
+  const trigger = renderTrigger ?? (
+    <span
+      className={`tooltip-anchor${className ? ` ${className}` : ''}`}
+      tabIndex={focusable ? 0 : undefined}
+    />
+  );
 
   return (
     <BaseTooltip.Root>
-      <BaseTooltip.Trigger
-        delay={100}
-        render={
-          <span
-            className={`tooltip-anchor${className ? ` ${className}` : ''}`}
-            tabIndex={focusable ? 0 : undefined}
-          />
-        }
-      >
+      <BaseTooltip.Trigger delay={100} disabled={!active} render={trigger}>
         {children}
       </BaseTooltip.Trigger>
-      <BaseTooltip.Portal>
-        <BaseTooltip.Positioner className="tooltip-positioner" side={placement} sideOffset={8}>
-          <BaseTooltip.Popup className="tooltip-panel">{content}</BaseTooltip.Popup>
-        </BaseTooltip.Positioner>
-      </BaseTooltip.Portal>
+      {active && (
+        <BaseTooltip.Portal>
+          <BaseTooltip.Positioner className="tooltip-positioner" side={placement} sideOffset={8}>
+            <BaseTooltip.Popup className="tooltip-panel">{content}</BaseTooltip.Popup>
+          </BaseTooltip.Positioner>
+        </BaseTooltip.Portal>
+      )}
     </BaseTooltip.Root>
   );
 }
