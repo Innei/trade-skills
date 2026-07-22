@@ -37,6 +37,7 @@ class ZhongshuRenderer implements IPrimitivePaneRenderer {
         const w = r.x2 - r.x1;
         const h = r.yBottom - r.yTop;
         if (w <= 0 || h <= 0) continue;
+        ctx.fillStyle = FILL;
         ctx.fillRect(r.x1, r.yTop, w, h);
         ctx.strokeRect(r.x1 + 0.5, r.yTop + 0.5, w - 1, h - 1);
         if (h >= LABEL_MIN_HEIGHT) {

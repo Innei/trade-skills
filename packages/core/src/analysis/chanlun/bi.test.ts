@@ -91,6 +91,38 @@ describe('detectBi', () => {
     ]);
   });
 
+  it('replaces an accepted endpoint after a short opposite fenxing and keeps the stroke chain connected', () => {
+    const b0 = fenxing('bottom', 0, 90);
+    const t4 = fenxing('top', 4, 100);
+    const b6 = fenxing('bottom', 6, 95);
+    const t10 = fenxing('top', 10, 105);
+    const b14 = fenxing('bottom', 14, 92);
+
+    const result = detectBi([b0, t4, b6, t10, b14]);
+
+    expect(result).toEqual([
+      { start: b0, end: t10, direction: 'up', bars: 11 },
+      { start: t10, end: b14, direction: 'down', bars: 5 },
+    ]);
+    expect(result[0].end).toBe(result[1].start);
+  });
+
+  it('retains the more extreme accepted endpoint when the later same-kind fenxing is weaker', () => {
+    const b0 = fenxing('bottom', 0, 90);
+    const t4 = fenxing('top', 4, 105);
+    const b6 = fenxing('bottom', 6, 95);
+    const t10 = fenxing('top', 10, 100);
+    const b14 = fenxing('bottom', 14, 88);
+
+    const result = detectBi([b0, t4, b6, t10, b14]);
+
+    expect(result).toEqual([
+      { start: b0, end: t4, direction: 'up', bars: 5 },
+      { start: t4, end: b14, direction: 'down', bars: 11 },
+    ]);
+    expect(result[0].end).toBe(result[1].start);
+  });
+
   it('assigns direction purely from the start fenxing kind: bottom-to-top is up, top-to-bottom is down', () => {
     const b0 = fenxing('bottom', 0, 90);
     const t1 = fenxing('top', 5, 100);
