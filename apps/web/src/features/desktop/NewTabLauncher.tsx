@@ -1,10 +1,12 @@
 import { Popover } from '@base-ui/react/popover';
-import { House, Library, MessageCircle, Plus, Search } from 'lucide-react';
+import { LayoutDashboard, Library, MessageCircle, Plus, Search } from 'lucide-react';
 import { useState } from 'react';
 import { normalizeSymbol } from '../../lib/symbol';
 import { Kbd } from '../../ui';
 
 interface NewTabLauncherProps {
+  open: boolean;
+  onOpenChange(open: boolean): void;
   onOpenChat(): void;
   onOpenHome(): void;
   onOpenResearch(): void;
@@ -12,16 +14,17 @@ interface NewTabLauncherProps {
 }
 
 export function NewTabLauncher({
+  open,
+  onOpenChange,
   onOpenChat,
   onOpenHome,
   onOpenResearch,
   onOpenSymbol,
 }: NewTabLauncherProps) {
-  const [open, setOpen] = useState(false);
   const [symbol, setSymbol] = useState('');
 
   const close = () => {
-    setOpen(false);
+    onOpenChange(false);
     setSymbol('');
   };
 
@@ -40,7 +43,7 @@ export function NewTabLauncher({
     <Popover.Root
       open={open}
       onOpenChange={(nextOpen) => {
-        setOpen(nextOpen);
+        onOpenChange(nextOpen);
         if (!nextOpen) setSymbol('');
       }}
     >
@@ -77,7 +80,7 @@ export function NewTabLauncher({
             </div>
             <div className="desktop-new-tab-menu">
               <button type="button" onClick={() => run(onOpenHome)}>
-                <House size={14} aria-hidden />
+                <LayoutDashboard size={14} aria-hidden />
                 <span>盘面</span>
               </button>
               <button type="button" onClick={() => run(onOpenChat)}>

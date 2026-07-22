@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { navigate } from '../../lib/router';
 import { useTabsController, type TabsController } from './tabsController';
 import { loadTabsSnapshot, saveTabsSnapshot, type TabsSnapshot } from './tabsStore';
 import type { TabState, TabsMutateOp, TabsSnapshot as BridgeSnapshot } from './desktopTabsBridge';
@@ -273,6 +274,69 @@ describe('useTabsController with shared bridge', () => {
     expect(after).not.toBe(before);
     expect(after[0]).toBe(before[0]);
     expect(after[1].scrollY).toBe(120);
+  });
+
+  it('focuses the pinned tab instead of opening a second home tab', async () => {
+    bridge.seed([makeTab('/', 'a'), makeTab('/settings', 'b')]);
+    const getController = renderController();
+    await waitFor(() => expect(getController().snapshot.tabs).toHaveLength(2));
+    act(() => getController().activateTab('b'));
+    await waitFor(() => expect(getController().snapshot.activeTabId).toBe('b'));
+
+    act(() => getController().openTab('/'));
+
+    await waitFor(() => expect(getController().snapshot.activeTabId).toBe('a'));
+    expect(bridge.mutateCalls.some((op) => op.op === 'open')).toBe(false);
+  });
+
+  it('turns navigation away from home into a new tab while the pinned tab is active', async () => {
+    bridge.seed([makeTab('/', 'a'), makeTab('/settings', 'b')]);
+    const getController = renderController();
+    await waitFor(() => expect(getController().snapshot.tabs).toHaveLength(2));
+    expect(getController().snapshot.activeTabId).toBe('a');
+
+    act(() => navigate('/symbol/NVDA'));
+
+    await waitFor(() => {
+      expect(bridge.mutateCalls.some((op) => op.op === 'open' && op.route === '/symbol/NVDA')).toBe(
+        true,
+      );
+    });
+    expect(getController().snapshot.tabs[0].route).toBe('/');
+  });
+
+  it('keeps home query changes inside the pinned tab', async () => {
+    bridge.seed([makeTab('/', 'a')]);
+    const getController = renderController();
+    await waitFor(() => expect(getController().snapshot.tabs).toHaveLength(1));
+
+    act(() => navigate('/?date=2026-07-20'));
+
+    await waitFor(() => {
+      expect(
+        bridge.mutateCalls.some(
+          (op) => op.op === 'updateRoute' && op.route === '/?date=2026-07-20',
+        ),
+      ).toBe(true);
+    });
+    expect(bridge.mutateCalls.some((op) => op.op === 'open')).toBe(false);
+  });
+
+  it('navigates in place when a non-pinned tab is active', async () => {
+    bridge.seed([makeTab('/', 'a'), makeTab('/settings', 'b')]);
+    const getController = renderController();
+    await waitFor(() => expect(getController().snapshot.tabs).toHaveLength(2));
+    act(() => getController().activateTab('b'));
+    await waitFor(() => expect(getController().snapshot.activeTabId).toBe('b'));
+
+    act(() => navigate('/logs'));
+
+    await waitFor(() => {
+      expect(bridge.mutateCalls.some((op) => op.op === 'updateRoute' && op.route === '/logs')).toBe(
+        true,
+      );
+    });
+    expect(bridge.mutateCalls.some((op) => op.op === 'open')).toBe(false);
   });
 
   it('restores the sessionStorage active tab on the first snapshot when it still exists', async () => {

@@ -31,6 +31,20 @@ function makeTab(route: string, id?: string): TabState {
   return { id: id ?? crypto.randomUUID(), route, title: DEFAULT_TITLE, scrollY: 0 };
 }
 
+export function isHomeRoute(route: string): boolean {
+  const queryIndex = route.indexOf('?');
+  return (queryIndex === -1 ? route : route.slice(0, queryIndex)) === HOME_ROUTE;
+}
+
+export function isPinnedTab(state: TabsState, id: string): boolean {
+  return state.tabs.length > 0 && state.tabs[0].id === id;
+}
+
+function withPinnedHome(tabs: TabState[]): TabState[] {
+  if (tabs.length > 0 && isHomeRoute(tabs[0].route)) return tabs;
+  return [makeTab(HOME_ROUTE), ...tabs];
+}
+
 export function emptyTabsState(): TabsState {
   return { revision: 0, tabs: [] };
 }
@@ -41,22 +55,23 @@ function withTabs(state: TabsState, tabs: TabState[]): TabsState {
 
 export function openTab(state: TabsState, route: string, id?: string): TabsState {
   const usableId = id && !state.tabs.some((tab) => tab.id === id) ? id : undefined;
-  return withTabs(state, [...state.tabs, makeTab(route, usableId)]);
+  return withTabs(state, withPinnedHome([...state.tabs, makeTab(route, usableId)]));
 }
 
 export function closeTab(state: TabsState, id: string): TabsState {
+  if (isPinnedTab(state, id)) return state;
   if (!state.tabs.some((tab) => tab.id === id)) return state;
-  const remaining = state.tabs.filter((tab) => tab.id !== id);
-  if (remaining.length === 0) return { revision: state.revision + 1, tabs: [makeTab(HOME_ROUTE)] };
-  return withTabs(state, remaining);
+  return withTabs(
+    state,
+    state.tabs.filter((tab) => tab.id !== id),
+  );
 }
 
 export function closeOtherTabs(state: TabsState, id: string): TabsState {
   if (!state.tabs.some((tab) => tab.id === id)) return state;
-  return withTabs(
-    state,
-    state.tabs.filter((tab) => tab.id === id),
-  );
+  const tabs = state.tabs.filter((tab, index) => index === 0 || tab.id === id);
+  if (tabs.length === state.tabs.length) return state;
+  return withTabs(state, tabs);
 }
 
 export function closeTabsToRight(state: TabsState, id: string): TabsState {
@@ -103,7 +118,7 @@ export function adoptTabs(state: TabsState, tabs: TabState[]): TabsState {
   if (state.tabs.length > 0) return state;
   const valid = tabs.filter(isValidTab);
   if (valid.length === 0) return state;
-  return { revision: state.revision + 1, tabs: valid };
+  return { revision: state.revision + 1, tabs: withPinnedHome(valid) };
 }
 
 export function cycleTabId(state: TabsState, activeTabId: string, delta: 1 | -1): string | null {
@@ -116,13 +131,14 @@ export function cycleTabId(state: TabsState, activeTabId: string, delta: 1 | -1)
 export type CloseTabAction =
   | { kind: 'close-window' }
   | { kind: 'close-tab'; id: string }
+  | { kind: 'noop' }
   | { kind: 'delegate' };
 
 export function resolveCloseTabAction(state: TabsState, activeTabId: string): CloseTabAction {
   const active = state.tabs.find((tab) => tab.id === activeTabId);
   if (!active) return { kind: 'delegate' };
-  if (state.tabs.length === 1 && active.route === HOME_ROUTE) return { kind: 'close-window' };
-  return { kind: 'close-tab', id: active.id };
+  if (!isPinnedTab(state, active.id)) return { kind: 'close-tab', id: active.id };
+  return state.tabs.length === 1 ? { kind: 'close-window' } : { kind: 'noop' };
 }
 
 export function applyMutation(state: TabsState, mutation: MutateOp): TabsState {
@@ -188,7 +204,8 @@ export function createTabsFileStore(
         const raw = await readFile(filePath, 'utf8');
         const parsed = JSON.parse(raw) as unknown;
         if (!isValidTabsState(parsed)) return emptyTabsState();
-        return parsed;
+        if (parsed.tabs.length === 0) return parsed;
+        return { revision: parsed.revision, tabs: withPinnedHome(parsed.tabs) };
       } catch {
         return emptyTabsState();
       }

@@ -4142,6 +4142,17 @@ a.zone-item:hover {
   background: rgba(255, 176, 0, 0.12);
   font-weight: 600;
 }
+.desktop-tab--pinned {
+  width: 30px;
+  max-width: 30px;
+  padding: 0;
+  gap: 0;
+  justify-content: center;
+}
+.desktop-tab-anchor {
+  align-items: center;
+  flex: 0 0 auto;
+}
 .desktop-tab-icon-wrap {
   position: relative;
   display: inline-flex;

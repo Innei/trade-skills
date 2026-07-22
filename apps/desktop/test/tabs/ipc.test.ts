@@ -83,7 +83,9 @@ describe('TabsIpc', () => {
       },
     )) as TabsState;
 
-    expect(result.tabs).toEqual(legacyTabs);
+    expect(result.tabs).toHaveLength(2);
+    expect(result.tabs[0].route).toBe('/');
+    expect(result.tabs[1]).toEqual(legacyTabs[0]);
     expect(result.revision).toBe(1);
     expect(fileStore.scheduleSave).toHaveBeenCalledWith(result);
     for (const win of windows) {

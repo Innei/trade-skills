@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   ArrowUpCircle,
   Circle,
-  House,
+  LayoutDashboard,
   Library,
   MessageCircle,
   ScrollText,
@@ -21,8 +21,10 @@ import { tabKind, type TabState } from './tabsStore';
 import type { TabsController } from './tabsController';
 import { NewTabLauncher } from './NewTabLauncher';
 
-const TAB_ICONS: Record<ReturnType<typeof tabKind>, typeof House> = {
-  home: House,
+const PINNED_TAB_LABEL = '盘面';
+
+const TAB_ICONS: Record<ReturnType<typeof tabKind>, typeof LayoutDashboard> = {
+  home: LayoutDashboard,
   research: Library,
   chat: MessageCircle,
   settings: Settings,
@@ -87,44 +89,54 @@ function HubStatusDot() {
 function Tab({
   tab,
   active,
-  closable,
+  pinned,
   onActivate,
   onClose,
   onContextMenu,
 }: {
   tab: TabState;
   active: boolean;
-  closable: boolean;
+  pinned: boolean;
   onActivate: () => void;
   onClose: () => void;
   onContextMenu: () => void;
 }) {
-  return (
+  const button = (
     <button
       type="button"
-      className={`desktop-tab${active ? ' desktop-tab--active' : ''}`}
+      className={`desktop-tab${active ? ' desktop-tab--active' : ''}${pinned ? ' desktop-tab--pinned' : ''}`}
+      aria-label={pinned ? PINNED_TAB_LABEL : undefined}
       onClick={onActivate}
       onContextMenu={(event) => {
         event.preventDefault();
         onContextMenu();
       }}
     >
-      <TabIcon route={tab.route} />
-      <span className="desktop-tab-title">{tab.title}</span>
-      {closable && (
-        <span
-          className="desktop-tab-close"
-          role="button"
-          aria-label="关闭标签页"
-          onClick={(event) => {
-            event.stopPropagation();
-            onClose();
-          }}
-        >
-          <X size={11} />
-        </span>
+      <TabIcon route={pinned ? '/' : tab.route} />
+      {!pinned && (
+        <>
+          <span className="desktop-tab-title">{tab.title}</span>
+          <span
+            className="desktop-tab-close"
+            role="button"
+            aria-label="关闭标签页"
+            onClick={(event) => {
+              event.stopPropagation();
+              onClose();
+            }}
+          >
+            <X size={11} />
+          </span>
+        </>
       )}
     </button>
+  );
+
+  if (!pinned) return button;
+  return (
+    <Tooltip content={PINNED_TAB_LABEL} placement="bottom" className="desktop-tab-anchor">
+      {button}
+    </Tooltip>
   );
 }
 
@@ -157,7 +169,8 @@ export function DesktopTitlebar({ controller }: { controller: TabsController }) 
     closeTabById,
     closeOtherTabs,
     closeTabsToRight,
-    openHomeTab,
+    newTabLauncherOpen,
+    setNewTabLauncherOpen,
     openTab,
     focusOrOpenHome,
     focusOrOpenResearch,
@@ -169,6 +182,7 @@ export function DesktopTitlebar({ controller }: { controller: TabsController }) 
 
   const openTabMenu = (tab: TabState, index: number) => {
     const tabId = tab.id;
+    const pinned = index === 0;
     const multi = snapshot.tabs.length > 1;
     const isLast = index === snapshot.tabs.length - 1;
     const symbol = symbolFromRoute(tab.route);
@@ -179,7 +193,7 @@ export function DesktopTitlebar({ controller }: { controller: TabsController }) 
         key: 'close',
         label: '关闭标签页',
         accelerator: 'CmdOrCtrl+W',
-        disabled: !multi,
+        disabled: pinned,
         onClick: () => closeTabById(tabId),
       },
       {
@@ -199,7 +213,7 @@ export function DesktopTitlebar({ controller }: { controller: TabsController }) 
         key: 'new',
         label: '新建标签页',
         accelerator: 'CmdOrCtrl+T',
-        onClick: openHomeTab,
+        onClick: () => setNewTabLauncherOpen(true),
       },
       ...(openWindowBridge
         ? [
@@ -242,13 +256,15 @@ export function DesktopTitlebar({ controller }: { controller: TabsController }) 
             key={tab.id}
             tab={tab}
             active={tab.id === snapshot.activeTabId}
-            closable={snapshot.tabs.length > 1}
+            pinned={index === 0}
             onActivate={() => activateTab(tab.id)}
             onClose={() => closeTabById(tab.id)}
             onContextMenu={() => openTabMenu(tab, index)}
           />
         ))}
         <NewTabLauncher
+          open={newTabLauncherOpen}
+          onOpenChange={setNewTabLauncherOpen}
           onOpenHome={focusOrOpenHome}
           onOpenChat={focusOrOpenChat}
           onOpenResearch={focusOrOpenResearch}

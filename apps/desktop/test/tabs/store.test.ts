@@ -64,6 +64,13 @@ describe('openTab', () => {
     expect(next.tabs[1].id).not.toBe('');
   });
 
+  it('prepends a pinned home tab when the first opened route is not home', () => {
+    const next = openTab(emptyTabsState(), '/symbol/NVDA.US');
+    expect(next.tabs).toHaveLength(2);
+    expect(next.tabs[0].route).toBe('/');
+    expect(next.tabs[1].route).toBe('/symbol/NVDA.US');
+  });
+
   it('applyMutation passes the supplied id through the open op', () => {
     const next = applyMutation(homeState(), { op: 'open', route: '/logs', id: 'client-id-2' });
     expect(next.tabs[1].id).toBe('client-id-2');
@@ -73,7 +80,7 @@ describe('openTab', () => {
 describe('closeTab', () => {
   it('removes the tab and bumps revision', () => {
     const state = openTab(homeState(), '/symbol/NVDA.US');
-    const targetId = state.tabs[0].id;
+    const targetId = state.tabs[1].id;
     const next = closeTab(state, targetId);
     expect(next.revision).toBe(state.revision + 1);
     expect(tabsOf(next)).not.toContain(targetId);
@@ -86,14 +93,12 @@ describe('closeTab', () => {
     expect(next).toBe(state);
   });
 
-  it('resets to a single home tab when the last tab is closed', () => {
-    const state = homeState();
-    const targetId = state.tabs[0].id;
-    const next = closeTab(state, targetId);
-    expect(next.revision).toBe(state.revision + 1);
-    expect(next.tabs).toHaveLength(1);
-    expect(next.tabs[0].route).toBe('/');
-    expect(next.tabs[0].id).not.toBe(targetId);
+  it('refuses to close the pinned first tab', () => {
+    const state = openTab(homeState(), '/symbol/NVDA.US');
+    expect(closeTab(state, state.tabs[0].id)).toBe(state);
+
+    const single = homeState();
+    expect(closeTab(single, single.tabs[0].id)).toBe(single);
   });
 });
 
@@ -126,16 +131,21 @@ describe('resolveCloseTabAction', () => {
     expect(action).toEqual({ kind: 'close-window' });
   });
 
-  it('closes the tab when the only tab is not home', () => {
-    const state = openTab(emptyTabsState(), '/symbol/NVDA.US');
-    const action = resolveCloseTabAction(state, state.tabs[0].id);
-    expect(action).toEqual({ kind: 'close-tab', id: state.tabs[0].id });
+  it('closes the window when the pinned tab is the only tab, whatever its query', () => {
+    const state = openTab(emptyTabsState(), '/?date=2026-07-20');
+    expect(state.tabs).toHaveLength(1);
+    expect(resolveCloseTabAction(state, state.tabs[0].id)).toEqual({ kind: 'close-window' });
   });
 
-  it('closes the active tab when other tabs remain, even on home', () => {
+  it('closes the active tab when it is not the pinned one', () => {
     const state = openTab(homeState(), '/symbol/NVDA.US');
-    const homeId = state.tabs[0].id;
-    expect(resolveCloseTabAction(state, homeId)).toEqual({ kind: 'close-tab', id: homeId });
+    const targetId = state.tabs[1].id;
+    expect(resolveCloseTabAction(state, targetId)).toEqual({ kind: 'close-tab', id: targetId });
+  });
+
+  it('does nothing on the pinned tab while other tabs remain', () => {
+    const state = openTab(homeState(), '/symbol/NVDA.US');
+    expect(resolveCloseTabAction(state, state.tabs[0].id)).toEqual({ kind: 'noop' });
   });
 
   it('delegates when the active tab id is unknown or empty', () => {
@@ -147,21 +157,31 @@ describe('resolveCloseTabAction', () => {
 });
 
 describe('closeOtherTabs', () => {
-  it('keeps only the given tab', () => {
+  it('keeps the pinned tab alongside the given tab', () => {
     let state = homeState();
     state = openTab(state, '/symbol/NVDA.US');
     state = openTab(state, '/symbol/MRVL.US');
     const keepId = state.tabs[1].id;
     const next = closeOtherTabs(state, keepId);
-    expect(next.tabs).toHaveLength(1);
-    expect(next.tabs[0].id).toBe(keepId);
+    expect(tabsOf(next)).toEqual([state.tabs[0].id, keepId]);
     expect(next.revision).toBe(state.revision + 1);
+  });
+
+  it('keeps only the pinned tab when invoked on it', () => {
+    const state = openTab(openTab(homeState(), '/logs'), '/symbol/NVDA.US');
+    const next = closeOtherTabs(state, state.tabs[0].id);
+    expect(tabsOf(next)).toEqual([state.tabs[0].id]);
   });
 
   it('is a no-op when the tab does not exist', () => {
     const state = homeState();
     const next = closeOtherTabs(state, 'missing-id');
     expect(next).toBe(state);
+  });
+
+  it('is a no-op when nothing would be removed', () => {
+    const state = homeState();
+    expect(closeOtherTabs(state, state.tabs[0].id)).toBe(state);
   });
 });
 
@@ -224,12 +244,23 @@ describe('updateTabRoute / updateTabTitle / updateTabScroll', () => {
 });
 
 describe('adoptTabs', () => {
-  it('takes over an empty store', () => {
+  it('takes over an empty store behind a freshly pinned home tab', () => {
     const empty: TabsState = { revision: 3, tabs: [] };
     const legacyTabs = [{ id: 'a', route: '/symbol/NVDA.US', title: 'NVDA', scrollY: 10 }];
     const next = adoptTabs(empty, legacyTabs);
-    expect(next.tabs).toEqual(legacyTabs);
+    expect(next.tabs).toHaveLength(2);
+    expect(next.tabs[0].route).toBe('/');
+    expect(next.tabs[1]).toEqual(legacyTabs[0]);
     expect(next.revision).toBe(4);
+  });
+
+  it('keeps a legacy list that already starts on home as-is', () => {
+    const legacyTabs = [
+      { id: 'a', route: '/?date=2026-07-20', title: 'Kansoku', scrollY: 0 },
+      { id: 'b', route: '/logs', title: 'Logs', scrollY: 0 },
+    ];
+    const next = adoptTabs(emptyTabsState(), legacyTabs);
+    expect(next.tabs).toEqual(legacyTabs);
   });
 
   it('is a no-op when the store already has tabs', () => {
@@ -262,16 +293,16 @@ describe('applyMutation', () => {
     expect(state.tabs[1].scrollY).toBe(99);
 
     state = applyMutation(state, { op: 'closeOthers', id });
-    expect(state.tabs).toHaveLength(1);
+    expect(state.tabs).toHaveLength(2);
 
     state = applyMutation(state, { op: 'open', route: '/symbol/MRVL.US' });
-    const rightId = state.tabs[0].id;
-    state = applyMutation(state, { op: 'closeToRight', id: rightId });
+    const pinnedId = state.tabs[0].id;
+    state = applyMutation(state, { op: 'closeToRight', id: pinnedId });
     expect(state.tabs).toHaveLength(1);
 
-    state = applyMutation(state, { op: 'close', id: rightId });
+    state = applyMutation(state, { op: 'close', id: pinnedId });
     expect(state.tabs).toHaveLength(1);
-    expect(state.tabs[0].route).toBe('/');
+    expect(state.tabs[0].id).toBe(pinnedId);
 
     const adopted = applyMutation(emptyTabsState(), {
       op: 'adopt',
@@ -312,6 +343,16 @@ describe('createTabsFileStore', () => {
   it('preserves a persisted empty tabs list', async () => {
     await writeFile(path, JSON.stringify({ revision: 7, tabs: [] }));
     expect(await createTabsFileStore(path).load()).toEqual({ revision: 7, tabs: [] });
+  });
+
+  it('prepends a pinned home tab to a persisted list that lacks one', async () => {
+    const persisted = [{ id: 'a', route: '/symbol/NVDA.US', title: 'NVDA', scrollY: 0 }];
+    await writeFile(path, JSON.stringify({ revision: 5, tabs: persisted }));
+    const loaded = await createTabsFileStore(path).load();
+    expect(loaded.revision).toBe(5);
+    expect(loaded.tabs).toHaveLength(2);
+    expect(loaded.tabs[0].route).toBe('/');
+    expect(loaded.tabs[1]).toEqual(persisted[0]);
   });
 
   it('debounces scheduleSave and persists only the latest state after the wait', async () => {

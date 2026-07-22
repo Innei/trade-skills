@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   activateTab,
   closeActiveTab,
+  closeOtherTabs,
   closeTab,
   focusOrOpenRoute,
   focusOrOpenRoutePrefix,
@@ -40,13 +41,34 @@ describe('openTab', () => {
     expect(next.tabs[1].route).toBe('/symbol/NVDA');
     expect(next.activeTabId).toBe(next.tabs[1].id);
   });
+
+  it('prepends a pinned home tab when the list would not start on home', () => {
+    const next = openTab({ tabs: [], activeTabId: '' }, '/symbol/NVDA');
+    expect(next.tabs.map((t) => t.route)).toEqual(['/', '/symbol/NVDA']);
+    expect(next.activeTabId).toBe(next.tabs[1].id);
+  });
+});
+
+describe('closeOtherTabs', () => {
+  it('keeps the pinned tab alongside the given tab', () => {
+    const snapshot = snapshotOf(['/', '/settings', '/symbol/NVDA'], 0);
+    const next = closeOtherTabs(snapshot, snapshot.tabs[2].id);
+    expect(next.tabs.map((t) => t.route)).toEqual(['/', '/symbol/NVDA']);
+    expect(next.activeTabId).toBe(snapshot.tabs[2].id);
+  });
+
+  it('keeps only the pinned tab when invoked on it', () => {
+    const snapshot = snapshotOf(['/', '/settings'], 1);
+    const next = closeOtherTabs(snapshot, snapshot.tabs[0].id);
+    expect(next.tabs.map((t) => t.route)).toEqual(['/']);
+  });
 });
 
 describe('closeTab', () => {
   it("removes the tab and keeps the current active tab if it wasn't the one closed", () => {
     const snapshot = snapshotOf(['/', '/settings', '/symbol/NVDA'], 2);
-    const next = closeTab(snapshot, snapshot.tabs[0].id);
-    expect(next.tabs.map((t) => t.route)).toEqual(['/settings', '/symbol/NVDA']);
+    const next = closeTab(snapshot, snapshot.tabs[1].id);
+    expect(next.tabs.map((t) => t.route)).toEqual(['/', '/symbol/NVDA']);
     expect(next.activeTabId).toBe(snapshot.activeTabId);
   });
 
@@ -64,12 +86,9 @@ describe('closeTab', () => {
     expect(next.activeTabId).toBe(next.tabs[0].id);
   });
 
-  it('replaces the last remaining tab with a fresh home tab', () => {
-    const snapshot = snapshotOf(['/symbol/NVDA']);
-    const next = closeTab(snapshot, snapshot.tabs[0].id);
-    expect(next.tabs).toHaveLength(1);
-    expect(next.tabs[0].route).toBe('/');
-    expect(next.activeTabId).toBe(next.tabs[0].id);
+  it('refuses to close the pinned first tab', () => {
+    const snapshot = snapshotOf(['/', '/settings'], 0);
+    expect(closeTab(snapshot, snapshot.tabs[0].id)).toBe(snapshot);
   });
 
   it('is a no-op for an unknown tab id', () => {
@@ -157,8 +176,9 @@ describe('activateTab / updateTabRoute / updateTabTitle / updateTabScroll', () =
 });
 
 describe('tabKind', () => {
-  it('classifies the home route', () => {
+  it('classifies the home route, with or without a query string', () => {
     expect(tabKind('/')).toBe('home');
+    expect(tabKind('/?date=2026-07-20')).toBe('home');
   });
 
   it('classifies settings routes, with or without a query string', () => {
@@ -219,5 +239,13 @@ describe('loadTabsSnapshot / saveTabsSnapshot', () => {
     const original = snapshotOf(['/', '/symbol/NVDA'], 1);
     saveTabsSnapshot(original, storage);
     expect(loadTabsSnapshot(storage)).toEqual(original);
+  });
+
+  it('prepends a pinned home tab to a persisted list that lacks one', () => {
+    const storage = new FakeStorage();
+    saveTabsSnapshot(snapshotOf(['/symbol/NVDA', '/settings'], 0), storage);
+    const snapshot = loadTabsSnapshot(storage);
+    expect(snapshot.tabs.map((t) => t.route)).toEqual(['/', '/symbol/NVDA', '/settings']);
+    expect(snapshot.activeTabId).toBe(snapshot.tabs[1].id);
   });
 });

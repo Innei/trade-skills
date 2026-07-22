@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createMemoryRouter } from 'react-router';
 import type { DataRouter } from 'react-router';
-import { setActiveRouter } from '../../lib/router';
+import { setActiveRouter, setNavigationInterceptor } from '../../lib/router';
 import { routes } from '../../generated-routes';
 import { __setActiveTitleSink } from '../../lib/useTitle';
 import {
@@ -13,7 +13,13 @@ import {
 import { getWindowsBridge } from './desktopWindowsBridge';
 import { registerGlobalCall } from './globalCalls';
 import * as tabsStore from './tabsStore';
-import { loadTabsSnapshot, saveTabsSnapshot, type TabsSnapshot, type TabState } from './tabsStore';
+import {
+  isHomeRoute,
+  loadTabsSnapshot,
+  saveTabsSnapshot,
+  type TabsSnapshot,
+  type TabState,
+} from './tabsStore';
 
 const ACTIVE_TAB_STORAGE_KEY = 'desktop-active-tab-v1';
 const LEGACY_TABS_STORAGE_KEY = 'desktop-tabs-v1';
@@ -23,12 +29,13 @@ export interface TabsController {
   snapshot: TabsSnapshot;
   activeTab: TabState;
   activeRouter: DataRouter;
+  newTabLauncherOpen: boolean;
   activateTab(id: string): void;
   closeTabById(id: string): void;
   closeOtherTabs(id: string): void;
   closeTabsToRight(id: string): void;
   openTab(route: string): void;
-  openHomeTab(): void;
+  setNewTabLauncherOpen(open: boolean): void;
   focusOrOpenHome(): void;
   focusOrOpenResearch(): void;
   focusOrOpenSettings(): void;
@@ -316,6 +323,11 @@ export function useTabsController(): TabsController {
 
   const openTab = useCallback(
     (route: string) => {
+      const pinned = snapshotRef.current.tabs[0];
+      if (pinned && isHomeRoute(route)) {
+        activateTab(pinned.id);
+        return;
+      }
       if (!bridge) {
         setSnapshot((prev) => tabsStore.openTab(withCurrentScrollCaptured(prev), route));
         return;
@@ -330,10 +342,21 @@ export function useTabsController(): TabsController {
         }),
       );
     },
-    [bridge, captureScroll, applySnapshot],
+    [bridge, captureScroll, applySnapshot, activateTab],
   );
 
-  const openHomeTab = useCallback(() => openTab('/'), [openTab]);
+  const [newTabLauncherOpen, setNewTabLauncherOpen] = useState(false);
+
+  useEffect(() => {
+    setNavigationInterceptor((route) => {
+      const { tabs, activeTabId } = snapshotRef.current;
+      const pinned = tabs[0];
+      if (!pinned || pinned.id !== activeTabId || isHomeRoute(route)) return false;
+      openTab(route);
+      return true;
+    });
+    return () => setNavigationInterceptor(null);
+  }, [openTab]);
 
   const focusOrOpenSettings = useCallback(() => {
     if (!bridge) {
@@ -367,15 +390,7 @@ export function useTabsController(): TabsController {
     else openTab('/chat');
   }, [bridge, activateTab, openTab]);
 
-  const focusOrOpenHome = useCallback(() => {
-    if (!bridge) {
-      setSnapshot((prev) => tabsStore.focusOrOpenRoute(withCurrentScrollCaptured(prev), '/'));
-      return;
-    }
-    const existing = snapshotRef.current.tabs.find((tab) => tab.route === '/');
-    if (existing) activateTab(existing.id);
-    else openTab('/');
-  }, [bridge, activateTab, openTab]);
+  const focusOrOpenHome = useCallback(() => openTab('/'), [openTab]);
 
   const focusOrOpenResearch = useCallback(() => {
     if (!bridge) {
@@ -461,7 +476,7 @@ export function useTabsController(): TabsController {
     const commandBridge = getDesktopTabsBridge();
     if (!commandBridge) return;
     return commandBridge.onCommand((command) => {
-      if (command === 'new-tab') openHomeTab();
+      if (command === 'new-tab') setNewTabLauncherOpen(true);
       else if (command === 'close-tab') closeActiveTab();
       else if (command === 'next-tab') goToNextTab();
       else if (command === 'prev-tab') goToPrevTab();
@@ -471,7 +486,6 @@ export function useTabsController(): TabsController {
       else if (command === 'open-chat') focusOrOpenChat();
     });
   }, [
-    openHomeTab,
     closeActiveTab,
     goToNextTab,
     goToPrevTab,
@@ -485,12 +499,13 @@ export function useTabsController(): TabsController {
     snapshot,
     activeTab,
     activeRouter,
+    newTabLauncherOpen,
     activateTab,
     closeTabById,
     closeOtherTabs,
     closeTabsToRight,
     openTab,
-    openHomeTab,
+    setNewTabLauncherOpen,
     focusOrOpenHome,
     focusOrOpenResearch,
     focusOrOpenSettings,

@@ -16,8 +16,22 @@ export type TabsSnapshot = {
 
 export type TabKind = 'home' | 'research' | 'chat' | 'settings' | 'logs' | 'symbol' | 'other';
 
+export function isHomeRoute(route: string): boolean {
+  const queryIndex = route.indexOf('?');
+  return (queryIndex === -1 ? route : route.slice(0, queryIndex)) === HOME_ROUTE;
+}
+
+export function isPinnedTab(snapshot: TabsSnapshot, id: string): boolean {
+  return snapshot.tabs.length > 0 && snapshot.tabs[0].id === id;
+}
+
+function withPinnedHome(tabs: TabState[]): TabState[] {
+  if (tabs.length > 0 && isHomeRoute(tabs[0].route)) return tabs;
+  return [makeTab(HOME_ROUTE), ...tabs];
+}
+
 export function tabKind(route: string): TabKind {
-  if (route === '/') return 'home';
+  if (isHomeRoute(route)) return 'home';
   if (route === '/research' || route.startsWith('/research?')) return 'research';
   if (route === '/chat' || route.startsWith('/chat?')) return 'chat';
   if (route === '/settings' || route.startsWith('/settings?')) return 'settings';
@@ -51,8 +65,9 @@ export function loadTabsSnapshot(storage: Pick<Storage, 'getItem'> = localStorag
     const raw = storage.getItem(STORAGE_KEY);
     if (!raw) return defaultSnapshot();
     const parsed = JSON.parse(raw) as Partial<TabsSnapshot>;
-    const tabs = Array.isArray(parsed.tabs) ? parsed.tabs.filter(isValidTab) : [];
-    if (tabs.length === 0) return defaultSnapshot();
+    const parsedTabs = Array.isArray(parsed.tabs) ? parsed.tabs.filter(isValidTab) : [];
+    if (parsedTabs.length === 0) return defaultSnapshot();
+    const tabs = withPinnedHome(parsedTabs);
     const activeTabId = tabs.some((tab) => tab.id === parsed.activeTabId)
       ? (parsed.activeTabId as string)
       : tabs[0].id;
@@ -94,7 +109,7 @@ export function updateTabScroll(snapshot: TabsSnapshot, id: string, scrollY: num
 
 export function openTab(snapshot: TabsSnapshot, route: string): TabsSnapshot {
   const tab = makeTab(route);
-  return { tabs: [...snapshot.tabs, tab], activeTabId: tab.id };
+  return { tabs: withPinnedHome([...snapshot.tabs, tab]), activeTabId: tab.id };
 }
 
 export function activateTab(snapshot: TabsSnapshot, id: string): TabsSnapshot {
@@ -103,11 +118,11 @@ export function activateTab(snapshot: TabsSnapshot, id: string): TabsSnapshot {
 }
 
 export function closeTab(snapshot: TabsSnapshot, id: string): TabsSnapshot {
+  if (isPinnedTab(snapshot, id)) return snapshot;
   const idx = snapshot.tabs.findIndex((tab) => tab.id === id);
   if (idx === -1) return snapshot;
 
   const remaining = snapshot.tabs.filter((tab) => tab.id !== id);
-  if (remaining.length === 0) return defaultSnapshot();
   if (snapshot.activeTabId !== id) return { tabs: remaining, activeTabId: snapshot.activeTabId };
 
   const nextActive = remaining[Math.min(idx, remaining.length - 1)];
@@ -116,7 +131,10 @@ export function closeTab(snapshot: TabsSnapshot, id: string): TabsSnapshot {
 
 export function closeOtherTabs(snapshot: TabsSnapshot, id: string): TabsSnapshot {
   if (!snapshot.tabs.some((tab) => tab.id === id)) return snapshot;
-  return { tabs: snapshot.tabs.filter((tab) => tab.id === id), activeTabId: id };
+  return {
+    tabs: snapshot.tabs.filter((tab, index) => index === 0 || tab.id === id),
+    activeTabId: id,
+  };
 }
 
 export function closeTabsToRight(snapshot: TabsSnapshot, id: string): TabsSnapshot {

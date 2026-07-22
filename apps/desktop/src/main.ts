@@ -150,20 +150,7 @@ function installAppMenu({
       openChat: () => sendTabsCommand('open-chat'),
       checkForUpdates,
       newWindow: openWindow,
-      newTab: () => {
-        const focused = focusedTabWindow();
-        if (!focused) {
-          sendTabsCommand('new-tab');
-          return;
-        }
-        void (async () => {
-          const id = crypto.randomUUID();
-          await tabs.mutate({ op: 'open', route: '/', id });
-          await rendererCalls.call(focused, 'tabs.setActive', { id });
-        })().catch((error: unknown) => {
-          console.error('[desktop] new tab failed', error);
-        });
-      },
+      newTab: () => sendTabsCommand('new-tab'),
       closeTab: () => {
         const focused = BrowserWindow.getFocusedWindow();
         if (!focused) return;
@@ -177,7 +164,7 @@ function installAppMenu({
           const action = resolveCloseTabAction(tabs.current(), activeId);
           if (action.kind === 'close-window') focused.close();
           else if (action.kind === 'close-tab') await tabs.mutate({ op: 'close', id: action.id });
-          else sendTabsCommand('close-tab');
+          else if (action.kind === 'delegate') sendTabsCommand('close-tab');
         })().catch((error: unknown) => {
           console.error('[desktop] close tab failed', error);
         });
