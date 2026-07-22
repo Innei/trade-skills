@@ -15,9 +15,16 @@ export type IndicatorToggleKey =
   | 'ema'
   | 'vwap'
   | 'daylevel'
-  | 'optwall';
+  | 'optwall'
+  | 'chanFenxing'
+  | 'chanBi'
+  | 'chanXianduan'
+  | 'chanZhongshu'
+  | 'chanBuySell1'
+  | 'chanBuySell2'
+  | 'chanBuySell3';
 
-export const INDICATOR_TOGGLE_ORDER: IndicatorToggleKey[] = [
+const BASE_TOGGLE_ORDER: IndicatorToggleKey[] = [
   'ema',
   'vwap',
   'levels',
@@ -31,6 +38,25 @@ export const INDICATOR_TOGGLE_ORDER: IndicatorToggleKey[] = [
   'macdBeichi',
   'candle',
   'ai',
+];
+
+export const CHAN_STRUCTURE_TOGGLE_KEYS: IndicatorToggleKey[] = [
+  'chanFenxing',
+  'chanBi',
+  'chanXianduan',
+  'chanZhongshu',
+];
+
+export const CHAN_BUYSELL_TOGGLE_KEYS: IndicatorToggleKey[] = [
+  'chanBuySell1',
+  'chanBuySell2',
+  'chanBuySell3',
+];
+
+export const INDICATOR_TOGGLE_ORDER: IndicatorToggleKey[] = [
+  ...BASE_TOGGLE_ORDER,
+  ...CHAN_STRUCTURE_TOGGLE_KEYS,
+  ...CHAN_BUYSELL_TOGGLE_KEYS,
 ];
 
 export const INDICATOR_TOGGLE_LABELS: Record<IndicatorToggleKey, string> = {
@@ -47,6 +73,13 @@ export const INDICATOR_TOGGLE_LABELS: Record<IndicatorToggleKey, string> = {
   vwap: 'VWAP',
   daylevel: '日内参照位',
   optwall: '期权墙',
+  chanFenxing: '分型',
+  chanBi: '笔',
+  chanXianduan: '线段',
+  chanZhongshu: '中枢',
+  chanBuySell1: '一类',
+  chanBuySell2: '二类',
+  chanBuySell3: '三类',
 };
 
 export const INDICATOR_TOGGLE_COLORS: Record<IndicatorToggleKey, string> = {
@@ -63,6 +96,13 @@ export const INDICATOR_TOGGLE_COLORS: Record<IndicatorToggleKey, string> = {
   macdBeichi: theme.textSecondary,
   candle: theme.accent,
   ai: theme.accent,
+  chanFenxing: theme.accent,
+  chanBi: theme.accent,
+  chanXianduan: theme.accent,
+  chanZhongshu: '#808080',
+  chanBuySell1: theme.up,
+  chanBuySell2: theme.up,
+  chanBuySell3: theme.up,
 };
 
 export const INDICATOR_TOGGLE_KEYS = INDICATOR_TOGGLE_ORDER;
@@ -87,7 +127,7 @@ export interface IndicatorPreset {
 export const INDICATOR_PRESETS: IndicatorPreset[] = [
   { key: 'lean', label: '精简', on: ['ema', 'vwap', 'levels', 'daylevel'] },
   { key: 'std', label: '标准', on: ['ema', 'vwap', 'levels', 'daylevel', 'sb'] },
-  { key: 'all', label: '全部', on: [...INDICATOR_TOGGLE_ORDER] },
+  { key: 'all', label: '全部', on: [...BASE_TOGGLE_ORDER] },
 ];
 
 const STORAGE_KEY = 'intraday-indicators';
@@ -135,10 +175,12 @@ export function useIndicatorToggles() {
     const wanted = new Set(on);
     setState((prev) => ({
       ...prev,
-      toggles: Object.fromEntries(INDICATOR_TOGGLE_KEYS.map((k) => [k, wanted.has(k)])) as Record<
-        IndicatorToggleKey,
-        boolean
-      >,
+      toggles: Object.fromEntries(
+        INDICATOR_TOGGLE_KEYS.map((k) => [
+          k,
+          BASE_TOGGLE_ORDER.includes(k) ? wanted.has(k) : prev.toggles[k],
+        ]),
+      ) as Record<IndicatorToggleKey, boolean>,
     }));
   }, []);
 
