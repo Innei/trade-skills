@@ -16,6 +16,15 @@ describe('toYahooSymbol', () => {
     expect(toYahooSymbol('.SOX.US')).toBe('^SOX');
   });
 
+  it('maps a class-share dot to a dash', () => {
+    expect(toYahooSymbol('BRK.B')).toBe('BRK-B');
+    expect(toYahooSymbol('BRK.B.US')).toBe('BRK-B');
+  });
+
+  it('throws when the yahoo body would be empty', () => {
+    expect(() => toYahooSymbol('.US')).toThrow(ClientError);
+  });
+
   it('throws for an HK symbol', () => {
     expect(() => toYahooSymbol('700.HK')).toThrow(ClientError);
     expect(() => toYahooSymbol('700.HK')).toThrow(/700\.HK/);
@@ -46,13 +55,29 @@ describe('fromYahooSymbol', () => {
     expect(fromYahooSymbol('^SOX')).toBe('.SOX.US');
   });
 
+  it('translates a dash back to a class-share dot', () => {
+    expect(fromYahooSymbol('BRK-B')).toBe('BRK.B.US');
+  });
+
   it('throws for a yahoo symbol that looks non-US', () => {
     expect(() => fromYahooSymbol('0700.HK')).toThrow(ClientError);
   });
+
+  it('throws for a bare caret', () => {
+    expect(() => fromYahooSymbol('^')).toThrow(ClientError);
+  });
 });
 
+function fullCanonicalUS(raw: string): string {
+  const normalized = normalizeSymbol(raw);
+  return normalized.endsWith('.US') ? normalized : `${normalized}.US`;
+}
+
 describe('round trip', () => {
-  it.each(['AAPL.US', 'MU', '.SOX.US', 'mu.us'])('recovers the normalized form of %s', (raw) => {
-    expect(fromYahooSymbol(toYahooSymbol(raw))).toBe(normalizeSymbol(raw));
-  });
+  it.each(['AAPL.US', 'MU', '.SOX.US', 'mu.us', 'BRK.B', 'BRK.B.US', '.SOX'])(
+    'recovers the full canonical form of %s',
+    (raw) => {
+      expect(fromYahooSymbol(toYahooSymbol(raw))).toBe(fullCanonicalUS(raw));
+    },
+  );
 });
