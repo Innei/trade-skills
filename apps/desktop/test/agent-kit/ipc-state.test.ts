@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, lstatSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -61,6 +61,15 @@ async function writeManifest(resourcesPath: string, sha256: string): Promise<voi
   );
 }
 
+async function writeBundledSkills(resourcesPath: string): Promise<void> {
+  await mkdir(join(resourcesPath, 'skills', 'trading-discipline'), { recursive: true });
+  await writeFile(
+    join(resourcesPath, 'skills', 'trading-discipline', 'SKILL.md'),
+    '# Trading discipline\n',
+    'utf8',
+  );
+}
+
 describe('agent-kit ipc state mutations', () => {
   let dataRoot: string;
   let resourcesPath: string;
@@ -80,6 +89,7 @@ describe('agent-kit ipc state mutations', () => {
     await mkdir(join(resourcesPath, 'kansoku-agent-kit', 'bin'), { recursive: true });
     await writeFile(join(resourcesPath, 'kansoku-agent-kit', 'templates', 'CLAUDE.md.tpl'), TEMPLATE_V1, 'utf8');
     await writeFile(join(resourcesPath, 'kansoku-agent-kit', 'bin', 'kansoku-cli'), '#!/bin/sh\necho cli\n', 'utf8');
+    await writeBundledSkills(resourcesPath);
     await writeManifest(resourcesPath, 'sha-claude-v1');
   });
 
@@ -241,6 +251,7 @@ describe('agent-kit ipc location handling', () => {
     await mkdir(join(resourcesPath, 'kansoku-agent-kit', 'bin'), { recursive: true });
     await writeFile(join(resourcesPath, 'kansoku-agent-kit', 'templates', 'CLAUDE.md.tpl'), TEMPLATE_V1, 'utf8');
     await writeFile(join(resourcesPath, 'kansoku-agent-kit', 'bin', 'kansoku-cli'), '#!/bin/sh\necho cli\n', 'utf8');
+    await writeBundledSkills(resourcesPath);
     await writeManifest(resourcesPath, 'sha-claude-v1');
   });
 
@@ -354,6 +365,7 @@ describe('agent-kit ipc clean', () => {
     await mkdir(join(resourcesPath, 'kansoku-agent-kit', 'bin'), { recursive: true });
     await writeFile(join(resourcesPath, 'kansoku-agent-kit', 'templates', 'CLAUDE.md.tpl'), TEMPLATE_V1, 'utf8');
     await writeFile(join(resourcesPath, 'kansoku-agent-kit', 'bin', 'kansoku-cli'), '#!/bin/sh\necho cli\n', 'utf8');
+    await writeBundledSkills(resourcesPath);
     await writeManifest(resourcesPath, 'sha-claude-v1');
   });
 
@@ -402,6 +414,22 @@ describe('agent-kit ipc clean', () => {
     await instance.clean();
 
     expect(existsSync(join(dataRoot, '.kansoku-agent-kit'))).toBe(false);
+  });
+
+  it('removes managed skill symlinks without deleting a user replacement directory', async () => {
+    const instance = new AgentKitIpc();
+    await instance.forceSync();
+    expect(lstatSync(join(dataRoot, '.claude', 'skills')).isSymbolicLink()).toBe(true);
+    expect(lstatSync(join(dataRoot, '.agent', 'skill')).isSymbolicLink()).toBe(true);
+
+    await rm(join(dataRoot, '.agent', 'skill'), { force: true });
+    await mkdir(join(dataRoot, '.agent', 'skill'), { recursive: true });
+    await writeFile(join(dataRoot, '.agent', 'skill', 'user.txt'), 'user', 'utf8');
+
+    await instance.clean();
+
+    expect(existsSync(join(dataRoot, '.claude', 'skills'))).toBe(false);
+    expect(await readFile(join(dataRoot, '.agent', 'skill', 'user.txt'), 'utf8')).toBe('user');
   });
 
   it('flips store.enabled to false', async () => {

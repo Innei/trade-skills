@@ -25,9 +25,11 @@
 
 ## Skill
 
-`.claude/skills/` 里是 kansoku 的研究 skill——市场读取、深度研究、图表生成、
-决策关卡、日内多周期预测等。任何 skill 里的接口调用都会通过 `kansoku-cli`
-落到本地 SQLite / JSON，不需要额外服务。
+`.claude/skills/`（Claude Code）和 `.agent/skill/`（Agent Kit 客户端）都是指向
+Kansoku 内置研究 skills 的软链接。应用更新、启动同步或手动重刷时会校验
+最终指向，被删除或改指向后会自动修复。其中包含市场读取、深度研究、
+图表生成、决策关卡、日内多周期预测等。任何 skill 里的接口调用都会通过
+`kansoku-cli` 落到本地 SQLite / JSON，不需要额外服务。
 
 ## 规则
 

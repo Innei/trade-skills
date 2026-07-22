@@ -9,6 +9,7 @@ import { toEnvelope } from '../kernel/ipc/envelope.js';
 import { ensureAgentKit } from './ensureAgentKit.js';
 import { readManifest, type ManifestTemplate } from './manifest.js';
 import { isFollowBlocked, resolveAgentKitDir } from './resolveLocation.js';
+import { cleanAgentKitSkillLinks } from './skillLinks.js';
 import {
   readState,
   removeConflict,
@@ -187,6 +188,7 @@ export class AgentKitIpc extends IpcService {
             }
           }
         }
+        cleanAgentKitSkillLinks(dir);
         rmSync(join(dir, '.kansoku-agent-kit'), { recursive: true, force: true });
       }
       store.write({ ...store.read(), enabled: false });

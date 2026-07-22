@@ -73,7 +73,9 @@ export function AgentKitSection() {
   const forceSync = () => void withBusy(() => bridge.forceSync());
   const clean = () => {
     if (
-      !window.confirm('确定要清理 Agent Kit 吗？这会删除本地生成的引导文件与 kansoku-cli 入口。')
+      !window.confirm(
+        '确定要清理 Agent Kit 吗？这会删除本地生成的引导文件、skills 软链接与 kansoku-cli 入口。',
+      )
     )
       return;
     void withBusy(() => bridge.clean());
@@ -115,7 +117,7 @@ export function AgentKitSection() {
       </div>
 
       <div className="settings-conn-summary">
-        为外部 Claude Code / Codex 提供 skill 引导 + kansoku-cli 入口
+        为外部 Claude Code / Codex 提供内置 skills 软链接 + kansoku-cli 入口
       </div>
 
       {status ? (

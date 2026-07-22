@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'nod
 import { join } from 'node:path';
 import type { Db } from '@kansoku/core/db/index';
 import { readManifest } from './manifest.js';
+import { ensureAgentKitSkillLinks } from './skillLinks.js';
 import {
   readState,
   sha256,
@@ -22,6 +23,8 @@ export async function ensureAgentKit(input: {
   const manifest = readManifest(input.resourcesPath);
   const state = readState(input.agentKitDir);
   const now = (input.now ?? (() => new Date()))();
+
+  ensureAgentKitSkillLinks(input.agentKitDir, input.resourcesPath);
 
   const kitDir = join(input.agentKitDir, '.kansoku-agent-kit');
   mkdirSync(join(kitDir, 'bin'), { recursive: true });

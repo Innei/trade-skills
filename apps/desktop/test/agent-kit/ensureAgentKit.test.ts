@@ -1,5 +1,5 @@
 import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
-import { lstatSync, readlinkSync } from 'node:fs';
+import { lstatSync, readlinkSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -10,6 +10,12 @@ import { readState } from '@desktop/agent-kit/state.js';
 
 async function buildResourcesFixture(resourcesPath: string): Promise<void> {
   const kitRoot = join(resourcesPath, 'kansoku-agent-kit');
+  await mkdir(join(resourcesPath, 'skills', 'trading-discipline'), { recursive: true });
+  await writeFile(
+    join(resourcesPath, 'skills', 'trading-discipline', 'SKILL.md'),
+    '# Trading discipline\n',
+    'utf8',
+  );
   await mkdir(join(kitRoot, 'templates'), { recursive: true });
   await mkdir(join(kitRoot, 'bin'), { recursive: true });
   await writeFile(join(kitRoot, 'templates', 'CLAUDE.md.tpl'), 'CLAUDE TEMPLATE\n', 'utf8');
@@ -82,6 +88,16 @@ describe('ensureAgentKit', () => {
     expect(lstatSync(shimPath).isSymbolicLink()).toBe(true);
     expect(readlinkSync(shimPath)).toBe(join(resourcesPath, 'kansoku-agent-kit', 'bin', 'kansoku-cli'));
 
+    const bundledSkills = join(resourcesPath, 'skills');
+    for (const relativePath of ['.claude/skills', '.agent/skill']) {
+      const skillLink = join(dataRoot, relativePath);
+      expect(lstatSync(skillLink).isSymbolicLink()).toBe(true);
+      expect(realpathSync(skillLink)).toBe(realpathSync(bundledSkills));
+      expect(await readFile(join(skillLink, 'trading-discipline', 'SKILL.md'), 'utf8')).toBe(
+        '# Trading discipline\n',
+      );
+    }
+
     expect(await readFile(join(dataRoot, 'CLAUDE.md'), 'utf8')).toBe('CLAUDE TEMPLATE\n');
     expect(await readFile(join(dataRoot, 'AGENTS.md'), 'utf8')).toBe('AGENTS TEMPLATE\n');
     const personalMd = await readFile(join(dataRoot, 'journal', 'personal.md'), 'utf8');
@@ -110,6 +126,46 @@ describe('ensureAgentKit', () => {
     await ensureAgentKit({ agentKitDir: dataRoot, dataRoot, resourcesPath, db, now });
 
     expect(readlinkSync(shimPath)).toBe(join(resourcesPath, 'kansoku-agent-kit', 'bin', 'kansoku-cli'));
+  });
+
+  it('repairs deleted, retargeted, and real-directory skill links on re-sync', async () => {
+    await ensureAgentKit({ agentKitDir: dataRoot, dataRoot, resourcesPath, db, now });
+
+    const claudeSkills = join(dataRoot, '.claude', 'skills');
+    const agentSkill = join(dataRoot, '.agent', 'skill');
+    const wrongTarget = await mkdtemp(join(tmpdir(), 'agent-kit-wrong-skills-'));
+    try {
+      await rm(claudeSkills, { force: true });
+      await rm(agentSkill, { force: true });
+      await mkdir(agentSkill, { recursive: true });
+      await writeFile(join(agentSkill, 'tampered.txt'), 'tampered', 'utf8');
+
+      await ensureAgentKit({ agentKitDir: dataRoot, dataRoot, resourcesPath, db, now });
+
+      expect(realpathSync(claudeSkills)).toBe(realpathSync(join(resourcesPath, 'skills')));
+      expect(realpathSync(agentSkill)).toBe(realpathSync(join(resourcesPath, 'skills')));
+
+      await rm(claudeSkills, { force: true });
+      await symlink(wrongTarget, claudeSkills, 'dir');
+      await ensureAgentKit({ agentKitDir: dataRoot, dataRoot, resourcesPath, db, now });
+
+      expect(realpathSync(claudeSkills)).toBe(realpathSync(join(resourcesPath, 'skills')));
+    } finally {
+      await rm(wrongTarget, { recursive: true, force: true });
+    }
+  });
+
+  it('fails sync instead of creating dangling links when bundled skills are unavailable', async () => {
+    await rm(join(resourcesPath, 'skills'), { recursive: true, force: true });
+
+    await expect(
+      ensureAgentKit({ agentKitDir: dataRoot, dataRoot, resourcesPath, db, now }),
+    ).rejects.toThrow(
+      `bundled skills directory is unavailable at ${join(resourcesPath, 'skills')}`,
+    );
+
+    expect(() => lstatSync(join(dataRoot, '.claude', 'skills'))).toThrow();
+    expect(() => lstatSync(join(dataRoot, '.agent', 'skill'))).toThrow();
   });
 
   it('leaves an unmodified template untouched and reports no pending items on a second pass', async () => {
@@ -154,6 +210,13 @@ describe('ensureAgentKit', () => {
 
       expect(await readFile(join(agentKitDir, 'CLAUDE.md'), 'utf8')).toBe('CLAUDE TEMPLATE\n');
       await expect(readFile(join(dataRoot, 'CLAUDE.md'), 'utf8')).rejects.toThrow();
+      expect(realpathSync(join(agentKitDir, '.claude', 'skills'))).toBe(
+        realpathSync(join(resourcesPath, 'skills')),
+      );
+      expect(realpathSync(join(agentKitDir, '.agent', 'skill'))).toBe(
+        realpathSync(join(resourcesPath, 'skills')),
+      );
+      expect(() => lstatSync(join(dataRoot, '.claude', 'skills'))).toThrow();
 
       expect(readState(agentKitDir)?.kitVersion).toBe('1.0.0+20260722');
       expect(readState(dataRoot)).toBeNull();
