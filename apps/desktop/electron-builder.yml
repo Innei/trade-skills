@@ -76,6 +76,8 @@ extraResources:
   # symlinks into .agents that electron-builder would copy as dead links.
   - from: dist-skills
     to: skills
+  - from: dist-agent-kit
+    to: kansoku-agent-kit
 extraFiles:
   - from: node_modules/electron-sparkle-updater/native/vendor/Sparkle.framework
     to: Frameworks/Sparkle.framework

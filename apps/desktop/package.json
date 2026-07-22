@@ -12,7 +12,7 @@
     "dev": "node scripts/dev.mjs",
     "generate-icon": "bash scripts/generate-icon.sh",
     "prepackage": "pnpm --filter @kansoku/web build && (test -f ../web/dist/index.html || (echo 'web/dist/index.html missing after build' && exit 1))",
-    "package": "pnpm build && node scripts/stageSkills.mjs && node scripts/stagePro.mjs && pnpm rebuild-native && pnpm build:native && electron-builder --mac dmg zip --arm64",
+    "package": "pnpm build && node scripts/stageSkills.mjs && node scripts/stageAgentKit.mjs && node scripts/buildCli.mjs && node scripts/stagePro.mjs && pnpm rebuild-native && pnpm build:native && electron-builder --mac dmg zip --arm64",
     "rebuild-native": "electron-rebuild -v 43.1.0 --force -w better-sqlite3",
     "prestart": "node scripts/ensureDevNative.mjs",
     "start": "electron .",
