@@ -1,0 +1,5 @@
+#!/bin/sh
+# Shim: run the packaged CLI bundle with Electron acting as Node runtime.
+# Relative-path anchored so the App can be relocated (/Applications, ~/Applications, etc.).
+here="$(cd "$(dirname "$0")" && pwd)"
+ELECTRON_RUN_AS_NODE=1 exec "$here/../../../MacOS/Kansoku" "$here/../cli.js" "$@"
