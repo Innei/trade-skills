@@ -43,6 +43,9 @@ vi.mock('@kansoku/core/realtime/charts', () => ({ subscribeChart: vi.fn(() => ()
 vi.mock('@kansoku/core/realtime/position', () => ({ subscribePosition: vi.fn(() => () => {}) }));
 vi.mock('@kansoku/core/realtime/quotes', () => ({ subscribeQuotes: vi.fn(() => () => {}) }));
 
+const stampDefaultProvider = vi.hoisted(() => vi.fn(async () => 'longbridge' as const));
+vi.mock('@kansoku/core/marketdata/defaultProvider', () => ({ stampDefaultProvider }));
+
 const loadProComposition = vi.hoisted(() =>
   vi.fn(async () => ({
     modules: [FakeProProbeModule],

@@ -4,12 +4,12 @@ import { resetProHooksForTests } from '@kansoku/core/pro/hooks';
 import { setProPresent } from '@kansoku/core/pro/bundleState';
 import { setAiRuntimeForTests } from '@kansoku/core/ai/settings/initAiSettings';
 import { setModelsRuntimeForTests } from '@kansoku/core/ai/runtime/modelsRuntime';
-import {
-  setLicenseManagerForTests,
-  type LicenseManager,
-} from '@kansoku/core/license/licenseState';
+import { setLicenseManagerForTests, type LicenseManager } from '@kansoku/core/license/licenseState';
 import type { ServerProComposition } from '../src/edition/types.js';
 import { tsukiRequest } from './helpers.js';
+
+const stampDefaultProvider = vi.hoisted(() => vi.fn(async () => 'longbridge' as const));
+vi.mock('@kansoku/core/marketdata/defaultProvider', () => ({ stampDefaultProvider }));
 
 const startDeepDiveForNote = vi.hoisted(() => vi.fn(() => ({ started: true as const })));
 const deepDiveStatus = vi.hoisted(() => vi.fn(() => ({ running: true })));
