@@ -4,6 +4,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ModalHost, resetModalStoreForTests } from '@web/ui';
 import { AgentKitSection } from './AgentKitSection';
 
+const baseStatus = {
+  enabled: true,
+  location: { kind: 'follow-data-root' as const },
+  resolvedPath: '/tmp/kansoku-data',
+  followBlocked: false,
+  dataRoot: '/tmp/kansoku-data',
+};
+
 function mockDesktop(handlers: Record<string, (input?: unknown) => unknown>) {
   const invoke = vi.fn(async (channel: string, input?: unknown) => {
     const handler = handlers[channel];
@@ -30,7 +38,7 @@ describe('AgentKitSection', () => {
     mockDesktop({
       'agentKit.getStatus': () => ({
         ok: true,
-        data: { enabled: true, kitVersion: '1.2.0', lastSyncAt: '2026-07-22T00:00:00.000Z' },
+        data: { ...baseStatus, kitVersion: '1.2.0', lastSyncAt: '2026-07-22T00:00:00.000Z' },
       }),
     });
 
@@ -46,8 +54,10 @@ describe('AgentKitSection', () => {
       'agentKit.getStatus': () => ({
         ok: true,
         data: {
-          enabled: true,
-          pendingConflicts: [{ dest: 'a.md', templatePath: 't/a.md', reason: 'target-exists-no-state' }],
+          ...baseStatus,
+          pendingConflicts: [
+            { dest: 'a.md', templatePath: 't/a.md', reason: 'target-exists-no-state' },
+          ],
           pendingUpdates: [
             { dest: 'b.md', templatePath: 't/b.md', oldTemplateHash: 'x', newTemplateHash: 'y' },
           ],
@@ -69,11 +79,13 @@ describe('AgentKitSection', () => {
       .mockResolvedValueOnce({
         ok: true,
         data: {
-          enabled: true,
-          pendingConflicts: [{ dest: 'a.md', templatePath: 't/a.md', reason: 'target-exists-no-state' }],
+          ...baseStatus,
+          pendingConflicts: [
+            { dest: 'a.md', templatePath: 't/a.md', reason: 'target-exists-no-state' },
+          ],
         },
       })
-      .mockResolvedValueOnce({ ok: true, data: { enabled: true } });
+      .mockResolvedValueOnce({ ok: true, data: baseStatus });
     const resolveConflict = vi.fn(() => ({ ok: true, data: { dest: 'a.md' } }));
     mockDesktop({
       'agentKit.getStatus': () => getStatus(),
@@ -100,8 +112,8 @@ describe('AgentKitSection', () => {
   it('toggling the switch calls setEnabled then reloads status', async () => {
     const getStatus = vi
       .fn()
-      .mockResolvedValueOnce({ ok: true, data: { enabled: false } })
-      .mockResolvedValueOnce({ ok: true, data: { enabled: true } });
+      .mockResolvedValueOnce({ ok: true, data: { ...baseStatus, enabled: false } })
+      .mockResolvedValueOnce({ ok: true, data: baseStatus });
     const setEnabled = vi.fn((_input?: unknown) => ({
       ok: true,
       data: { enabled: true, conflicts: [], updates: [] },
@@ -123,7 +135,7 @@ describe('AgentKitSection', () => {
 
   it('重刷 calls forceSync then reloads status', async () => {
     const forceSync = vi.fn(() => ({ ok: true, data: { conflicts: [], updates: [] } }));
-    const getStatus = vi.fn(() => ({ ok: true, data: { enabled: true } }));
+    const getStatus = vi.fn(() => ({ ok: true, data: baseStatus }));
     mockDesktop({
       'agentKit.getStatus': () => getStatus(),
       'agentKit.forceSync': () => forceSync(),
@@ -140,7 +152,7 @@ describe('AgentKitSection', () => {
 
   it('清理 asks for confirmation before calling clean', async () => {
     const clean = vi.fn(() => ({ ok: true, data: { cleaned: true } }));
-    const getStatus = vi.fn(() => ({ ok: true, data: { enabled: true } }));
+    const getStatus = vi.fn(() => ({ ok: true, data: baseStatus }));
     mockDesktop({
       'agentKit.getStatus': () => getStatus(),
       'agentKit.clean': () => clean(),
@@ -149,7 +161,7 @@ describe('AgentKitSection', () => {
 
     render(<AgentKitSection />);
 
-    const button = await screen.findByRole('button', { name: '清理 Agent Kit（危险）' });
+    const button = await screen.findByRole('button', { name: '清理 Agent Kit' });
     fireEvent.click(button);
 
     expect(confirmSpy).toHaveBeenCalledTimes(1);
@@ -160,5 +172,56 @@ describe('AgentKitSection', () => {
 
     await vi.waitFor(() => expect(clean).toHaveBeenCalledTimes(1));
     confirmSpy.mockRestore();
+  });
+
+  it('shows blocked hint + disables follow when data root is the app default', async () => {
+    mockDesktop({
+      'agentKit.getStatus': () => ({
+        ok: true,
+        data: {
+          ...baseStatus,
+          location: { kind: 'follow-data-root' as const },
+          resolvedPath: null,
+          followBlocked: true,
+          dataRoot: '/Users/x/Library/Application Support/Kansoku',
+        },
+      }),
+    });
+
+    render(<AgentKitSection />);
+
+    expect(await screen.findByText(/跟随不可用/)).toBeTruthy();
+    const follow = screen.getByRole('button', { name: '跟随数据目录' });
+    expect(follow.hasAttribute('disabled')).toBe(true);
+  });
+
+  it('pick custom location calls pickCustomLocation and updates status', async () => {
+    const picked = {
+      ...baseStatus,
+      location: { kind: 'custom' as const, path: '/Users/x/kansoku-kit' },
+      resolvedPath: '/Users/x/kansoku-kit',
+    };
+    const getStatus = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, data: baseStatus })
+      .mockResolvedValueOnce({ ok: true, data: picked });
+    const pickCustomLocation = vi.fn(() => ({ ok: true, data: picked }));
+    mockDesktop({
+      'agentKit.getStatus': () => getStatus(),
+      'agentKit.pickCustomLocation': () => pickCustomLocation(),
+    });
+
+    render(<AgentKitSection />);
+
+    fireEvent.click(await screen.findByRole('button', { name: '选择目录…' }));
+
+    await vi.waitFor(() => expect(pickCustomLocation).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() => expect(getStatus).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => {
+      const hits = screen.queryAllByText((_, node) =>
+        (node?.textContent ?? '').includes('/Users/x/kansoku-kit'),
+      );
+      expect(hits.length).toBeGreaterThan(0);
+    });
   });
 });

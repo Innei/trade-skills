@@ -8,6 +8,7 @@ import type { TransportEnvelope } from '@kansoku/core/contract/index';
 import { getShellRpc } from '../desktop/shellRpc';
 
 export type {
+  AgentKitLocation,
   AgentKitSetEnabledResult,
   AgentKitStatus,
   AgentKitSyncResult,
@@ -48,5 +49,11 @@ export function getDesktopAgentKitBridge(
       ),
     clean: async () =>
       unwrap((await rpc.invoke('agentKit.clean')) as TransportEnvelope<{ cleaned: true }>),
+    followDataRoot: async () =>
+      unwrap((await rpc.invoke('agentKit.followDataRoot')) as TransportEnvelope<AgentKitStatus>),
+    pickCustomLocation: async () =>
+      unwrap(
+        (await rpc.invoke('agentKit.pickCustomLocation')) as TransportEnvelope<AgentKitStatus>,
+      ),
   };
 }

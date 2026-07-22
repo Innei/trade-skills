@@ -13,8 +13,16 @@ export type PendingUpdate = {
   newTemplateHash: string;
 };
 
+export type AgentKitLocation =
+  | { kind: 'follow-data-root' }
+  | { kind: 'custom'; path: string };
+
 export type AgentKitStatus = {
   enabled: boolean;
+  location: AgentKitLocation;
+  resolvedPath: string | null;
+  followBlocked: boolean;
+  dataRoot: string;
   lastSyncAt?: string;
   kitVersion?: string;
   pendingConflicts?: PendingConflict[];
@@ -40,6 +48,8 @@ export interface AgentKitApi {
   }): Promise<{ dest: string }>;
   applyUpdate(input: { dest: string }): Promise<{ dest: string }>;
   clean(): Promise<{ cleaned: true }>;
+  followDataRoot(): Promise<AgentKitStatus>;
+  pickCustomLocation(): Promise<AgentKitStatus>;
 }
 
 export const agentKitRoutes = defineRoutes<AgentKitApi>('agentKit', {
@@ -49,4 +59,6 @@ export const agentKitRoutes = defineRoutes<AgentKitApi>('agentKit', {
   resolveConflict: { method: 'POST', path: '/conflicts/resolve' },
   applyUpdate: { method: 'POST', path: '/updates/apply' },
   clean: { method: 'POST', path: '/clean' },
+  followDataRoot: { method: 'POST', path: '/location/follow' },
+  pickCustomLocation: { method: 'POST', path: '/location/pick' },
 });

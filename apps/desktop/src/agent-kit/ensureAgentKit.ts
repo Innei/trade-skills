@@ -13,16 +13,17 @@ import {
 import { makeRender, syncTemplate } from './templates.js';
 
 export async function ensureAgentKit(input: {
+  agentKitDir: string;
   dataRoot: string;
   resourcesPath: string;
   db: Db;
   now?: () => Date;
 }): Promise<{ conflicts: PendingConflict[]; updates: PendingUpdate[] }> {
   const manifest = readManifest(input.resourcesPath);
-  const state = readState(input.dataRoot);
+  const state = readState(input.agentKitDir);
   const now = (input.now ?? (() => new Date()))();
 
-  const kitDir = join(input.dataRoot, '.kansoku-agent-kit');
+  const kitDir = join(input.agentKitDir, '.kansoku-agent-kit');
   mkdirSync(join(kitDir, 'bin'), { recursive: true });
 
   const cliShim = join(kitDir, 'bin', 'kansoku-cli');
@@ -31,6 +32,7 @@ export async function ensureAgentKit(input: {
     [
       `KANSOKU_CLI=${cliShim}`,
       `KANSOKU_DATA_ROOT=${input.dataRoot}`,
+      `KANSOKU_AGENT_KIT_DIR=${input.agentKitDir}`,
       `KANSOKU_APP_VERSION=${manifest.appVersion}`,
       `KANSOKU_KIT_VERSION=${manifest.kitVersion}`,
       `TRADE_MIGRATIONS_DIR=${join(input.resourcesPath, 'drizzle')}`,
@@ -52,7 +54,7 @@ export async function ensureAgentKit(input: {
     const outcome = syncTemplate({
       template: t,
       resourcesPath: input.resourcesPath,
-      dataRoot: input.dataRoot,
+      dataRoot: input.agentKitDir,
       db: input.db,
       state,
       render,
@@ -60,7 +62,7 @@ export async function ensureAgentKit(input: {
     switch (outcome.kind) {
       case 'written': {
         templatesNext[t.dest] = {
-          initialContentHash: sha256(readFileSync(join(input.dataRoot, t.dest))),
+          initialContentHash: sha256(readFileSync(join(input.agentKitDir, t.dest))),
           sourceTemplateHash: t.sha256,
           writtenAt: now.toISOString(),
         };
@@ -81,7 +83,7 @@ export async function ensureAgentKit(input: {
     }
   }
 
-  writeState(input.dataRoot, {
+  writeState(input.agentKitDir, {
     kitVersion: manifest.kitVersion,
     appVersion: manifest.appVersion,
     syncedAt: now.toISOString(),
