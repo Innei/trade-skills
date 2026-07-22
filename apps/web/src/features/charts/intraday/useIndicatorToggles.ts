@@ -5,7 +5,7 @@ import { theme } from '@web/lib/theme';
 export type IndicatorToggleKey =
   | 'crosses'
   | 'divergence'
-  | 'beichi'
+  | 'macdBeichi'
   | 'pattern123'
   | 'sb'
   | 'candle'
@@ -28,7 +28,7 @@ export const INDICATOR_TOGGLE_ORDER: IndicatorToggleKey[] = [
   'optwall',
   'crosses',
   'divergence',
-  'beichi',
+  'macdBeichi',
   'candle',
   'ai',
 ];
@@ -36,7 +36,7 @@ export const INDICATOR_TOGGLE_ORDER: IndicatorToggleKey[] = [
 export const INDICATOR_TOGGLE_LABELS: Record<IndicatorToggleKey, string> = {
   crosses: '金叉死叉',
   divergence: '自动背离',
-  beichi: '自动背驰',
+  macdBeichi: 'MACD 背离（K 线级）',
   pattern123: '123 结构',
   sb: 'SB 结构',
   candle: 'K线形态',
@@ -60,7 +60,7 @@ export const INDICATOR_TOGGLE_COLORS: Record<IndicatorToggleKey, string> = {
   optwall: theme.down,
   crosses: theme.up,
   divergence: theme.down,
-  beichi: theme.textSecondary,
+  macdBeichi: theme.textSecondary,
   candle: theme.accent,
   ai: theme.accent,
 };
@@ -69,7 +69,7 @@ export const INDICATOR_TOGGLE_KEYS = INDICATOR_TOGGLE_ORDER;
 
 export const INDICATOR_FEATURE_GATES: Partial<Record<IndicatorToggleKey, FeatureKey>> = {
   divergence: 'auto-patterns',
-  beichi: 'auto-patterns',
+  macdBeichi: 'auto-patterns',
   pattern123: 'auto-patterns',
   sb: 'auto-patterns',
   candle: 'auto-patterns',

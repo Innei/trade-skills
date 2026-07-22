@@ -171,7 +171,7 @@ export function capMarkersPerBar(
 
 export function autoPatternMarkers(
   items: DivergencePair[],
-  group: 'divergence' | 'beichi',
+  group: 'divergence' | 'macdBeichi',
   color: string,
   recentCount = 2,
 ): TfOverlay {

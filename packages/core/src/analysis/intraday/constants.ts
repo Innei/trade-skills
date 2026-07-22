@@ -76,16 +76,16 @@ export const VWAP_TIMEFRAMES = new Set<string>(['m5', 'm15']);
 export const MARKER_GROUP_RANK: Record<string, number> = {
   ai: 0,
   divergence: 1,
-  beichi: 2,
+  macdBeichi: 2,
   pattern123: 3,
   candle: 4,
 };
 export const MAX_MARKERS_PER_BAR = 2;
 export const AI_AUTO_MERGE_BAR_WINDOW = 2;
 
-export const AI_ICON_TO_AUTO_GROUP: Record<string, 'divergence' | 'beichi'> = {
+export const AI_ICON_TO_AUTO_GROUP: Record<string, 'divergence' | 'macdBeichi'> = {
   [SIGNAL_ICON.macd_divergence]: 'divergence',
-  [SIGNAL_ICON.macd_beichi]: 'beichi',
+  [SIGNAL_ICON.macd_beichi]: 'macdBeichi',
 };
 
 export const CONTEXT_STANCES = new Set(['long', 'short', 'neutral']);

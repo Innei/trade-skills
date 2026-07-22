@@ -172,7 +172,7 @@ export function buildIntraday(input: IntradayInput): { built: IntradayBuilt; met
     const tf = tfs[k];
     const sig = signalsByTf[k];
     const autoDiv = autoPatternMarkers(tf.autoDivergence, 'divergence', '#ab47bc');
-    const autoBei = autoPatternMarkers(tf.autoBeichi, 'beichi', '#ff8f00');
+    const autoBei = autoPatternMarkers(tf.autoBeichi, 'macdBeichi', '#ff8f00');
     const auto123 = pattern123Overlay(tf.pattern123, tf.candles.at(-1)!.time);
     const tangleSuffix = tf.structure.tangle ? `\n${ZERO_TANGLE_NOTE}` : '';
     const crossMarkers: SeriesMarker[] = tf.structure.signals.map((s, i) => {

@@ -33,7 +33,7 @@ const clampMacdHeight = (h: number) => Math.min(MACD_MAX, Math.max(MACD_MIN, h))
 const LAYER_GROUP_DEFS: { title: string; keys: IndicatorToggleKey[] }[] = [
   { title: '参照', keys: ['ema', 'vwap', 'levels', 'daylevel', 'optwall'] },
   { title: '结构', keys: ['fvg', 'pattern123', 'sb', 'candle'] },
-  { title: '信号', keys: ['crosses', 'divergence', 'beichi', 'ai'] },
+  { title: '信号', keys: ['crosses', 'divergence', 'macdBeichi', 'ai'] },
 ];
 
 interface IntradayDashboardProps {

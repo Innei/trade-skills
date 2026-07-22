@@ -31,7 +31,7 @@ export type MarkerShape = 'circle' | 'arrowUp' | 'arrowDown' | 'square';
 export type OverlayGroup =
   | 'ai'
   | 'divergence'
-  | 'beichi'
+  | 'macdBeichi'
   | 'pattern123'
   | 'candle'
   | 'fenxing'
@@ -69,14 +69,14 @@ export const AUTO_SIGNAL_META: Record<string, { icon: string; title: string; imp
     title: '底背离',
     impact: '价格创新低但 MACD 动能走强——抛压在衰减，反弹概率上升；若放量收复前高即确认反转',
   },
-  'beichi-top': {
+  'macdBeichi-top': {
     icon: '🌀',
-    title: '顶背驰',
+    title: '顶 MACD 背离（K 线级）',
     impact: '这波上冲的推动力比前一波明显缩小——趋势进入末段，追高风险大',
   },
-  'beichi-bottom': {
+  'macdBeichi-bottom': {
     icon: '🌀',
-    title: '底背驰',
+    title: '底 MACD 背离（K 线级）',
     impact: '这波下杀的推动力比前一波明显缩小——下跌动能趋于枯竭，接近阶段性底部',
   },
 };
