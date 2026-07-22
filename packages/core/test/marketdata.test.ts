@@ -31,8 +31,8 @@ describe('marketdata registry', () => {
   });
 
   it('rejects an unknown MARKET_PROVIDER with a hint listing the options', () => {
-    vi.stubEnv('MARKET_PROVIDER', 'yahoo');
-    expect(() => getProvider()).toThrow('unknown MARKET_PROVIDER: yahoo');
+    vi.stubEnv('MARKET_PROVIDER', 'bogus');
+    expect(() => getProvider()).toThrow('unknown MARKET_PROVIDER: bogus');
   });
 
   it('routes US/HK/CN to longbridge by default', () => {
@@ -50,15 +50,20 @@ describe('marketdata registry', () => {
 
   it('a per-market override wins for its own market only', () => {
     vi.stubEnv('MARKET_PROVIDER', 'longbridge');
-    vi.stubEnv('MARKET_PROVIDER_HK', 'yahoo');
+    vi.stubEnv('MARKET_PROVIDER_HK', 'bogus');
     expect(getProvider('US').name).toBe('longbridge');
-    expect(() => getProvider('HK')).toThrow('unknown MARKET_PROVIDER: yahoo');
+    expect(() => getProvider('HK')).toThrow('unknown MARKET_PROVIDER: bogus');
     expect(getProvider('CN').name).toBe('longbridge');
   });
 
   it('rejects an unknown per-market override with the same hint', () => {
-    vi.stubEnv('MARKET_PROVIDER_CN', 'yahoo');
-    expect(() => getProvider('CN')).toThrow('unknown MARKET_PROVIDER: yahoo');
+    vi.stubEnv('MARKET_PROVIDER_CN', 'bogus');
+    expect(() => getProvider('CN')).toThrow('unknown MARKET_PROVIDER: bogus');
+  });
+
+  it('selects the yahoo provider when named by MARKET_PROVIDER', () => {
+    vi.stubEnv('MARKET_PROVIDER', 'yahoo');
+    expect(getProvider().name).toBe('yahoo');
   });
 });
 

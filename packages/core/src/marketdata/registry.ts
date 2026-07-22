@@ -5,9 +5,11 @@ import { getLongbridgeStream, resetLongbridgeStream } from './longbridgeStream.j
 import type { QuoteStream } from './quoteStream.js';
 import { resetSharedQuoteSocket } from './sharedSocket.js';
 import type { MarketDataProvider } from './types.js';
+import { yahooProvider } from './yahoo/provider.js';
 
 const providers: Record<string, MarketDataProvider> = {
   longbridge: longbridgeProvider,
+  yahoo: yahooProvider,
 };
 
 const streamFactories: Record<string, () => QuoteStream> = {
