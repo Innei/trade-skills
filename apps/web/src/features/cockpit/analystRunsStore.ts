@@ -11,6 +11,7 @@ export type RunningReassessStatus = Extract<ReassessStatus, { running: true }>;
 export interface AnalystRunLastEnded {
   readonly activities: AnalystActivity[];
   readonly sections: AnalystSections;
+  readonly startedAt: string;
   readonly endedAt: string;
 }
 
@@ -109,7 +110,12 @@ function retainLastEnded(symbol: string, status: RunningReassessStatus | undefin
   const sections = status?.sections ?? {};
   if (activities.length === 0 && Object.keys(sections).length === 0) return;
   lastEnded = new Map(lastEnded);
-  lastEnded.set(symbol, { activities, sections, endedAt: new Date().toISOString() });
+  lastEnded.set(symbol, {
+    activities,
+    sections,
+    startedAt: status?.startedAt ?? new Date().toISOString(),
+    endedAt: new Date().toISOString(),
+  });
 }
 
 function handleInit(payload: { runs?: unknown }): void {

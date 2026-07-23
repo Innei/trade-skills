@@ -408,6 +408,7 @@ describe('analystRunsStore', () => {
     expect(lastEnded).not.toBeNull();
     expect(lastEnded?.activities).toEqual(activities);
     expect(lastEnded?.sections).toEqual({});
+    expect(lastEnded?.startedAt).toBe('2026-07-16T00:00:00.000Z');
     expect(typeof lastEnded?.endedAt).toBe('string');
     off();
   });
@@ -427,6 +428,7 @@ describe('analystRunsStore', () => {
     expect(lastEnded).not.toBeNull();
     expect(lastEnded?.activities).toEqual([]);
     expect(lastEnded?.sections).toEqual(sections);
+    expect(lastEnded?.startedAt).toBe('2026-07-16T00:00:00.000Z');
     off();
   });
 
@@ -455,6 +457,7 @@ describe('analystRunsStore', () => {
     expect(lastEnded).not.toBeNull();
     expect(lastEnded?.activities).toEqual(activities);
     expect(lastEnded?.sections).toEqual(sections);
+    expect(lastEnded?.startedAt).toBe('2026-07-16T00:00:00.000Z');
     expect(currentRuns().has('NVDA')).toBe(false);
     off();
   });
@@ -478,6 +481,7 @@ describe('analystRunsStore', () => {
     expect(lastEnded).not.toBeNull();
     expect(lastEnded?.activities).toEqual(activities);
     expect(lastEnded?.sections).toEqual(sections);
+    expect(lastEnded?.startedAt).toBe('2026-07-16T00:00:00.000Z');
     expect(currentRuns().has('NVDA')).toBe(false);
     off();
   });

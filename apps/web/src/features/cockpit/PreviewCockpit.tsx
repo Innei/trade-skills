@@ -73,7 +73,12 @@ export function PreviewCockpit({
   const { unread } = useAiUnreadBadge(sym, comments, commentsLoaded, activeTab);
   const viewTimeframe = useViewTimeframe(sym, intradayTf ?? 'm15', { live: true, liveQuote });
   const analystRunStatus = useAnalystRunStatus(sym);
-  const analystRunLastEnded = useAnalystRunLastEnded(sym);
+  const analystRunLastEndedRaw = useAnalystRunLastEnded(sym);
+  const analystRunLastEnded =
+    analystRunLastEndedRaw &&
+    analysesRows.some((row) => row.created_at >= analystRunLastEndedRaw.startedAt)
+      ? null
+      : analystRunLastEndedRaw;
 
   if (error) {
     return (

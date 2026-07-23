@@ -254,6 +254,7 @@ describe('PreviewCockpit prediction tab', () => {
     analystRunLastEnded = {
       activities: [{ at: '2026-07-21T09:05:00Z', text: '开始收集资料' }],
       sections: {},
+      startedAt: '2026-07-21T09:00:00Z',
       endedAt: '2026-07-21T09:06:00Z',
     };
 
@@ -331,7 +332,8 @@ describe('PreviewCockpit prediction tab', () => {
     analystRunLastEnded = {
       activities: [{ at: '2026-07-21T09:05:00Z', text: '开始收集资料' }],
       sections: {},
-      endedAt: '2026-07-21T09:06:00Z',
+      startedAt: '2026-07-21T09:35:00Z',
+      endedAt: '2026-07-21T09:36:00Z',
     };
 
     render(
@@ -361,6 +363,52 @@ describe('PreviewCockpit prediction tab', () => {
     expect(screen.getByTestId('analyst-run-feed')).toBeTruthy();
     expect(screen.getByTestId('generate-analysis')).toBeTruthy();
     expect(screen.queryByText(/当前为实时视图/)).toBeNull();
+  });
+
+  it('falls through to the live-view Empty when an analysis row is newer than the lastEnded startedAt', () => {
+    previewState = {
+      built: baseBuilt,
+      error: null,
+      degraded: false,
+      intradayTf: null,
+      setIntradayTf: () => {},
+      predictionUpdatedAt: undefined,
+      predictionStale: undefined,
+    };
+    analystRunLastEnded = {
+      activities: [{ at: '2026-07-21T09:05:00Z', text: '开始收集资料' }],
+      sections: {},
+      startedAt: '2026-07-21T09:00:00Z',
+      endedAt: '2026-07-21T09:06:00Z',
+    };
+
+    render(
+      <PreviewCockpit
+        sym="MRVL.US"
+        analysesRows={[
+          {
+            id: 'a1',
+            schema_version: 1,
+            type: 'intraday',
+            title: 'a1',
+            symbol: 'MRVL.US',
+            created_at: '2026-07-21T09:30:00Z',
+            updated_at: '2026-07-21T09:30:00Z',
+            url: '/charts/a1',
+            direction: null,
+            anchor: null,
+            outcome: null,
+          } as SymbolAnalysisRow,
+        ]}
+        onLive={() => {}}
+        onSelectAnalysis={() => {}}
+        liveQuote={null}
+      />,
+    );
+
+    expect(screen.queryByTestId('analyst-run-feed')).toBeNull();
+    expect(screen.getByText(/当前为实时视图/)).toBeTruthy();
+    expect(screen.getByTestId('generate-analysis')).toBeTruthy();
   });
 });
 
@@ -408,6 +456,7 @@ describe('PreviewCockpit preview levels overlay', () => {
     analystRunLastEnded = {
       activities: [],
       sections: { technical: { trends: [], levels: technicalLevels, summary: '' } },
+      startedAt: '2026-07-21T09:00:00Z',
       endedAt: '2026-07-21T09:06:00Z',
     };
 
