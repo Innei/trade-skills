@@ -191,15 +191,16 @@ export function SymbolCockpit({ sym }: { sym: string }) {
           </a>
           <span className="title">{doc.title}</span>
           <span className="meta">{sym}</span>
-          {sepaRefresh.refreshing ? (
-            <span className="ai-hint">
-              <Spinner /> 正在更新到最新数据…
-            </span>
-          ) : (
-            sepaRefresh.error && (
-              <span className="ai-hint">更新失败，展示的是 {sepaDataDate} 的数据</span>
-            )
-          )}
+          {isResearchSepa &&
+            (sepaRefresh.refreshing ? (
+              <span className="ai-hint">
+                <Spinner /> 正在更新到最新数据…
+              </span>
+            ) : (
+              sepaRefresh.error && (
+                <span className="ai-hint">更新失败，展示的是 {sepaDataDate} 的数据</span>
+              )
+            ))}
           <span className="topbar-actions">
             {isResearchSepa && (
               <Button onClick={() => void sepaRefresh.refresh()} disabled={sepaRefresh.refreshing}>

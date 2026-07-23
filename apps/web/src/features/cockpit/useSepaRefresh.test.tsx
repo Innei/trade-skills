@@ -42,11 +42,11 @@ describe('useSepaRefresh', () => {
 
   it('auto-refreshes exactly once for a stale research-origin doc', async () => {
     update.mockResolvedValue({ data: {}, meta: {} });
-    const reload = vi.fn();
+    const reload1 = vi.fn();
     const doc = sepaDoc();
 
-    const { result, rerender } = renderHook(({ doc }) => useSepaRefresh(doc, reload), {
-      initialProps: { doc },
+    const { result, rerender } = renderHook(({ doc, reload }) => useSepaRefresh(doc, reload), {
+      initialProps: { doc, reload: reload1 },
     });
 
     await act(async () => {
@@ -55,16 +55,18 @@ describe('useSepaRefresh', () => {
 
     expect(update).toHaveBeenCalledTimes(1);
     expect(update).toHaveBeenCalledWith({ id: 'chart-1', refresh: true });
-    expect(reload).toHaveBeenCalledTimes(1);
+    expect(reload1).toHaveBeenCalledTimes(1);
     expect(result.current.refreshing).toBe(false);
     expect(result.current.error).toBeNull();
 
-    rerender({ doc: sepaDoc() });
+    const reload2 = vi.fn();
+    rerender({ doc: sepaDoc(), reload: reload2 });
     await act(async () => {
       await Promise.resolve();
     });
 
     expect(update).toHaveBeenCalledTimes(1);
+    expect(reload2).not.toHaveBeenCalled();
   });
 
   it('does not auto-refresh a stale doc without the research origin', async () => {
@@ -97,11 +99,11 @@ describe('useSepaRefresh', () => {
 
   it('surfaces the failure and does not retry', async () => {
     update.mockRejectedValue(new Error('network down'));
-    const reload = vi.fn();
+    const reload1 = vi.fn();
     const doc = sepaDoc();
 
-    const { result, rerender } = renderHook(({ doc }) => useSepaRefresh(doc, reload), {
-      initialProps: { doc },
+    const { result, rerender } = renderHook(({ doc, reload }) => useSepaRefresh(doc, reload), {
+      initialProps: { doc, reload: reload1 },
     });
 
     await act(async () => {
@@ -110,11 +112,12 @@ describe('useSepaRefresh', () => {
     });
 
     expect(update).toHaveBeenCalledTimes(1);
-    expect(reload).not.toHaveBeenCalled();
+    expect(reload1).not.toHaveBeenCalled();
     expect(result.current.error).toBe('network down');
     expect(result.current.refreshing).toBe(false);
 
-    rerender({ doc: sepaDoc() });
+    const reload2 = vi.fn();
+    rerender({ doc: sepaDoc(), reload: reload2 });
     await act(async () => {
       await Promise.resolve();
     });
@@ -160,5 +163,133 @@ describe('useSepaRefresh', () => {
 
     expect(result.current.refreshing).toBe(false);
     expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('ignores a same-tick second refresh() call while one is already in flight', async () => {
+    let resolveUpdate: ((value: unknown) => void) | undefined;
+    update.mockReturnValue(
+      new Promise((resolve) => {
+        resolveUpdate = resolve;
+      }),
+    );
+    const reload = vi.fn();
+    const doc = sepaDoc({ sepa_stale: false });
+
+    const { result } = renderHook(() => useSepaRefresh(doc, reload));
+
+    let p1: Promise<void> | undefined;
+    let p2: Promise<void> | undefined;
+    act(() => {
+      p1 = result.current.refresh();
+      p2 = result.current.refresh();
+    });
+
+    expect(update).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolveUpdate?.({ data: {}, meta: {} });
+      await p1;
+      await p2;
+    });
+
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not let doc A's late success settle set busy/reload once doc B is current", async () => {
+    let resolveUpdate: ((value: unknown) => void) | undefined;
+    update.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveUpdate = resolve;
+        }),
+    );
+    const reload = vi.fn();
+    const docA = sepaDoc({ id: 'chart-a' });
+    const docB = sepaDoc({ id: 'chart-b', sepa_stale: false });
+
+    const { result, rerender } = renderHook(({ doc }) => useSepaRefresh(doc, reload), {
+      initialProps: { doc: docA },
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.refreshing).toBe(true);
+
+    rerender({ doc: docB });
+    expect(result.current.refreshing).toBe(false);
+    expect(result.current.error).toBeNull();
+
+    await act(async () => {
+      resolveUpdate?.({ data: {}, meta: {} });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.refreshing).toBe(false);
+    expect(result.current.error).toBeNull();
+    expect(reload).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not let doc A's late failure set the error once doc B is current", async () => {
+    let rejectUpdate: ((reason: unknown) => void) | undefined;
+    update.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          rejectUpdate = reject;
+        }),
+    );
+    const reload = vi.fn();
+    const docA = sepaDoc({ id: 'chart-a' });
+    const docB = sepaDoc({ id: 'chart-b', sepa_stale: false });
+
+    const { result, rerender } = renderHook(({ doc }) => useSepaRefresh(doc, reload), {
+      initialProps: { doc: docA },
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    rerender({ doc: docB });
+
+    await act(async () => {
+      rejectUpdate?.(new Error('network down'));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.refreshing).toBe(false);
+  });
+
+  it('auto-refreshes each distinct stale research-origin doc once within the same mount', async () => {
+    update.mockResolvedValue({ data: {}, meta: {} });
+    const reload = vi.fn();
+    const docA = sepaDoc({ id: 'chart-a' });
+    const docB = sepaDoc({ id: 'chart-b' });
+
+    const { rerender } = renderHook(({ doc }) => useSepaRefresh(doc, reload), {
+      initialProps: { doc: docA },
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(update).toHaveBeenCalledWith({ id: 'chart-a', refresh: true });
+
+    rerender({ doc: docB });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(update).toHaveBeenCalledWith({ id: 'chart-b', refresh: true });
+    expect(update).toHaveBeenCalledTimes(2);
+
+    rerender({ doc: docA });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(update).toHaveBeenCalledTimes(2);
   });
 });
