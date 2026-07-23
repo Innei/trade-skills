@@ -74,7 +74,7 @@ describe('useExplainSymbol', () => {
       await result.current.explain();
     });
 
-    expect(result.current.hint).toBe('AI 未配置（服务端缺 analyst 模型），暂时无法解读');
+    expect(result.current.hint).toBe('AI 未配置（服务端缺点评模型），暂时无法解读');
   });
 
   it('surfaces a generic failed hint', async () => {

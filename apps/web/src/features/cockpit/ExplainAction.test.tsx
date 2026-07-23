@@ -72,6 +72,6 @@ describe('ExplainAction', () => {
 
     fireEvent.click(screen.getByText('解读当前盘面'));
 
-    expect(await screen.findByText('AI 未配置（服务端缺 analyst 模型），暂时无法解读')).toBeTruthy();
+    expect(await screen.findByText('AI 未配置（服务端缺点评模型），暂时无法解读')).toBeTruthy();
   });
 });

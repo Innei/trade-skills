@@ -49,7 +49,6 @@ export interface TriggerInput {
 
 const VOLUME_BASELINE_BARS = 20;
 const VOLUME_SPIKE_MULTIPLE = 3;
-const HEARTBEAT_MS = 5 * 60 * 1000;
 const FLOW_FLIP_MIN_PEAK_RATIO = 0.05;
 
 function sign(value: number): number {
@@ -200,9 +199,4 @@ export function detectTriggers(input: TriggerInput): Trigger[] {
     if (day) triggers.push(day);
   }
   return triggers;
-}
-
-export function shouldHeartbeat(lastRunAt: number | null, now: number): boolean {
-  if (lastRunAt == null) return true;
-  return now - lastRunAt >= HEARTBEAT_MS;
 }
