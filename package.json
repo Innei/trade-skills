@@ -22,7 +22,7 @@
     "overlay:check": "pnpm --filter @kansoku/build-overlay check",
     "overlay:sync": "pnpm --filter @kansoku/build-overlay sync",
     "package:desktop": "pnpm --filter @kansoku/desktop package",
-    "prepare": "node packages/build-overlay/scripts/sync.mjs || true; skills experimental_install",
+    "prepare": "node packages/build-overlay/scripts/sync.mjs || true; skills experimental_install; python3 scripts/sync-agents-skills.py || true",
     "release:desktop:dry-run": "apps/desktop/scripts/release-dry-run.sh",
     "skills:install": "skills experimental_install",
     "skills:update": "skills update -p -y",
