@@ -145,7 +145,7 @@ export function AiTab({
         <div className="note-block">
           {selectedDate
             ? `${selectedDate} 没有点评`
-            : '还没有 AI 点评——点评由盘中自动监控（触发信号 / 定时心跳）产生；也可以点上面「重新分析」手动跑一次重估'}
+            : '暂无点评。盘面出现触发事件时，AI 会在这里给出研判；也可以点上面「重新分析」手动跑一次重估'}
         </div>
       );
     }

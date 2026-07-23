@@ -1,10 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  detectTriggers,
-  shouldHeartbeat,
-  type TriggerBar,
-  type TriggerInput,
-} from '../src/ai/personas/triggers.js';
+import { detectTriggers, type TriggerBar, type TriggerInput } from '../src/ai/personas/triggers.js';
 
 function bar(time: number, close: number, volume: number): TriggerBar {
   return { time, close, volume };
@@ -244,19 +239,5 @@ describe('detectTriggers day_level_break', () => {
       }),
     );
     expect(out.map((t) => t.kind)).not.toContain('day_level_break');
-  });
-});
-
-describe('shouldHeartbeat', () => {
-  it('returns true when never run', () => {
-    expect(shouldHeartbeat(null, 1_000_000)).toBe(true);
-  });
-
-  it('returns true at exactly five minutes', () => {
-    expect(shouldHeartbeat(0, 5 * 60 * 1000)).toBe(true);
-  });
-
-  it('returns false just under five minutes', () => {
-    expect(shouldHeartbeat(0, 5 * 60 * 1000 - 1)).toBe(false);
   });
 });
