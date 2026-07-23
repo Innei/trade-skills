@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { ProtocolQuote } from '../src/marketdata/longbridgeProtocol.js';
 import { LongbridgeStream } from '../src/marketdata/longbridgeStream.js';
 import type { LongbridgeQuoteSocket } from '../src/marketdata/longbridgeSocket.js';
@@ -44,5 +44,48 @@ describe('LongbridgeStream quote timestamps', () => {
       last: 111.35,
       asOf: new Date(1_784_000_007_000).toISOString(),
     });
+  });
+
+  it('uses the chart snapshot as the candle seed instead of fetching it again', async () => {
+    let emitQuote: (quote: ProtocolQuote) => void = () => {};
+    const subscribe = vi.fn().mockResolvedValue(undefined);
+    const socket = {
+      onQuote(listener: (quote: ProtocolQuote) => void) {
+        emitQuote = listener;
+        return () => {};
+      },
+      onTrade() {
+        return () => {};
+      },
+      subscribe,
+    } as unknown as LongbridgeQuoteSocket;
+    const stream = new LongbridgeStream({ socket });
+    const onCandle = vi.fn();
+
+    stream.subscribeCandlesticks('NOW.US', '5m', onCandle, {
+      time: new Date(1_000_000).toISOString(),
+      open: 10,
+      high: 11,
+      low: 9,
+      close: 10,
+      volume: 100,
+    });
+    await vi.waitFor(() => expect(subscribe).toHaveBeenCalledWith(['NOW.US'], [1, 4]));
+
+    emitQuote({
+      symbol: 'NOW.US',
+      sequence: 1,
+      lastDone: 10.5,
+      timestamp: 1_001,
+      volume: 101,
+      currentVolume: 1,
+      turnover: 1_060.5,
+      currentTurnover: 10.5,
+      tradeSession: 0,
+      tag: 0,
+    });
+    expect(onCandle).toHaveBeenCalledWith(
+      expect.objectContaining({ symbol: 'NOW.US', period: '5m', close: 10.5 }),
+    );
   });
 });

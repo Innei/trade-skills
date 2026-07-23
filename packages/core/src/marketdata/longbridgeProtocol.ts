@@ -275,6 +275,24 @@ export function decodeSessionResponse(body: Uint8Array): { sessionId: string; ex
   };
 }
 
+export interface ProtocolErrorDetail {
+  code: number;
+  message: string;
+}
+
+export function decodeErrorDetail(body: Uint8Array): ProtocolErrorDetail | null {
+  if (!body.length) return null;
+  try {
+    const decoded = fields(body);
+    return {
+      code: numberValue(decoded.find((field) => field.number === 1)),
+      message: stringValue(decoded.find((field) => field.number === 2)),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export interface ProtocolQuote {
   symbol: string;
   sequence: number;

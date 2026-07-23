@@ -2,6 +2,7 @@ import type { MacroEventItem, NewsItem, RawBar } from '@kansoku/shared/types';
 import { ClientError } from '../platform/errors.js';
 import { LongbridgeCliError, runLongbridgeJson } from './longbridgeCli.js';
 import { getSharedQuoteSocket } from './sharedSocket.js';
+import { LongbridgeProtocolError, LongbridgeResponseError } from './longbridgeSocket.js';
 import type { FlowRow } from '../analysis/simple.js';
 import type { Market } from '../symbols/symbol.utils.js';
 import type {
@@ -116,6 +117,8 @@ export interface QuoteQueryTransport {
 // 配额打满时若继续回退 CLI，CLI 抢到刚释放的槽又会立刻幽灵化，故障自我延续——
 // 所以识别到配额错误后进入冷却期，冷却期内只走 WS（优雅关闭不烧槽），不再spawn CLI。
 const QUOTA_COOLDOWN_MS = 5 * 60_000;
+const RATE_LIMIT_COOLDOWN_MS = 5_000;
+const CLI_FALLBACK_COOLDOWN_MS = 60_000;
 
 function isQuotaError(message: string): boolean {
   return (
@@ -129,6 +132,9 @@ export function createLongbridgeProvider(
 ): MarketDataProvider {
   const securityNameCache = new Map<string, Promise<string | null>>();
   let quotaCooldownUntil = 0;
+  let rateLimitCooldownUntil = 0;
+  let cliFallbackCooldownUntil = 0;
+  let cliFallbackInFlight = false;
 
   function quotaError(label: string): ClientError {
     return new ClientError(
@@ -144,6 +150,13 @@ export function createLongbridgeProvider(
     viaCli: () => Promise<T>,
   ): Promise<T> {
     if (!socket) return viaCli();
+    if (Date.now() < rateLimitCooldownUntil) {
+      throw new ClientError(
+        `longbridge ${label} paused: 请求过于频繁（301606）`,
+        '共享行情连接正在短暂退避，请稍后重试；不会启动额外 CLI 连接。',
+        503,
+      );
+    }
     try {
       return await viaSocket();
     } catch (error) {
@@ -155,6 +168,17 @@ export function createLongbridgeProvider(
         );
         throw quotaError(label);
       }
+      if (error instanceof LongbridgeResponseError && error.rateLimited) {
+        rateLimitCooldownUntil = Date.now() + RATE_LIMIT_COOLDOWN_MS;
+        console.warn(
+          `[longbridge] ws ${label} rate limited (${error.code}), skipping CLI fallback`,
+        );
+        throw error;
+      }
+      if (error instanceof LongbridgeResponseError || error instanceof LongbridgeProtocolError) {
+        console.warn(`[longbridge] ws ${label} rejected, skipping CLI fallback:`, message);
+        throw error;
+      }
       if (Date.now() < quotaCooldownUntil) {
         console.warn(
           `[longbridge] ws ${label} failed during quota cooldown, skipping CLI fallback:`,
@@ -163,12 +187,23 @@ export function createLongbridgeProvider(
         throw quotaError(label);
       }
       console.warn(`[longbridge] ws ${label} failed, falling back to CLI:`, message);
+      if (cliFallbackInFlight || Date.now() < cliFallbackCooldownUntil) {
+        throw new ClientError(
+          `longbridge ${label} failed: WS 暂时不可用，CLI 兜底正在冷却`,
+          '为避免创建大量额外行情连接，CLI 兜底每分钟最多执行一次。',
+          503,
+        );
+      }
+      cliFallbackInFlight = true;
+      cliFallbackCooldownUntil = Date.now() + CLI_FALLBACK_COOLDOWN_MS;
       try {
         return await viaCli();
       } catch (cliError) {
         const cliMessage = cliError instanceof Error ? cliError.message : String(cliError);
         if (isQuotaError(cliMessage)) quotaCooldownUntil = Date.now() + QUOTA_COOLDOWN_MS;
         throw cliError;
+      } finally {
+        cliFallbackInFlight = false;
       }
     }
   }

@@ -1,4 +1,4 @@
-import type { QuoteCell } from '@kansoku/shared/types';
+import type { QuoteCell, RawBar } from '@kansoku/shared/types';
 import { classifySession, sessionLabel } from './session.js';
 import { marketOf } from '../symbols/symbol.utils.js';
 import { getProvider } from './registry.js';
@@ -215,14 +215,19 @@ export class LongbridgeStream implements QuoteStream {
     }
   }
 
-  subscribeCandlesticks(symbol: string, period: CandlePeriod, cb: CandleListener): () => void {
+  subscribeCandlesticks(
+    symbol: string,
+    period: CandlePeriod,
+    cb: CandleListener,
+    seed?: RawBar,
+  ): () => void {
     const key = candleKey(symbol, period);
     const count = (this.candleRefs.get(key) ?? 0) + 1;
     this.candleRefs.set(key, count);
     const listeners = this.candleListeners.get(key) ?? new Set<CandleListener>();
     listeners.add(cb);
     this.candleListeners.set(key, listeners);
-    if (count === 1) void this.activateCandle(symbol, period);
+    if (count === 1) void this.activateCandle(symbol, period, seed);
     let released = false;
     return () => {
       if (released) return;
@@ -245,11 +250,14 @@ export class LongbridgeStream implements QuoteStream {
     };
   }
 
-  private async activateCandle(symbol: string, period: CandlePeriod): Promise<void> {
+  private async activateCandle(symbol: string, period: CandlePeriod, seed?: RawBar): Promise<void> {
     try {
-      const cliPeriod = period === '60m' ? '1h' : period;
-      const rows = await getProvider().getKline(symbol, cliPeriod, 2, 'all');
-      const last = rows.at(-1);
+      let last = seed;
+      if (!last) {
+        const cliPeriod = period === '60m' ? '1h' : period;
+        const rows = await getProvider().getKline(symbol, cliPeriod, 2, 'all');
+        last = rows.at(-1);
+      }
       if (last) this.aggregator.seed(symbol, period, last);
       await this.socket.subscribe([symbol], [SUB_TYPE_QUOTE, SUB_TYPE_TRADE]);
     } catch (error) {

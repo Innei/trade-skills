@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createLongbridgeProvider, type LongbridgeRunner } from '../src/marketdata/longbridge.js';
 import {
-  createLongbridgeProvider,
-  type LongbridgeRunner,
-} from '../src/marketdata/longbridge.js';
+  LongbridgeProtocolError,
+  LongbridgeResponseError,
+} from '../src/marketdata/longbridgeSocket.js';
 
 function runner(responses: Record<string, unknown>): LongbridgeRunner {
   const run = vi.fn(async (args: string[]) => {
@@ -121,10 +122,13 @@ describe('longbridgeProvider (CLI-backed)', () => {
         capital_out: { large: '4', medium: '5', small: '6' },
       },
     });
-    const provider = createLongbridgeProvider(run, () => transport);
+    const flowProvider = createLongbridgeProvider(run, () => transport);
 
-    await expect(provider.getFlow!('NVDA.US')).resolves.toEqual([{ time: '10:00', inflow: '12' }]);
-    await expect(provider.getCapitalDistribution!('NVDA.US')).resolves.toMatchObject({
+    await expect(flowProvider.getFlow!('NVDA.US')).resolves.toEqual([
+      { time: '10:00', inflow: '12' },
+    ]);
+    const distributionProvider = createLongbridgeProvider(run, () => transport);
+    await expect(distributionProvider.getCapitalDistribution!('NVDA.US')).resolves.toMatchObject({
       symbol: 'NVDA.US',
     });
   });
@@ -144,10 +148,71 @@ describe('longbridgeProvider (CLI-backed)', () => {
         { time: '2026-07-06T14:30:00.000Z', open: '1', high: '1', low: '1', close: '1', volume: 1 },
       ],
     });
+    const quoteProvider = createLongbridgeProvider(run, () => transport);
+
+    await expect(quoteProvider.getQuotes(['NVDA.US'])).resolves.toEqual(rows);
+    const klineProvider = createLongbridgeProvider(run, () => transport);
+    await expect(klineProvider.getKline('NVDA.US', '5m', 2)).resolves.toHaveLength(1);
+  });
+
+  it('allows only one CLI fallback probe per cooldown window', async () => {
+    const transport = {
+      queryQuotes: vi.fn().mockRejectedValue(new Error('socket down')),
+      queryCandlesticks: vi.fn().mockRejectedValue(new Error('socket down')),
+      queryCapitalFlow: vi.fn(),
+      queryCapitalDistribution: vi.fn(),
+      queryStaticNames: vi.fn(),
+    };
+    const rows = [{ symbol: 'NVDA.US', last: '110', prev_close: '100', change_percentage: '10' }];
+    const run = runner({ 'quote NVDA.US': rows });
     const provider = createLongbridgeProvider(run, () => transport);
 
     await expect(provider.getQuotes(['NVDA.US'])).resolves.toEqual(rows);
-    await expect(provider.getKline('NVDA.US', '5m', 2)).resolves.toHaveLength(1);
+    await expect(provider.getKline('NVDA.US', '5m', 2)).rejects.toMatchObject({
+      status: 503,
+      message: expect.stringContaining('CLI 兜底正在冷却'),
+    });
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not start the CLI for a WS business rejection or protocol error', async () => {
+    const responseError = new LongbridgeResponseError(19, 3, 301_600, 'Invalid request');
+    const transport = {
+      queryQuotes: vi.fn(),
+      queryCandlesticks: vi.fn().mockRejectedValue(responseError),
+      queryCapitalFlow: vi
+        .fn()
+        .mockRejectedValue(new LongbridgeProtocolError('capital flow', 'bad')),
+      queryCapitalDistribution: vi.fn(),
+      queryStaticNames: vi.fn(),
+    };
+    const run = vi.fn().mockRejectedValue(new Error('CLI should not run'));
+    const provider = createLongbridgeProvider(run as LongbridgeRunner, () => transport);
+
+    await expect(provider.getKline('NVDA.US', '5m', 2)).rejects.toBe(responseError);
+    await expect(provider.getFlow!('NVDA.US')).rejects.toBeInstanceOf(LongbridgeProtocolError);
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it('backs off after WS rate limiting without amplifying it through the CLI', async () => {
+    const rateLimit = new LongbridgeResponseError(19, 3, 301_606, 'Request rate limit');
+    const transport = {
+      queryQuotes: vi.fn(),
+      queryCandlesticks: vi.fn().mockRejectedValue(rateLimit),
+      queryCapitalFlow: vi.fn(),
+      queryCapitalDistribution: vi.fn(),
+      queryStaticNames: vi.fn(),
+    };
+    const run = vi.fn().mockRejectedValue(new Error('CLI should not run'));
+    const provider = createLongbridgeProvider(run as LongbridgeRunner, () => transport);
+
+    await expect(provider.getKline('NVDA.US', '5m', 2)).rejects.toBe(rateLimit);
+    await expect(provider.getKline('NVDA.US', '15m', 2)).rejects.toMatchObject({
+      status: 503,
+      message: expect.stringContaining('301606'),
+    });
+    expect(transport.queryCandlesticks).toHaveBeenCalledTimes(1);
+    expect(run).not.toHaveBeenCalled();
   });
 
   it('skips the CLI fallback when the WS auth is rejected for quota exhaustion', async () => {

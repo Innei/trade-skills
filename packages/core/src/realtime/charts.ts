@@ -192,22 +192,27 @@ function wireCandleState(key: string, symbol: string, state: CandleState): void 
   const stream = getStream(marketOf(symbol));
   for (const tf of TIMEFRAME_ORDER) {
     const period = TF_TO_CANDLE_PERIOD[tf];
-    const unsub = stream.subscribeCandlesticks(symbol, period, (bar) => {
-      const cur = candleStates.get(key);
-      if (!cur) return;
-      const bars = cur.timeframes[tf] ?? [];
-      const pushBar: PushBar = {
-        ts: bar.ts,
-        open: bar.open,
-        high: bar.high,
-        low: bar.low,
-        close: bar.close,
-        volume: bar.volume,
-      };
-      cur.timeframes[tf] = mergeCandleBar(bars, pushBar);
-      cur.lastPushAt = Date.now();
-      scheduleDebouncedRebuild(key);
-    });
+    const unsub = stream.subscribeCandlesticks(
+      symbol,
+      period,
+      (bar) => {
+        const cur = candleStates.get(key);
+        if (!cur) return;
+        const bars = cur.timeframes[tf] ?? [];
+        const pushBar: PushBar = {
+          ts: bar.ts,
+          open: bar.open,
+          high: bar.high,
+          low: bar.low,
+          close: bar.close,
+          volume: bar.volume,
+        };
+        cur.timeframes[tf] = mergeCandleBar(bars, pushBar);
+        cur.lastPushAt = Date.now();
+        scheduleDebouncedRebuild(key);
+      },
+      state.timeframes[tf]?.at(-1),
+    );
     state.unsubs.push(unsub);
   }
 }

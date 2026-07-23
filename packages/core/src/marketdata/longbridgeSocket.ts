@@ -17,6 +17,7 @@ import {
   decodeCandlestickResponse,
   decodeCapitalDistributionResponse,
   decodeCapitalFlowResponse,
+  decodeErrorDetail,
   decodePacket,
   decodeStaticNameResponse,
   decodePushQuote,
@@ -37,6 +38,10 @@ import {
 } from './longbridgeProtocol.js';
 
 const QUERY_TIMEOUT_MS = 10_000;
+const REQUEST_WINDOW_MS = 1_000;
+const MAX_REQUESTS_PER_WINDOW = 10;
+const MAX_CONCURRENT_REQUESTS = 5;
+const RATE_LIMIT_BACKOFF_MS = 1_000;
 
 interface SocketEvent {
   data?: unknown;
@@ -58,6 +63,12 @@ export interface LongbridgeSocketDeps {
   loadToken?: () => Promise<LongbridgeToken>;
   getOtp?: (token: LongbridgeToken) => Promise<string>;
   endpoint?: string;
+  requestLimits?: {
+    maxConcurrent?: number;
+    maxPerWindow?: number;
+    windowMs?: number;
+    rateLimitBackoffMs?: number;
+  };
 }
 
 type Pending = {
@@ -66,6 +77,47 @@ type Pending = {
   reject: (error: Error) => void;
   timer: ReturnType<typeof setTimeout>;
 };
+
+type QueuedRequest = {
+  command: number;
+  body: Uint8Array;
+  timeoutMs: number;
+  resolve: (body: Uint8Array) => void;
+  reject: (error: Error) => void;
+};
+
+export class LongbridgeResponseError extends Error {
+  constructor(
+    readonly command: number,
+    readonly status: number,
+    readonly code: number | null,
+    readonly detailMessage: string | null,
+  ) {
+    super(
+      [
+        `Longbridge response failed: command=${command} status=${status}`,
+        code ? `code=${code}` : '',
+        detailMessage ? `message=${detailMessage}` : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
+    );
+    this.name = 'LongbridgeResponseError';
+  }
+
+  get rateLimited(): boolean {
+    return this.code === 301606;
+  }
+}
+
+export class LongbridgeProtocolError extends Error {
+  constructor(label: string, cause: unknown) {
+    super(
+      `Longbridge ${label} response could not be decoded: ${cause instanceof Error ? cause.message : String(cause)}`,
+    );
+    this.name = 'LongbridgeProtocolError';
+  }
+}
 
 function defaultCreateSocket(url: string): WebSocketLike {
   return new WebSocket(url) as unknown as WebSocketLike;
@@ -110,6 +162,11 @@ export class LongbridgeQuoteSocket {
   private closedExplicitly = false;
   private reconnectAttempt = 0;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private requestQueue: QueuedRequest[] = [];
+  private activeRequests = 0;
+  private recentRequestStarts: number[] = [];
+  private requestQueueTimer: ReturnType<typeof setTimeout> | null = null;
+  private requestBlockedUntil = 0;
   private quoteListeners = new Set<(quote: ProtocolQuote) => void>();
   private tradeListeners = new Set<(trade: ProtocolTradePush) => void>();
   private desired = new Map<string, Set<number>>();
@@ -201,18 +258,90 @@ export class LongbridgeQuoteSocket {
   }
 
   private request(command: number, body: Uint8Array, timeoutMs = 30_000): Promise<Uint8Array> {
-    const socket = this.socket;
-    if (!socket || socket.readyState !== 1)
-      return Promise.reject(new Error('Longbridge WebSocket is not connected'));
-    const requestId = ++this.requestId;
     return new Promise((resolve, reject) => {
+      this.requestQueue.push({ command, body, timeoutMs, resolve, reject });
+      this.drainRequestQueue();
+    });
+  }
+
+  private requestLimits(): Required<NonNullable<LongbridgeSocketDeps['requestLimits']>> {
+    return {
+      maxConcurrent: this.deps.requestLimits?.maxConcurrent ?? MAX_CONCURRENT_REQUESTS,
+      maxPerWindow: this.deps.requestLimits?.maxPerWindow ?? MAX_REQUESTS_PER_WINDOW,
+      windowMs: this.deps.requestLimits?.windowMs ?? REQUEST_WINDOW_MS,
+      rateLimitBackoffMs: this.deps.requestLimits?.rateLimitBackoffMs ?? RATE_LIMIT_BACKOFF_MS,
+    };
+  }
+
+  private drainRequestQueue(): void {
+    if (this.requestQueueTimer) {
+      clearTimeout(this.requestQueueTimer);
+      this.requestQueueTimer = null;
+    }
+    const limits = this.requestLimits();
+    const now = Date.now();
+    this.recentRequestStarts = this.recentRequestStarts.filter(
+      (startedAt) => now - startedAt < limits.windowMs,
+    );
+
+    while (
+      this.requestQueue.length > 0 &&
+      this.activeRequests < limits.maxConcurrent &&
+      this.recentRequestStarts.length < limits.maxPerWindow &&
+      Date.now() >= this.requestBlockedUntil
+    ) {
+      const queued = this.requestQueue.shift()!;
+      this.dispatchRequest(queued);
+    }
+
+    if (!this.requestQueue.length || this.activeRequests >= limits.maxConcurrent) return;
+    const rateDelay =
+      this.recentRequestStarts.length >= limits.maxPerWindow
+        ? this.recentRequestStarts[0] + limits.windowMs - Date.now()
+        : 0;
+    const blockedDelay = this.requestBlockedUntil - Date.now();
+    const delay = Math.max(1, rateDelay, blockedDelay);
+    this.requestQueueTimer = setTimeout(() => {
+      this.requestQueueTimer = null;
+      this.drainRequestQueue();
+    }, delay);
+  }
+
+  private dispatchRequest(queued: QueuedRequest): void {
+    const socket = this.socket;
+    if (!socket || socket.readyState !== 1) {
+      queued.reject(new Error('Longbridge WebSocket is not connected'));
+      queueMicrotask(() => this.drainRequestQueue());
+      return;
+    }
+    const requestId = ++this.requestId;
+    this.activeRequests += 1;
+    this.recentRequestStarts.push(Date.now());
+    const settle = () => {
+      this.activeRequests = Math.max(0, this.activeRequests - 1);
+      this.drainRequestQueue();
+    };
+    const resolve = (responseBody: Uint8Array) => {
+      queued.resolve(responseBody);
+      settle();
+    };
+    const reject = (error: Error) => {
+      queued.reject(error);
+      settle();
+    };
+    try {
       const timer = setTimeout(() => {
         this.pending.delete(requestId);
-        reject(new Error(`Longbridge request timed out: ${command}`));
-      }, timeoutMs);
-      this.pending.set(requestId, { command, resolve, reject, timer });
-      socket.send(encodeRequest(command, requestId, timeoutMs, body));
-    });
+        reject(new Error(`Longbridge request timed out: ${queued.command}`));
+      }, queued.timeoutMs);
+      this.pending.set(requestId, { command: queued.command, resolve, reject, timer });
+      socket.send(encodeRequest(queued.command, requestId, queued.timeoutMs, queued.body));
+    } catch (error) {
+      const pending = this.pending.get(requestId);
+      if (pending) clearTimeout(pending.timer);
+      this.pending.delete(requestId);
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
   }
 
   private async handleMessage(data: unknown): Promise<void> {
@@ -224,12 +353,22 @@ export class LongbridgeQuoteSocket {
         clearTimeout(pending.timer);
         this.pending.delete(packet.requestId);
         if (packet.status === 0) pending.resolve(packet.body);
-        else
-          pending.reject(
-            new Error(
-              `Longbridge response failed: command=${packet.command} status=${packet.status}`,
-            ),
+        else {
+          const detail = decodeErrorDetail(packet.body);
+          const error = new LongbridgeResponseError(
+            packet.command,
+            packet.status,
+            detail?.code ?? null,
+            detail?.message || null,
           );
+          if (error.rateLimited) {
+            this.requestBlockedUntil = Math.max(
+              this.requestBlockedUntil,
+              Date.now() + this.requestLimits().rateLimitBackoffMs,
+            );
+          }
+          pending.reject(error);
+        }
         return;
       }
       if (packet.command === COMMAND_PUSH_QUOTE) {
@@ -254,6 +393,9 @@ export class LongbridgeQuoteSocket {
       pending.reject(error);
     }
     this.pending.clear();
+    for (const queued of this.requestQueue.splice(0)) queued.reject(error);
+    if (this.requestQueueTimer) clearTimeout(this.requestQueueTimer);
+    this.requestQueueTimer = null;
     if (!this.closedExplicitly && this.desired.size > 0) this.scheduleReconnect();
   }
 
@@ -273,7 +415,7 @@ export class LongbridgeQuoteSocket {
       encodeMultiSecurityRequest(symbols),
       QUERY_TIMEOUT_MS,
     );
-    return decodeSecurityQuoteResponse(body);
+    return this.decodeResponse('quote', body, decodeSecurityQuoteResponse);
   }
 
   async queryCandlesticks(
@@ -293,7 +435,7 @@ export class LongbridgeQuoteSocket {
       ),
       QUERY_TIMEOUT_MS,
     );
-    return decodeCandlestickResponse(body);
+    return this.decodeResponse('candlestick', body, decodeCandlestickResponse);
   }
 
   async queryStaticNames(symbols: string[]): Promise<Array<{ symbol: string; name: string }>> {
@@ -303,7 +445,7 @@ export class LongbridgeQuoteSocket {
       encodeMultiSecurityRequest(symbols),
       QUERY_TIMEOUT_MS,
     );
-    return decodeStaticNameResponse(body);
+    return this.decodeResponse('static', body, decodeStaticNameResponse);
   }
 
   async queryCapitalFlow(symbol: string): Promise<FlowRow[]> {
@@ -313,7 +455,7 @@ export class LongbridgeQuoteSocket {
       encodeMultiSecurityRequest([symbol]),
       QUERY_TIMEOUT_MS,
     );
-    return decodeCapitalFlowResponse(body);
+    return this.decodeResponse('capital flow', body, decodeCapitalFlowResponse);
   }
 
   async queryCapitalDistribution(symbol: string): Promise<RawCapitalDistribution> {
@@ -323,7 +465,15 @@ export class LongbridgeQuoteSocket {
       encodeMultiSecurityRequest([symbol]),
       QUERY_TIMEOUT_MS,
     );
-    return decodeCapitalDistributionResponse(body);
+    return this.decodeResponse('capital distribution', body, decodeCapitalDistributionResponse);
+  }
+
+  private decodeResponse<T>(label: string, body: Uint8Array, decode: (body: Uint8Array) => T): T {
+    try {
+      return decode(body);
+    } catch (error) {
+      throw new LongbridgeProtocolError(label, error);
+    }
   }
 
   async subscribe(symbols: string[], subTypes: number[]): Promise<void> {
@@ -369,6 +519,10 @@ export class LongbridgeQuoteSocket {
     this.closedExplicitly = true;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
+    if (this.requestQueueTimer) clearTimeout(this.requestQueueTimer);
+    this.requestQueueTimer = null;
+    const error = new Error('Longbridge WebSocket closed');
+    for (const queued of this.requestQueue.splice(0)) queued.reject(error);
     this.socket?.close();
     this.socket = null;
   }

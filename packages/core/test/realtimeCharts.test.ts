@@ -182,6 +182,29 @@ describe('subscribeChart candlestick-push wiring', () => {
     }
   });
 
+  it('passes each existing final bar into the live stream as its seed', async () => {
+    store.loadChart.mockResolvedValue(makeDoc({ id: `${TODAY}-nvda-intraday-seeds` }));
+    const unsub = await subscribeChart(`${TODAY}-nvda-intraday-seeds`, () => {});
+
+    for (const [period, timeframe] of [
+      ['5m', 'm5'],
+      ['15m', 'm15'],
+      ['60m', 'h1'],
+    ] as const) {
+      expect(longbridgeStream.subscribeCandlesticks).toHaveBeenCalledWith(
+        'NVDA.US',
+        period,
+        expect.any(Function),
+        expect.objectContaining({
+          time: (makeDoc().input.timeframes as Record<string, Array<{ time: string }>>)[
+            timeframe
+          ][0].time,
+        }),
+      );
+    }
+    unsub();
+  });
+
   it('does not wire candlestick subscriptions for non-intraday live types', async () => {
     store.loadChart.mockResolvedValue(makeDoc({ id: `${TODAY}-flow`, type: 'flow' }));
     build.refreshBody.mockReturnValue({ type: 'flow', symbol: 'NVDA.US' });
@@ -644,9 +667,9 @@ describe('subscribePreview', () => {
     await vi.advanceTimersByTimeAsync(1_500);
 
     expect(build.rebuild).toHaveBeenCalledTimes(1);
-    expect(events2.map((e) => JSON.parse(e)).some((e) => e.type === 'data' && e.data.built.pushed)).toBe(
-      true,
-    );
+    expect(
+      events2.map((e) => JSON.parse(e)).some((e) => e.type === 'data' && e.data.built.pushed),
+    ).toBe(true);
     unsub2();
   });
 

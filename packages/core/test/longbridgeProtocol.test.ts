@@ -5,6 +5,7 @@ import {
   decodeCandlestickResponse,
   decodeCapitalDistributionResponse,
   decodeCapitalFlowResponse,
+  decodeErrorDetail,
   decodeStaticNameResponse,
   decodePacket,
   decodePushQuote,
@@ -24,7 +25,14 @@ function str(field: number, value: string): number[] {
 }
 
 function num(field: number, value: number): number[] {
-  return [field << 3, value];
+  const encoded: number[] = [];
+  let current = value;
+  while (current >= 0x80) {
+    encoded.push((current & 0x7f) | 0x80);
+    current = Math.floor(current / 0x80);
+  }
+  encoded.push(current);
+  return [field << 3, ...encoded];
 }
 
 function msg(field: number, body: number[]): number[] {
@@ -60,6 +68,14 @@ describe('Longbridge realtime protocol', () => {
       ),
     );
     expect(push).toEqual({ type: 'push', command: 101, body: bytes(1, 2, 3) });
+  });
+
+  it('decodes the business error carried by a failed response', () => {
+    expect(decodeErrorDetail(bytes(...num(1, 301_606), ...str(2, 'Request rate limit')))).toEqual({
+      code: 301_606,
+      message: 'Request rate limit',
+    });
+    expect(decodeErrorDetail(bytes())).toBeNull();
   });
 
   it('encodes subscription symbols and enum values', () => {

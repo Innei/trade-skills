@@ -1,8 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import {
-  LongbridgeQuoteSocket,
-  type WebSocketLike,
-} from '../src/marketdata/longbridgeSocket.js';
+import { LongbridgeQuoteSocket, type WebSocketLike } from '../src/marketdata/longbridgeSocket.js';
 
 type Listener = (event: { data?: unknown }) => void;
 
@@ -12,7 +9,14 @@ function str(field: number, value: string): number[] {
 }
 
 function num(field: number, value: number): number[] {
-  return [field << 3, value];
+  const encoded: number[] = [];
+  let current = value;
+  while (current >= 0x80) {
+    encoded.push((current & 0x7f) | 0x80);
+    current = Math.floor(current / 0x80);
+  }
+  encoded.push(current);
+  return [field << 3, ...encoded];
 }
 
 function response(command: number, requestId: number, body: number[] = [], status = 0): Uint8Array {
@@ -48,6 +52,9 @@ class FakeSocket implements WebSocketLike {
   }
 
   replies = new Map<number, number[]>();
+  statuses = new Map<number, number>();
+  deferredCommands = new Set<number>();
+  deferredRequests: Array<{ command: number; requestId: number }> = [];
   authStatus = 0;
 
   send(data: Uint8Array): void {
@@ -62,7 +69,29 @@ class FakeSocket implements WebSocketLike {
     }
     const body =
       command === 2 ? [...str(1, 'session'), ...num(2, 120)] : (this.replies.get(command) ?? []);
-    queueMicrotask(() => this.emit('message', { data: response(command, requestId, body) }));
+    if (this.deferredCommands.has(command)) {
+      this.deferredRequests.push({ command, requestId });
+      return;
+    }
+    queueMicrotask(() =>
+      this.emit('message', {
+        data: response(command, requestId, body, this.statuses.get(command) ?? 0),
+      }),
+    );
+  }
+
+  replyDeferred(index = 0): void {
+    const request = this.deferredRequests.splice(index, 1)[0];
+    if (!request) throw new Error('No deferred request');
+    const body = this.replies.get(request.command) ?? [];
+    this.emit('message', {
+      data: response(
+        request.command,
+        request.requestId,
+        body,
+        this.statuses.get(request.command) ?? 0,
+      ),
+    });
   }
 
   close(): void {
@@ -183,5 +212,117 @@ describe('LongbridgeQuoteSocket', () => {
 
     await expect(socket.queryQuotes(['SMH.US'])).rejects.toThrow('command=2 status=5');
     expect(fake.readyState).toBe(3);
+  });
+
+  it('reports the business error code and message from a rejected response', async () => {
+    const fake = new FakeSocket();
+    fake.statuses.set(19, 3);
+    fake.replies.set(19, [...num(1, 301_606), ...str(2, 'Request rate limit')]);
+    const socket = new LongbridgeQuoteSocket({
+      createSocket: () => {
+        queueMicrotask(() => {
+          fake.readyState = 1;
+          fake.emit('open');
+        });
+        return fake;
+      },
+      loadToken: async () => ({
+        clientId: 'client',
+        accessToken: 'token',
+        refreshToken: null,
+        expiresAt: 4_102_444_800,
+        dcRegion: 'us',
+      }),
+      getOtp: async () => 'socket-otp',
+      endpoint: 'wss://example.test/v2',
+    });
+
+    await expect(socket.queryCandlesticks('SMH.US', '5m', 2, 'all')).rejects.toMatchObject({
+      command: 19,
+      status: 3,
+      code: 301_606,
+      detailMessage: 'Request rate limit',
+      rateLimited: true,
+    });
+    socket.close();
+  });
+
+  it('queues requests above the concurrent request ceiling', async () => {
+    const fake = new FakeSocket();
+    fake.deferredCommands.add(11);
+    const socket = new LongbridgeQuoteSocket({
+      createSocket: () => {
+        queueMicrotask(() => {
+          fake.readyState = 1;
+          fake.emit('open');
+        });
+        return fake;
+      },
+      loadToken: async () => ({
+        clientId: 'client',
+        accessToken: 'token',
+        refreshToken: null,
+        expiresAt: 4_102_444_800,
+        dcRegion: 'us',
+      }),
+      getOtp: async () => 'socket-otp',
+      endpoint: 'wss://example.test/v2',
+      requestLimits: { maxConcurrent: 2, maxPerWindow: 100 },
+    });
+
+    const requests = [
+      socket.queryQuotes(['A.US']),
+      socket.queryQuotes(['B.US']),
+      socket.queryQuotes(['C.US']),
+    ];
+    await vi.waitFor(() => expect(fake.deferredRequests).toHaveLength(2));
+    fake.replyDeferred();
+    await vi.waitFor(() => expect(fake.deferredRequests).toHaveLength(2));
+    fake.replyDeferred();
+    fake.replyDeferred();
+    await expect(Promise.all(requests)).resolves.toEqual([[], [], []]);
+    socket.close();
+  });
+
+  it('holds requests until the rolling rate window has capacity', async () => {
+    vi.useFakeTimers();
+    try {
+      const fake = new FakeSocket();
+      const socket = new LongbridgeQuoteSocket({
+        createSocket: () => {
+          queueMicrotask(() => {
+            fake.readyState = 1;
+            fake.emit('open');
+          });
+          return fake;
+        },
+        loadToken: async () => ({
+          clientId: 'client',
+          accessToken: 'token',
+          refreshToken: null,
+          expiresAt: 4_102_444_800,
+          dcRegion: 'us',
+        }),
+        getOtp: async () => 'socket-otp',
+        endpoint: 'wss://example.test/v2',
+        requestLimits: { maxConcurrent: 5, maxPerWindow: 3, windowMs: 1_000 },
+      });
+      await socket.connect();
+
+      const requests = [
+        socket.queryQuotes(['A.US']),
+        socket.queryQuotes(['B.US']),
+        socket.queryQuotes(['C.US']),
+      ];
+      await vi.advanceTimersByTimeAsync(0);
+      expect(fake.sent.filter((packet) => packet[1] === 11)).toHaveLength(2);
+
+      await vi.advanceTimersByTimeAsync(1_000);
+      await expect(Promise.all(requests)).resolves.toEqual([[], [], []]);
+      expect(fake.sent.filter((packet) => packet[1] === 11)).toHaveLength(3);
+      socket.close();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
