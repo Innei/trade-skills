@@ -9,7 +9,7 @@ import type {
 import { fmt, signed } from '@web/lib/format';
 import { Badge, Card, Dot, Empty, MarketTime, Num } from '@web/ui';
 import { directionTone } from '@web/features/charts/intraday/directionLabels';
-import { fmtFlow, flowTone } from './flowFormat';
+import { fmtFlow, fmtFlowLabeled, flowTone } from './flowFormat';
 import { INDEX_SYMBOLS } from './HomeTopStrip';
 import { FollowToggle, ReassessButton } from './SymbolActions';
 
@@ -135,7 +135,7 @@ function GridCard({ entry }: { entry: GridEntry }) {
         )}
       </div>
       <div className="symbol-card-levels">
-        <span className={flowTone(flow)}>净流入 {fmtFlow(flow)}</span>
+        <span className={flowTone(flow)}>{fmtFlowLabeled(flow)}</span>
         {row && <span>止损 {pctCell(row.stop_distance_pct)}</span>}
         {row && <span>目标1 {pctCell(row.target1_distance_pct)}</span>}
         {row && <ReassessButton symbol={symbol} />}

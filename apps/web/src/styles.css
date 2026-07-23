@@ -1206,6 +1206,9 @@ a.zone-item:hover {
   padding: 7px 8px;
   border-left: 2px solid var(--accent);
 }
+.note-block + .grid2 {
+  margin-top: 6px;
+}
 .plan-explain {
   margin-top: 8px;
 }
