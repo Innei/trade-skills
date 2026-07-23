@@ -21,7 +21,9 @@ import type { SidebarTab } from '@web/features/charts/SidebarTabs';
 import { TopbarQuote } from '@web/features/quotes/QuoteBar';
 import { Dot, Empty, ErrorBox } from '@web/ui';
 import { useTitle } from '@web/lib/useTitle';
+import { AnalystRunFeed } from './AnalystRunFeed';
 import { AnalysisTimeline } from './AnalysisTimeline';
+import { useAnalystRunLastEnded, useAnalystRunStatus } from './analystRunsStore';
 import { CockpitSkeleton } from './CockpitSkeleton';
 import { GenerateAnalysis } from './GenerateAnalysis';
 import { GenerateAnalysisCta } from './GenerateAnalysisCta';
@@ -69,6 +71,8 @@ export function PreviewCockpit({
   const { comments, error: commentsError, loaded: commentsLoaded } = useCockpitComments(sym);
   const { unread } = useAiUnreadBadge(sym, comments, commentsLoaded, activeTab);
   const viewTimeframe = useViewTimeframe(sym, intradayTf ?? 'm15', { live: true, liveQuote });
+  const analystRunStatus = useAnalystRunStatus(sym);
+  const analystRunLastEnded = useAnalystRunLastEnded(sym);
 
   if (error) {
     return (
@@ -101,6 +105,13 @@ export function PreviewCockpit({
             predictionUpdatedAt={predictionUpdatedAt}
             predictionStale={predictionStale}
           />
+          <GenerateAnalysis sym={sym} />
+        </>
+      ) : analystRunStatus ? (
+        <AnalystRunFeed sym={sym} />
+      ) : analystRunLastEnded ? (
+        <>
+          <AnalystRunFeed sym={sym} />
           <GenerateAnalysis sym={sym} />
         </>
       ) : analysesRows.length > 0 ? (

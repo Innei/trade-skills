@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import type { IntradayBuilt, SymbolAnalysisRow } from '@kansoku/shared/types';
+import type { AnalystRunLastEnded, RunningReassessStatus } from './analystRunsStore';
 
 let previewState: {
   built: IntradayBuilt | null;
@@ -14,8 +15,18 @@ let previewState: {
   predictionStale: boolean | undefined;
 };
 
+let analystRunStatus: RunningReassessStatus | null = null;
+let analystRunLastEnded: AnalystRunLastEnded | null = null;
+
 vi.mock('@web/features/charts/intraday/useIntradayPreview', () => ({
   useIntradayPreview: () => previewState,
+}));
+vi.mock('./analystRunsStore', () => ({
+  useAnalystRunStatus: () => analystRunStatus,
+  useAnalystRunLastEnded: () => analystRunLastEnded,
+}));
+vi.mock('./AnalystRunFeed', () => ({
+  AnalystRunFeed: () => <div data-testid="analyst-run-feed" />,
 }));
 vi.mock('@web/features/charts/intraday/useIntradayDoc', () => ({
   resolveIntradayTf: () => 'm5',
@@ -66,6 +77,8 @@ const { PreviewCockpit } = await import('./PreviewCockpit');
 
 afterEach(() => {
   cleanup();
+  analystRunStatus = null;
+  analystRunLastEnded = null;
 });
 
 const baseBuilt = {
@@ -179,6 +192,70 @@ describe('PreviewCockpit prediction tab', () => {
     );
 
     expect(screen.getByText('短线方向判断')).toBeTruthy();
+    expect(screen.getByTestId('generate-analysis')).toBeTruthy();
+  });
+
+  it('renders AnalystRunFeed instead of the CTA when a run is active for the symbol', () => {
+    previewState = {
+      built: baseBuilt,
+      error: null,
+      degraded: false,
+      intradayTf: null,
+      setIntradayTf: () => {},
+      predictionUpdatedAt: undefined,
+      predictionStale: undefined,
+    };
+    analystRunStatus = {
+      running: true,
+      origin: 'manual',
+      phase: 'researching',
+      activity: '正在读取五分钟K线数据',
+      startedAt: '2026-07-21T09:00:00Z',
+      updatedAt: '2026-07-21T09:00:00Z',
+    };
+
+    render(
+      <PreviewCockpit
+        sym="MRVL.US"
+        analysesRows={[]}
+        onLive={() => {}}
+        onSelectAnalysis={() => {}}
+        liveQuote={null}
+      />,
+    );
+
+    expect(screen.getByTestId('analyst-run-feed')).toBeTruthy();
+    expect(screen.queryByTestId('generate-analysis')).toBeNull();
+    expect(screen.queryByText('还没有 AI 分析')).toBeNull();
+  });
+
+  it('renders AnalystRunFeed plus a retry entry point when a lastEnded snapshot exists and no run is active', () => {
+    previewState = {
+      built: baseBuilt,
+      error: null,
+      degraded: false,
+      intradayTf: null,
+      setIntradayTf: () => {},
+      predictionUpdatedAt: undefined,
+      predictionStale: undefined,
+    };
+    analystRunLastEnded = {
+      activities: [{ at: '2026-07-21T09:05:00Z', text: '开始收集资料' }],
+      sections: {},
+      endedAt: '2026-07-21T09:06:00Z',
+    };
+
+    render(
+      <PreviewCockpit
+        sym="MRVL.US"
+        analysesRows={[]}
+        onLive={() => {}}
+        onSelectAnalysis={() => {}}
+        liveQuote={null}
+      />,
+    );
+
+    expect(screen.getByTestId('analyst-run-feed')).toBeTruthy();
     expect(screen.getByTestId('generate-analysis')).toBeTruthy();
   });
 });
