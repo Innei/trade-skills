@@ -64,6 +64,37 @@ describe('comments storage', () => {
     expect('chartId' in bare).toBe(false);
   });
 
+  it('round-trips read/stance/stanceNote and drops absent ones', async () => {
+    await appendComment(
+      comment({
+        symbol: 'JDG.US',
+        text: '价格 577.1，进入支撑区，量能 3.4 倍。',
+        read: '第一次放量触区间，反抽概率存在。',
+        stance: 'wait_confirm',
+        stanceNote: '等一根 5 分钟收回 577.5 上方。',
+      }),
+    );
+    await appendComment(comment({ symbol: 'JDG.US', text: '旧式点评' }));
+    const [full, bare] = await listComments('JDG.US', '2026-07-02');
+    expect(full.text).toBe('价格 577.1，进入支撑区，量能 3.4 倍。');
+    expect(full.read).toBe('第一次放量触区间，反抽概率存在。');
+    expect(full.stance).toBe('wait_confirm');
+    expect(full.stanceNote).toBe('等一根 5 分钟收回 577.5 上方。');
+    expect('read' in bare).toBe(false);
+    expect('stance' in bare).toBe(false);
+    expect('stanceNote' in bare).toBe(false);
+  });
+
+  it('stores stance without a stanceNote', async () => {
+    await appendComment(
+      comment({ symbol: 'JDG2.US', read: '收盘确认跌破且带量。', stance: 'act_per_plan' }),
+    );
+    const [row] = await listComments('JDG2.US', '2026-07-02');
+    expect(row.read).toBe('收盘确认跌破且带量。');
+    expect(row.stance).toBe('act_per_plan');
+    expect('stanceNote' in row).toBe(false);
+  });
+
   it('lands every comment under concurrent appends for one symbol', async () => {
     const texts = Array.from({ length: 8 }, (_, i) => `c${i}`);
     await Promise.all(texts.map((text) => appendComment(comment({ symbol: 'SMH.US', text }))));

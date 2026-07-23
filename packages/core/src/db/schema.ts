@@ -23,6 +23,9 @@ export const comments = sqliteTable(
     source: text('source').notNull(),
     escalated: integer('escalated', { mode: 'boolean' }),
     chartId: text('chart_id'),
+    read: text('read'),
+    stance: text('stance'),
+    stanceNote: text('stance_note'),
   },
   (t) => [index('comments_symbol_date').on(t.symbol, t.easternDate)],
 );

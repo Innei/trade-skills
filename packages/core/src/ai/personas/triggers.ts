@@ -1,5 +1,13 @@
 export type TriggerKind =
-  'macd_cross' | 'level_break' | 'flow_flip' | 'volume_spike' | 'zone_break' | 'day_level_break';
+  | 'macd_cross'
+  | 'level_break'
+  | 'flow_flip'
+  | 'volume_spike'
+  | 'zone_break'
+  | 'day_level_break'
+  | 'open_read'
+  | 'close_read'
+  | 'macro_react';
 
 export interface Trigger {
   kind: TriggerKind;

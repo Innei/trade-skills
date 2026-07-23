@@ -56,6 +56,13 @@
       "when": 1784036000000,
       "tag": "0007_watched_markets",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1784037000000,
+      "tag": "0008_judgment_comments",
+      "breakpoints": true
     }
   ],
   "version": "7"

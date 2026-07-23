@@ -5,6 +5,7 @@ import { assistantChatTurnState, onAssistantChatEvent } from '../ai/assistant/as
 import { type ChatEvent, chatTurnState, onChatEvent } from '../ai/chat/chat.js';
 import { listComments, onAnyComment, onComment } from '../ai/personas/comments.js';
 import { onAnyNotice } from '../ai/personas/notices.js';
+import { onAnyFollowTick } from '../ai/personas/followTicks.js';
 import { easternDate } from '../marketdata/session.js';
 import { normalizeSymbol } from '../symbols/symbol.utils.js';
 
@@ -34,9 +35,13 @@ function attachNotifications(push: (envelope: string) => void): () => void {
     push(JSON.stringify({ type: 'comment', comment })),
   );
   const unsubNotice = onAnyNotice((notice) => push(JSON.stringify({ type: 'notice', notice })));
+  const unsubFollowTick = onAnyFollowTick((tick) =>
+    push(JSON.stringify({ type: 'follow_tick', tick })),
+  );
   return () => {
     unsubComment();
     unsubNotice();
+    unsubFollowTick();
   };
 }
 

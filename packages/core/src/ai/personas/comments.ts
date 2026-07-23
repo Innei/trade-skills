@@ -1,5 +1,10 @@
 import { and, asc, desc, eq } from 'drizzle-orm';
-import type { CockpitComment, CommentLevel, CommentSource } from '@kansoku/shared/types';
+import type {
+  CockpitComment,
+  CommentLevel,
+  CommentSource,
+  CommentStance,
+} from '@kansoku/shared/types';
 import { getDb, type Db } from '../../db/index.js';
 import { comments } from '../../db/schema.js';
 import { nextSnowflake } from '../../db/snowflake.js';
@@ -51,6 +56,9 @@ function toComment(row: typeof comments.$inferSelect): CockpitComment {
     source: row.source as CommentSource,
     ...(row.escalated != null ? { escalated: row.escalated } : {}),
     ...(row.chartId != null ? { chartId: row.chartId } : {}),
+    ...(row.read != null ? { read: row.read } : {}),
+    ...(row.stance != null ? { stance: row.stance as CommentStance } : {}),
+    ...(row.stanceNote != null ? { stanceNote: row.stanceNote } : {}),
   };
 }
 
@@ -124,6 +132,9 @@ export async function appendComment(comment: CockpitComment, db: Db = getDb()): 
     source: comment.source,
     escalated: comment.escalated ?? null,
     chartId: comment.chartId ?? null,
+    read: comment.read ?? null,
+    stance: comment.stance ?? null,
+    stanceNote: comment.stanceNote ?? null,
   });
   broadcast(comment);
 }

@@ -19,6 +19,9 @@ const MAX_PROMPT_CHARS = 24_000;
 // prefix cost does not outgrow the cache savings.
 const SESSION_MAX_RUNS = 40;
 const SESSION_MAX_SENT_CHARS = 120_000;
+// After this quiet gap the incremental update is too thin to stand on the cached
+// transcript alone, so we resend the full pack even though the session is reused.
+const LONG_GAP_MS = 30 * 60 * 1000;
 
 // Observer, not judge: it narrates observable change on a scheduler tick. It gets the compact
 // observer contract, not the full shared discipline — the GAAP trap and QoQ rules are pure cost
@@ -47,6 +50,7 @@ interface CommentatorSession {
   runCount: number;
   sentChars: number;
   lastBarTime: string | null;
+  lastRunAt: number;
 }
 
 const commentatorRunLock = createRunLock();
@@ -67,7 +71,14 @@ function triggerText(trigger: Trigger): string {
 
 const submitSchema = Type.Object({
   level: Type.Union([Type.Literal('info'), Type.Literal('warn'), Type.Literal('alert')]),
-  text: Type.String({ description: 'Plain-language commentary, at most two sentences.' }),
+  fact: Type.String({ description: 'What happened, in 中文白话, with concrete numbers.' }),
+  read: Type.String({ description: 'How to read it; every claim cites checkable evidence.' }),
+  stance: Type.Union([
+    Type.Literal('act_per_plan'),
+    Type.Literal('wait_confirm'),
+    Type.Literal('no_action'),
+  ]),
+  stanceNote: Type.Optional(Type.String({ description: 'One sentence naming the next condition.' })),
   escalate: Type.Boolean(),
 });
 
@@ -93,7 +104,10 @@ function buildSubmitTool(
         ts: new Date().toISOString(),
         symbol,
         level: params.level,
-        text: params.text,
+        text: params.fact,
+        read: params.read,
+        stance: params.stance,
+        ...(params.stanceNote != null ? { stanceNote: params.stanceNote } : {}),
         trigger,
         source: 'commentator',
         escalated: params.escalate,
@@ -156,14 +170,20 @@ export async function runCommentator({
       () => session?.agentSession.isDone() ?? false,
     );
 
-    const today = easternDate(now());
+    const runAt = now();
+    const today = easternDate(runAt);
+    const nowMs = runAt.getTime();
     const key = modelKey(deps.model);
     session = getValidSession(symbol, today, key);
     let promptText: string;
     if (session) {
       session.agentSession.agent.setTools?.([tool]);
-      const update = buildCommentUpdate(pack, session.lastBarTime);
-      promptText = JSON.stringify({ update, trigger }).slice(0, MAX_PROMPT_CHARS);
+      if (nowMs - session.lastRunAt > LONG_GAP_MS) {
+        promptText = JSON.stringify({ pack, trigger }).slice(0, MAX_PROMPT_CHARS);
+      } else {
+        const update = buildCommentUpdate(pack, session.lastBarTime);
+        promptText = JSON.stringify({ update, trigger }).slice(0, MAX_PROMPT_CHARS);
+      }
     } else {
       const messageEngine = new MessagesEngine([]);
       const agentSession = createAgentSession({
@@ -182,6 +202,7 @@ export async function runCommentator({
         runCount: 0,
         sentChars: 0,
         lastBarTime: null,
+        lastRunAt: nowMs,
       };
       sessions.set(symbol, session);
       promptText = JSON.stringify({ pack, trigger }).slice(0, MAX_PROMPT_CHARS);
@@ -207,6 +228,7 @@ export async function runCommentator({
     session.runCount += 1;
     session.sentChars += sentChars;
     session.lastBarTime = lastBarTimeOf(pack) ?? session.lastBarTime;
+    session.lastRunAt = nowMs;
     if (session.runCount >= SESSION_MAX_RUNS || session.sentChars >= SESSION_MAX_SENT_CHARS) {
       sessions.delete(symbol);
     }

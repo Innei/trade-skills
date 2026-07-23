@@ -925,6 +925,7 @@ export interface OverviewRecap {
 
 export type CommentLevel = 'info' | 'warn' | 'alert' | 'error';
 export type CommentSource = 'commentator' | 'analyst' | 'system';
+export type CommentStance = 'act_per_plan' | 'wait_confirm' | 'no_action';
 
 export interface CockpitComment {
   ts: string;
@@ -935,6 +936,9 @@ export interface CockpitComment {
   source: CommentSource;
   escalated?: boolean;
   chartId?: string;
+  read?: string;
+  stance?: CommentStance;
+  stanceNote?: string;
 }
 
 export type NoticeKind = 'analysis_done' | 'deep_dive_done' | 'deep_dive_failed';
@@ -944,6 +948,11 @@ export interface Notice {
   kind: NoticeKind;
   title: string;
   body: string;
+  at: string;
+}
+
+export interface FollowTick {
+  symbol: string;
   at: string;
 }
 
