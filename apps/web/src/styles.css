@@ -5146,6 +5146,29 @@ a.zone-item:hover {
   margin-top: 4px;
 }
 
+.create-research-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 360px;
+}
+.create-research-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+}
+.create-research-symbol-input {
+  text-transform: uppercase;
+}
+.create-research-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .desktop-hub-status {
   display: inline-flex;
   align-items: center;
@@ -6184,6 +6207,37 @@ a.zone-item:hover {
   color: var(--text-primary);
   border-color: var(--border-strong);
   background: var(--bg-hover);
+}
+.research-new {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.research-new:hover {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+.research-create-hint {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  width: fit-content;
+  margin: 14px auto 0;
+  padding: 6px 12px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-radius: var(--radius-full);
+  font-size: var(--fs-sm);
 }
 .research-workspace {
   flex: 1 1 auto;
