@@ -1,6 +1,5 @@
 import { ArrowLeft } from 'lucide-react';
 import type { QuoteCell, SepaBuilt } from '@kansoku/shared/types';
-import { PopoutButton } from '@web/features/cockpit/PopoutButton';
 import { useSepaRefresh } from '@web/features/cockpit/useSepaRefresh';
 import { TopbarQuote } from '@web/features/quotes/QuoteBar';
 import { Button, Spinner } from '@web/ui';
@@ -48,7 +47,6 @@ export function SepaCockpit({
               更新数据
             </Button>
           )}
-          <PopoutButton sym={sym} />
           {doc.symbol && <TopbarQuote quote={liveQuote} />}
         </span>
       </div>

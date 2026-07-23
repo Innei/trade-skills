@@ -15,7 +15,7 @@ import {
 import { type TimeDisplayPreference, useTimeDisplayPreference } from '../lib/timeDisplayPreference';
 import { Tooltip } from './Tooltip';
 
-type MarketTimeFormat = 'clock' | 'date-time' | 'month-day-time';
+type MarketTimeFormat = 'clock' | 'clock-seconds' | 'date-time' | 'month-day-time';
 
 interface MarketTimePresentation {
   label: string;
@@ -45,6 +45,8 @@ function formatTime(
   market: Market,
 ): string {
   if (format === 'clock') return formatMarketClock(value, includeZone ?? false, market);
+  if (format === 'clock-seconds')
+    return formatMarketClock(value, includeZone ?? false, market, true);
   if (format === 'month-day-time')
     return formatMarketMonthDayTime(value, includeZone ?? false, market);
   return formatMarketDateTime(value, includeZone ?? true, market);
@@ -57,6 +59,8 @@ function formatLocalTime(
   includeZone?: boolean,
 ): string {
   if (format === 'clock') return formatClockInZone(value, timeZone, includeZone ?? false);
+  if (format === 'clock-seconds')
+    return formatClockInZone(value, timeZone, includeZone ?? false, true);
   if (format === 'month-day-time')
     return formatMonthDayTimeInZone(value, timeZone, includeZone ?? false);
   return formatDateTimeInZone(value, timeZone, includeZone ?? true);

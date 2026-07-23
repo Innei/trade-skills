@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   Library,
   MessageCircle,
+  PictureInPicture2,
   ScrollText,
   Settings,
   TrendingUp,
@@ -83,6 +84,27 @@ function HubStatusDot() {
         <Dot tone={meta.tone} pulse={meta.pulse} aria-label={meta.label} role="status" />
       </span>
     </Tooltip>
+  );
+}
+
+function PopoutTitlebarButton({ symbol }: { symbol: string }) {
+  const bridge = getPopoutBridge();
+  if (!bridge) return null;
+
+  return (
+    <button
+      className="desktop-titlebar-settings"
+      type="button"
+      aria-label="弹出盯盘小窗"
+      title="弹出盯盘小窗"
+      onClick={() => {
+        void bridge.openPopout(symbol);
+      }}
+    >
+      <span className="desktop-titlebar-action-visual">
+        <PictureInPicture2 size={14} />
+      </span>
+    </button>
   );
 }
 
@@ -179,6 +201,7 @@ export function DesktopTitlebar({ controller }: { controller: TabsController }) 
   } = controller;
   const updaterStatus = useUpdaterStatus();
   const showUpdateBadge = isAvailableStatus(updaterStatus);
+  const activeSymbol = symbolFromRoute(controller.activeTab.route);
 
   const openTabMenu = (tab: TabState, index: number) => {
     const tabId = tab.id;
@@ -285,6 +308,7 @@ export function DesktopTitlebar({ controller }: { controller: TabsController }) 
             <ArrowUpCircle size={16} />
           </button>
         )}
+        {activeSymbol && <PopoutTitlebarButton symbol={activeSymbol} />}
         <button
           className={`desktop-titlebar-settings${tabKind(controller.activeTab.route) === 'settings' ? ' desktop-titlebar-settings--active' : ''}`}
           type="button"

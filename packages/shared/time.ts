@@ -26,6 +26,7 @@ interface FormatParts {
   day: string;
   hour: string;
   minute: string;
+  second: string;
   timeZoneName?: string;
 }
 
@@ -52,10 +53,14 @@ function toDate(input: TimeInput): Date {
   return new Date(input);
 }
 
-function formatterFor(timeZone: string, includeZoneName: boolean): Intl.DateTimeFormat {
-  if (timeZone === MARKET_TIME_ZONE && !includeZoneName) return dateTimeFormatter;
+function formatterFor(
+  timeZone: string,
+  includeZoneName: boolean,
+  includeSeconds = false,
+): Intl.DateTimeFormat {
+  if (timeZone === MARKET_TIME_ZONE && !includeZoneName && !includeSeconds) return dateTimeFormatter;
 
-  const key = `${timeZone}:${includeZoneName ? 'zone' : 'plain'}`;
+  const key = `${timeZone}:${includeZoneName ? 'zone' : 'plain'}:${includeSeconds ? 's' : 'm'}`;
   const cached = zonedFormatterCache.get(key);
   if (cached) return cached;
 
@@ -67,6 +72,7 @@ function formatterFor(timeZone: string, includeZoneName: boolean): Intl.DateTime
     hour: '2-digit',
     minute: '2-digit',
     hourCycle: 'h23',
+    ...(includeSeconds ? { second: '2-digit' as const } : {}),
     ...(includeZoneName ? { timeZoneName: 'short' } : {}),
   });
   zonedFormatterCache.set(key, formatter);
@@ -77,9 +83,10 @@ function parts(
   input: TimeInput,
   timeZone = MARKET_TIME_ZONE,
   includeZoneName = false,
+  includeSeconds = false,
 ): FormatParts {
   const p = Object.fromEntries(
-    formatterFor(timeZone, includeZoneName)
+    formatterFor(timeZone, includeZoneName, includeSeconds)
       .formatToParts(toDate(input))
       .map((part) => [part.type, part.value]),
   );
@@ -89,6 +96,7 @@ function parts(
     day: String(p.day ?? ''),
     hour: String(p.hour ?? ''),
     minute: String(p.minute ?? ''),
+    second: String(p.second ?? ''),
     timeZoneName: typeof p.timeZoneName === 'string' ? p.timeZoneName : undefined,
   };
 }
@@ -127,9 +135,15 @@ export function formatMonthDayTimeInZone(
   return `${p.month}-${p.day} ${p.hour}:${p.minute}${includeZone && p.timeZoneName ? ` ${p.timeZoneName}` : ''}`;
 }
 
-export function formatClockInZone(input: TimeInput, timeZone: string, includeZone = false): string {
-  const p = parts(input, timeZone, includeZone);
-  return `${p.hour}:${p.minute}${includeZone && p.timeZoneName ? ` ${p.timeZoneName}` : ''}`;
+export function formatClockInZone(
+  input: TimeInput,
+  timeZone: string,
+  includeZone = false,
+  includeSeconds = false,
+): string {
+  const p = parts(input, timeZone, includeZone, includeSeconds);
+  const clock = includeSeconds ? `${p.hour}:${p.minute}:${p.second}` : `${p.hour}:${p.minute}`;
+  return `${clock}${includeZone && p.timeZoneName ? ` ${p.timeZoneName}` : ''}`;
 }
 
 export function shouldShowLocalTime(
@@ -181,9 +195,11 @@ export function formatMarketClock(
   input: TimeInput,
   includeZone = false,
   market: Market = 'US',
+  includeSeconds = false,
 ): string {
-  const p = parts(input, marketTimeZone(market));
-  return `${p.hour}:${p.minute}${includeZone ? ` ${MARKET_ZONE_SUFFIX[market]}` : ''}`;
+  const p = parts(input, marketTimeZone(market), false, includeSeconds);
+  const clock = includeSeconds ? `${p.hour}:${p.minute}:${p.second}` : `${p.hour}:${p.minute}`;
+  return `${clock}${includeZone ? ` ${MARKET_ZONE_SUFFIX[market]}` : ''}`;
 }
 
 export function formatMarketTick(input: TimeInput, tickMarkType: number): string {
