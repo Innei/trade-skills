@@ -2595,6 +2595,31 @@ a.zone-item:hover {
 .ai-meta .sep {
   color: var(--border-strong);
 }
+.ai-item .ai-fact {
+  margin: 0;
+}
+.ai-item .ai-read,
+.ai-item .ai-stance {
+  margin: 4px 0 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.ai-item .ai-read {
+  color: var(--text-secondary);
+}
+.stance-badge {
+  margin-right: 6px;
+  vertical-align: 1px;
+}
+.ai-item--explainer .ai-explainer-card {
+  margin-top: 4px;
+}
+.ai-alive-line {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin: 6px 0;
+}
 .ai-fold {
   padding: 7px 2px 7px 48px;
   font-size: var(--fs-sm);

@@ -4,66 +4,14 @@ import { marketDate } from '@kansoku/shared/time';
 import { useQuery } from '@web/lib/apiHooks';
 import { client } from '@web/lib/client';
 import { marketOfSymbol } from '@web/lib/market';
-import { Badge, Button, MarketTime, Select, Spinner } from '@web/ui';
+import { Button, MarketTime, Select, Spinner } from '@web/ui';
+import { AliveLine } from './AliveLine';
 import { AnalysisRunDetails } from './AnalysisRunDetails';
 import { buildFeed, type FeedRow } from './aiFeed';
+import { CommentEntry } from './CommentEntry';
+import { ExplainAction } from './ExplainAction';
 import { FollowAction } from './FollowAction';
-import { symbolUrl } from './analysisMode';
 import { useAnalystRun } from './useAnalystRun';
-
-const LEVEL_LABEL: Record<string, string> = {
-  info: 'info',
-  warn: 'warn',
-  alert: 'alert',
-  error: 'error',
-};
-const LEVEL_TONE: Record<string, 'up' | 'down' | 'accent' | 'solid' | undefined> = {
-  info: undefined,
-  warn: 'accent',
-  alert: 'down',
-  error: 'solid',
-};
-const SOURCE_LABEL: Record<string, string> = { analyst: '分析员', system: '系统' };
-
-function CommentItem({ symbol, comment }: { symbol: string; comment: CockpitComment }) {
-  const market = marketOfSymbol(symbol);
-  const dim = comment.source === 'commentator' && comment.level === 'info';
-  const meta: React.ReactNode[] = [];
-  if (comment.trigger) meta.push(<span key="trigger">触发：{comment.trigger}</span>);
-  if (comment.escalated) meta.push(<span key="escalated">已升级重估</span>);
-  if (comment.chartId)
-    meta.push(
-      <a key="chart" href={symbolUrl(symbol, comment.chartId)}>
-        查看图表
-      </a>,
-    );
-  if (SOURCE_LABEL[comment.source])
-    meta.push(<span key="source">{SOURCE_LABEL[comment.source]}</span>);
-
-  return (
-    <div className={`ai-item${dim ? ' dim' : ''}`}>
-      <MarketTime className="t" value={comment.ts} format="clock" market={market} />
-      <div className="body">
-        <p>
-          <Badge tone={LEVEL_TONE[comment.level]} className="level-badge">
-            {LEVEL_LABEL[comment.level] ?? comment.level}
-          </Badge>
-          {comment.text}
-        </p>
-        {meta.length > 0 && (
-          <div className="ai-meta">
-            {meta.map((m, i) => (
-              <span key={i}>
-                {i > 0 && <span className="sep"> · </span>}
-                {m}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 export function AiTab({
   symbol,
@@ -131,6 +79,7 @@ export function AiTab({
               {run.running ? '重估进行中…' : '重新分析'}
             </Button>
             {run.hint && <span className="ai-hint">{run.hint}</span>}
+            <ExplainAction symbol={symbol} />
             {analysisRevision && <FollowAction symbol={symbol} revision={analysisRevision} />}
             {pastDates.length > 0 && (
               <Select
@@ -148,6 +97,8 @@ export function AiTab({
         </div>
       )}
 
+      {!readOnly && !selectedDate && <AliveLine symbol={symbol} revision={analysisRevision} />}
+
       {selectedDate && (
         <div className="note-block">显示 {selectedDate} 的点评（今天暂无新点评）</div>
       )}
@@ -159,7 +110,7 @@ export function AiTab({
   function renderRow(row: FeedRow) {
     if (row.kind === 'comment') {
       return (
-        <CommentItem
+        <CommentEntry
           key={`${row.comment.ts}-${row.comment.text}`}
           symbol={symbol}
           comment={row.comment}
@@ -181,7 +132,7 @@ export function AiTab({
           <MarketTime value={row.to} format="clock" market={market} /> 无事 ×{row.count}（收起）
         </div>
         {[...row.comments].reverse().map((c) => (
-          <CommentItem key={`${c.ts}-${c.text}`} symbol={symbol} comment={c} />
+          <CommentEntry key={`${c.ts}-${c.text}`} symbol={symbol} comment={c} />
         ))}
       </div>
     );
