@@ -45,7 +45,7 @@ function symbolSlug(symbol: string, suffix: string): string {
   return `${slugify(sym, 'chart')}-${suffix}`;
 }
 
-function marketSessionDate(symbol: string, iso: string): string {
+export function marketSessionDate(symbol: string, iso: string): string {
   if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
   return marketDate(marketOf(symbol), new Date(iso));
 }
@@ -107,6 +107,7 @@ async function prepareInput(type: ChartType, body: Body): Promise<Record<string,
         news,
         position: body.position,
         context: body.context,
+        origin: body.origin,
       };
     }
     case 'intraday': {
@@ -317,7 +318,14 @@ export function refreshBody(
       };
     }
     case 'sepa': {
-      return { type, symbol, name: input.name, position: input.position, context: input.context };
+      return {
+        type,
+        symbol,
+        name: input.name,
+        position: input.position,
+        context: input.context,
+        origin: input.origin,
+      };
     }
     case 'cohort': {
       return null;
