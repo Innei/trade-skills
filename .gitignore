@@ -36,8 +36,8 @@ apps/desktop/native/
 !/.claude/skills/trading-discipline/
 !/.claude/skills/trump-truth-monitor/
 
-journal/
-stocks/
+/journal/
+/stocks/
 
 # Pro overlay projections (symlinks into apps/pro/overlays) — never committed
 *.pro.ts
